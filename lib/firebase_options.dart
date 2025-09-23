@@ -59,5 +59,4 @@ class DefaultFirebaseOptions {
     projectId: 'readyai-dd91d',
     storageBucket: 'readyai-dd91d.firebasestorage.app',
   );
-
 }

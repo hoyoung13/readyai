@@ -149,7 +149,7 @@ class _SignupPageState extends State<SignupPage> {
       });
 
       _msg('회원가입이 완료되었습니다.');
-      if (mounted) context.go('/'); // 가입 후 로그인 화면 등으로 이동
+      if (mounted) context.go('/login'); // 가입tjdrhd 로그인 화면 이동
     } on FirebaseAuthException catch (e) {
       _msg(e.message ?? '회원가입 실패');
     } catch (e) {

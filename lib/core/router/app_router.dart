@@ -6,6 +6,7 @@ import 'package:ai/features/tabs/tabs_page.dart';
 final router = GoRouter(
   routes: [
     GoRoute(path: '/', builder: (_, __) => const LoginPage()),
+    GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/signup', builder: (_, __) => const SignupPage()),
     GoRoute(path: '/tabs', builder: (_, __) => const TabsPage()),
   ],

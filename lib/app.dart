@@ -6,8 +6,9 @@ class TheReadyApp extends StatelessWidget {
   const TheReadyApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-    title: 'The Ready',
-    theme: AppTheme.light,
-    routerConfig: router,
-  );
+        title: 'The Ready',
+        theme: AppTheme.light,
+        debugShowCheckedModeBanner: false,
+        routerConfig: router,
+      );
 }
