@@ -112,7 +112,10 @@ class _SignupPageState extends State<SignupPage> {
     if (_emailOk == false || _nickOk == false) {
       return _msg('아이디/닉네임 중복을 확인해주세요.');
     }
-
+    final emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegExp.hasMatch(email)) {
+      return _msg('이메일 형식으로 입력해주세요.');
+    }
     setState(() => _loading = true);
     try {
       // 1) Auth 사용자 생성
