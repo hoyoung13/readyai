@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "937483658840",
+    "project_id": "readyai-dd91d",
+    "storage_bucket": "readyai-dd91d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:937483658840:android:61594b5830ca15464c8c2d",
+        "android_client_info": {
+          "package_name": "com.example.aiready"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw9geKWSHbTzyv9n9_QrXunD2iTq8Wq5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
