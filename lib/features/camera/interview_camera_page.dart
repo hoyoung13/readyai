@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_stt_service.dart';
+import 'package:ai/features/camera/interview_evaluation_service.dart';
 
 class InterviewCameraPage extends StatefulWidget {
   const InterviewCameraPage({required this.args, super.key});
@@ -22,11 +23,13 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   String? _errorMessage;
   bool _permissionDenied = false;
   late final InterviewSttService _sttService;
+  late final InterviewEvaluationService _evaluationService;
 
   @override
   void initState() {
     super.initState();
     _sttService = InterviewSttService();
+    _evaluationService = InterviewEvaluationService();
     _initializeCamera();
   }
 
@@ -166,20 +169,42 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       if (!mounted) {
         return;
       }
+      InterviewScore? score;
+      String? evaluationError;
+
+      if (mounted) {
+        setState(() {
+          _savingStatusMessage = '답변을 평가하는 중...';
+        });
+      }
+
+      try {
+        score = await _evaluationService.evaluateInterview(
+          transcript: transcript,
+          args: widget.args,
+        );
+      } on InterviewEvaluationException catch (e) {
+        evaluationError = e.message;
+      } catch (_) {
+        evaluationError = '답변을 평가하는 중 문제가 발생했습니다.';
+      }
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _isSaving = false;
         _savingStatusMessage = null;
       });
-      const placeholderScore = InterviewScore(
-        overallScore: 0,
-        perQuestionFeedback: [],
-      );
+      if (evaluationError != null) {
+        _showErrorSnackBar(evaluationError);
+      }
       Navigator.of(context).pop(
         InterviewRecordingResult(
           filePath: file.path,
           transcript: transcript,
-          score: placeholderScore,
+          score: score,
+          error: evaluationError,
         ),
       );
     } on CameraException catch (e) {
