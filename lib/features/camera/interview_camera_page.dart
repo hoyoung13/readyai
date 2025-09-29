@@ -2,6 +2,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ai/features/camera/interview_models.dart';
+import 'package:ai/features/camera/interview_stt_service.dart';
 
 class InterviewCameraPage extends StatefulWidget {
   const InterviewCameraPage({required this.args, super.key});
@@ -17,12 +18,15 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   bool _isInitializing = false;
   bool _isRecording = false;
   bool _isSaving = false;
+  String? _savingStatusMessage;
   String? _errorMessage;
   bool _permissionDenied = false;
+  late final InterviewSttService _sttService;
 
   @override
   void initState() {
     super.initState();
+    _sttService = InterviewSttService();
     _initializeCamera();
   }
 
@@ -126,6 +130,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       }
       setState(() {
         _isRecording = true;
+        _savingStatusMessage = null;
       });
     } on CameraException catch (e) {
       _showErrorSnackBar('녹화를 시작할 수 없습니다. (${e.code})');
@@ -142,6 +147,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
 
     setState(() {
       _isSaving = true;
+      _savingStatusMessage = '녹화 파일을 정리하는 중...';
     });
 
     try {
@@ -151,12 +157,20 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       }
       setState(() {
         _isRecording = false;
-        _isSaving = false;
+        _savingStatusMessage = '전사를 준비하는 중...';
       });
       if (!mounted) {
         return;
       }
-      const placeholderTranscript = '면접 녹화가 완료되었습니다. 추후 분석 결과가 제공될 예정입니다.';
+      final transcript = await _transcribeRecording(file.path);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+        _savingStatusMessage = null;
+      });
       const placeholderScore = InterviewScore(
         overallScore: 0,
         perQuestionFeedback: [],
@@ -164,7 +178,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       Navigator.of(context).pop(
         InterviewRecordingResult(
           filePath: file.path,
-          transcript: placeholderTranscript,
+          transcript: transcript,
           score: placeholderScore,
         ),
       );
@@ -175,8 +189,18 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       setState(() {
         _isSaving = false;
         _isRecording = false;
+        _savingStatusMessage = null;
       });
       _showErrorSnackBar('녹화 파일을 저장하지 못했습니다. (${e.code})');
+    } on InterviewSttException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _savingStatusMessage = null;
+      });
+      _showErrorSnackBar(e.message);
     } catch (_) {
       if (!mounted) {
         return;
@@ -184,9 +208,24 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       setState(() {
         _isSaving = false;
         _isRecording = false;
+        _savingStatusMessage = null;
       });
       _showErrorSnackBar('녹화 파일을 저장하는 중 문제가 발생했습니다.');
     }
+  }
+
+  Future<String> _transcribeRecording(String filePath) {
+    return _sttService.transcribeVideo(
+      videoPath: filePath,
+      onProgress: (message) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _savingStatusMessage = message;
+        });
+      },
+    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -258,10 +297,22 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.stop),
-                        label: Text(_isSaving ? '저장 중...' : '녹화 종료'),
+                        label: Text(
+                          _isSaving
+                              ? (_savingStatusMessage ?? '저장 중...')
+                              : '녹화 종료',
+                        ),
                       ),
                     ],
                   ),
+                  if (_isSaving && _savingStatusMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _savingStatusMessage!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _isSaving
