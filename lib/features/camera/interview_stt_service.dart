@@ -5,6 +5,13 @@ import 'package:dio/dio.dart';
 
 typedef SttProgressCallback = void Function(String message);
 
+class InterviewTranscription {
+  const InterviewTranscription({required this.text, this.confidence});
+
+  final String text;
+  final double? confidence;
+}
+
 class InterviewSttService {
   InterviewSttService({
     Dio? dio,
@@ -30,7 +37,8 @@ class InterviewSttService {
   final String _apiKey;
   final int _maxRetries;
 
-  Future<String> transcribeVideo({
+  //Future<String> transcribeVideo({
+  Future<InterviewTranscription> transcribeVideo({
     required String videoPath,
     SttProgressCallback? onProgress,
   }) async {
@@ -77,7 +85,15 @@ class InterviewSttService {
           throw InterviewSttException('전사 결과를 가져오지 못했습니다.');
         }
 
-        return transcript;
+        //return transcript;
+        final confidenceValue = data?['confidence'];
+        final confidence =
+            confidenceValue is num ? confidenceValue.toDouble() : null;
+
+        return InterviewTranscription(
+          text: transcript,
+          confidence: confidence,
+        );
       } on DioException catch (error) {
         lastError = error;
         if (attempt == _maxRetries - 1) {

@@ -84,6 +84,8 @@ Future<void> _showInterviewSummary(
     context: context,
     builder: (context) {
       final transcript = result.transcript;
+      final transcriptConfidence = result.transcriptConfidence;
+
       final score = result.score;
 
       return AlertDialog(
@@ -151,6 +153,14 @@ Future<void> _showInterviewSummary(
                   '전사 내용',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
+                if (transcriptConfidence != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '신뢰도: ${(transcriptConfidence * 100).clamp(0, 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   transcript,

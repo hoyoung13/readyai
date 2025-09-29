@@ -63,11 +63,13 @@ class InterviewRecordingResult {
   const InterviewRecordingResult({
     required this.filePath,
     this.transcript,
+    this.transcriptConfidence,
     this.score,
     this.error,
   });
   final String filePath;
   final String? transcript;
+  final double? transcriptConfidence;
   final InterviewScore? score;
   final String? error;
 

@@ -165,7 +165,12 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       if (!mounted) {
         return;
       }
-      final transcript = await _transcribeRecording(file.path);
+      //수정중입니다.
+      //final transcript = await _transcribeRecording(file.path);
+      final transcription = await _transcribeRecording(file.path);
+      final transcript = transcription.text;
+      final transcriptConfidence = transcription.confidence;
+      //이부분수정중
       if (!mounted) {
         return;
       }
@@ -203,6 +208,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         InterviewRecordingResult(
           filePath: file.path,
           transcript: transcript,
+          transcriptConfidence: transcriptConfidence,
           score: score,
           error: evaluationError,
         ),
@@ -239,7 +245,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     }
   }
 
-  Future<String> _transcribeRecording(String filePath) {
+  //Future<String> _transcribeRecording(String filePath) {
+  Future<InterviewTranscription> _transcribeRecording(String filePath) {
     return _sttService.transcribeVideo(
       videoPath: filePath,
       onProgress: (message) {
