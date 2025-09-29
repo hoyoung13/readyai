@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-
+import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:ai/features/camera/interview_models.dart';
 import 'tabs_shared.dart';
 
 class CameraTab extends StatelessWidget {
@@ -51,15 +53,59 @@ Future<void> _handleStartInterview(BuildContext context) async {
   final mode = await _showInterviewModeSheet(context, category);
   if (mode == null || !context.mounted) return;
 
+  final granted = await _ensureCameraPermission(context);
+  if (!granted || !context.mounted) return;
+
+  final result = await context.push<InterviewRecordingResult>(
+    '/interview/camera',
+    extra: InterviewCameraArgs(category: category, mode: mode),
+  );
+
+  if (!context.mounted || result == null) return;
+
+  ScaffoldMessenger.of(context)
+    ..removeCurrentSnackBar()
+    ..showSnackBar(
+      const SnackBar(
+        content: Text('녹화가 완료되었습니다. 저장소에서 확인해 보세요.'),
+      ),
+    );
+}
+
+Future<bool> _ensureCameraPermission(BuildContext context) async {
+  final statuses = await Future.wait([
+    Permission.camera.request(),
+    Permission.microphone.request(),
+  ]);
+
+  final granted = statuses.every((status) => status.isGranted);
+  if (granted) {
+    return true;
+  }
+
+  final permanentlyDenied = statuses
+      .any((status) => status.isPermanentlyDenied || status.isRestricted);
+
   ScaffoldMessenger.of(context)
     ..removeCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
         content: Text(
-          '${category.title} · ${mode.title} 면접을 준비 중입니다.',
+          permanentlyDenied
+              ? '카메라/마이크 권한이 영구적으로 거부되었습니다. 설정에서 허용해 주세요.'
+              : '카메라/마이크 권한이 필요합니다. 허용 후 이용해 주세요.',
         ),
+        action: permanentlyDenied
+            ? SnackBarAction(
+                label: '설정 열기',
+                onPressed: () {
+                  openAppSettings();
+                },
+              )
+            : null,
       ),
     );
+  return false;
 }
 
 Future<JobCategory?> _showJobCategorySheet(BuildContext context) {
@@ -207,13 +253,6 @@ Future<InterviewMode?> _showInterviewModeSheet(
   );
 }
 
-class JobCategory {
-  const JobCategory({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-}
-
 const _jobCategories = [
   JobCategory(title: 'IT · 소프트웨어', subtitle: '웹/앱/데이터'),
   JobCategory(title: '모바일 앱', subtitle: 'Android/iOS'),
@@ -228,31 +267,6 @@ const _jobCategories = [
   JobCategory(title: '제조/품질', subtitle: '생산/SCM'),
   JobCategory(title: '공공/공기업', subtitle: '정책/행정'),
 ];
-
-enum InterviewMode {
-  ai,
-  selfIntro,
-}
-
-extension on InterviewMode {
-  String get title {
-    switch (this) {
-      case InterviewMode.ai:
-        return 'AI 질문 면접';
-      case InterviewMode.selfIntro:
-        return '자기소개';
-    }
-  }
-
-  String get description {
-    switch (this) {
-      case InterviewMode.ai:
-        return '직무 기반 질문으로 실전처럼 연습해요.';
-      case InterviewMode.selfIntro:
-        return '자기소개 영상을 촬영하고 바로 피드백 받아요.';
-    }
-  }
-}
 
 class _SelectableCard extends StatelessWidget {
   const _SelectableCard({

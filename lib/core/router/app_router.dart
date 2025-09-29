@@ -1,7 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/auth/login_page.dart';
 import 'package:ai/features/auth/signup_page.dart';
 import 'package:ai/features/tabs/tabs_page.dart';
+import 'package:ai/features/camera/interview_camera_page.dart';
+import 'package:ai/features/camera/interview_models.dart';
 
 final router = GoRouter(
   routes: [
