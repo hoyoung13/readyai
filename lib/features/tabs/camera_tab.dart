@@ -63,13 +63,94 @@ Future<void> _handleStartInterview(BuildContext context) async {
 
   if (!context.mounted || result == null) return;
 
-  ScaffoldMessenger.of(context)
-    ..removeCurrentSnackBar()
-    ..showSnackBar(
-      const SnackBar(
-        content: Text('녹화가 완료되었습니다. 저장소에서 확인해 보세요.'),
-      ),
-    );
+  if (result.hasError) {
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? '녹화 결과를 불러오는 중 문제가 발생했습니다.'),
+        ),
+      );
+    return;
+  }
+
+  await _showInterviewSummary(context, result);
+}
+
+Future<void> _showInterviewSummary(
+  BuildContext context,
+  InterviewRecordingResult result,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      final transcript = result.transcript;
+      final score = result.score;
+
+      return AlertDialog(
+        title: const Text('면접 요약'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '저장 위치\n${result.filePath}',
+                style: const TextStyle(fontSize: 13),
+              ),
+              if (score != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '종합 점수: ${score.overallScore.toStringAsFixed(1)}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (score.perQuestionFeedback.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('문항별 피드백:'),
+                  const SizedBox(height: 4),
+                  ...score.perQuestionFeedback.map(
+                    (feedback) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            feedback.question,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          if (feedback.score != null)
+                            Text('점수: ${feedback.score!.toStringAsFixed(1)}'),
+                          Text(feedback.feedback),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+              if (transcript != null && transcript.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  '전사 내용',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  transcript,
+                  style: const TextStyle(fontSize: 13, height: 1.4),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 Future<bool> _ensureCameraPermission(BuildContext context) async {

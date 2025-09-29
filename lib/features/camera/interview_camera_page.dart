@@ -156,8 +156,17 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       if (!mounted) {
         return;
       }
+      const placeholderTranscript = '면접 녹화가 완료되었습니다. 추후 분석 결과가 제공될 예정입니다.';
+      const placeholderScore = InterviewScore(
+        overallScore: 0,
+        perQuestionFeedback: [],
+      );
       Navigator.of(context).pop(
-        InterviewRecordingResult(filePath: file.path),
+        InterviewRecordingResult(
+          filePath: file.path,
+          transcript: placeholderTranscript,
+          score: placeholderScore,
+        ),
       );
     } on CameraException catch (e) {
       if (!mounted) {

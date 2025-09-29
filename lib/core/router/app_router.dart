@@ -12,5 +12,19 @@ final router = GoRouter(
     GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/signup', builder: (_, __) => const SignupPage()),
     GoRoute(path: '/tabs', builder: (_, __) => const TabsPage()),
+    GoRoute(
+      path: '/interview/camera',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is InterviewCameraArgs) {
+          return InterviewCameraPage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(
+            child: Text('면접 정보를 불러오지 못했습니다.'),
+          ),
+        );
+      },
+    ),
   ],
 );

@@ -37,8 +37,39 @@ class InterviewCameraArgs {
   final InterviewMode mode;
 }
 
-class InterviewRecordingResult {
-  const InterviewRecordingResult({required this.filePath});
+class QuestionFeedback {
+  const QuestionFeedback({
+    required this.question,
+    required this.feedback,
+    this.score,
+  });
 
+  final String question;
+  final String feedback;
+  final double? score;
+}
+
+class InterviewScore {
+  const InterviewScore({
+    required this.overallScore,
+    this.perQuestionFeedback = const [],
+  });
+
+  final double overallScore;
+  final List<QuestionFeedback> perQuestionFeedback;
+}
+
+class InterviewRecordingResult {
+  const InterviewRecordingResult({
+    required this.filePath,
+    this.transcript,
+    this.score,
+    this.error,
+  });
   final String filePath;
+  final String? transcript;
+  final InterviewScore? score;
+  final String? error;
+
+  bool get hasError => error != null;
 }
