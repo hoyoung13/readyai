@@ -65,13 +65,18 @@ class InterviewRecordingResult {
     this.transcript,
     this.transcriptConfidence,
     this.score,
-    this.error,
+    this.transcriptionError,
+    this.evaluationError,
   });
   final String filePath;
   final String? transcript;
   final double? transcriptConfidence;
   final InterviewScore? score;
-  final String? error;
+  final String? transcriptionError;
+  final String? evaluationError;
+  bool get hasTranscriptionError => transcriptionError != null;
 
-  bool get hasError => error != null;
+  bool get hasEvaluationError => evaluationError != null;
+
+  bool get hasError => hasTranscriptionError || hasEvaluationError;
 }

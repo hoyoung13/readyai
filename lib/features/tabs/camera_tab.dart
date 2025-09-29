@@ -68,7 +68,11 @@ Future<void> _handleStartInterview(BuildContext context) async {
       ..removeCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(result.error ?? '녹화 결과를 불러오는 중 문제가 발생했습니다.'),
+          content: Text(
+            result.transcriptionError ??
+                result.evaluationError ??
+                '녹화 결과를 불러오는 중 문제가 발생했습니다.',
+          ),
         ),
       );
   }
@@ -99,7 +103,26 @@ Future<void> _showInterviewSummary(
                 '저장 위치\n${result.filePath}',
                 style: const TextStyle(fontSize: 13),
               ),
-              if (result.error != null) ...[
+              if (result.transcriptionError != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '전사를 완료하지 못했습니다.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  result.transcriptionError!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
+              if (result.evaluationError != null) ...[
                 const SizedBox(height: 12),
                 Text(
                   '평가 결과를 불러오는 중 문제가 발생했습니다.',
@@ -111,7 +134,7 @@ Future<void> _showInterviewSummary(
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  result.error!,
+                  result.evaluationError!,
                   style: TextStyle(
                     fontSize: 13,
                     color: Theme.of(context).colorScheme.error,

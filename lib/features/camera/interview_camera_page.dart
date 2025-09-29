@@ -19,6 +19,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   bool _isInitializing = false;
   bool _isRecording = false;
   bool _isSaving = false;
+  bool _isTranscribing = false;
+
   String? _savingStatusMessage;
   String? _errorMessage;
   bool _permissionDenied = false;
@@ -150,11 +152,15 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
 
     setState(() {
       _isSaving = true;
+      _isTranscribing = false;
+
       _savingStatusMessage = '녹화 파일을 정리하는 중...';
     });
 
     try {
       final file = await controller.stopVideoRecording();
+      final recordedFilePath = file.path;
+
       if (!mounted) {
         return;
       }
@@ -162,30 +168,48 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         _isRecording = false;
         _savingStatusMessage = '전사를 준비하는 중...';
       });
+      String? transcript;
+      double? transcriptConfidence;
+      String? transcriptionError;
+
+      try {
+        final transcription = await _transcribeRecording(recordedFilePath);
+        transcript = transcription.text;
+        transcriptConfidence = transcription.confidence;
+      } on InterviewSttException catch (error) {
+        transcriptionError = error.message;
+      }
+
       if (!mounted) {
         return;
       }
-      //수정중입니다.
-      //final transcript = await _transcribeRecording(file.path);
-      final transcription = await _transcribeRecording(file.path);
-      final transcript = transcription.text;
-      final transcriptConfidence = transcription.confidence;
-      //이부분수정중
-      if (!mounted) {
+
+      if (transcriptionError != null) {
+        setState(() {
+          _isSaving = false;
+          _savingStatusMessage = null;
+        });
+        _showErrorSnackBar(transcriptionError);
+        Navigator.of(context).pop(
+          InterviewRecordingResult(
+            filePath: recordedFilePath,
+            transcript: transcript,
+            transcriptConfidence: transcriptConfidence,
+            transcriptionError: transcriptionError,
+          ),
+        );
         return;
       }
       InterviewScore? score;
       String? evaluationError;
 
-      if (mounted) {
-        setState(() {
-          _savingStatusMessage = '답변을 평가하는 중...';
-        });
-      }
+      setState(() {
+        _savingStatusMessage = '답변을 평가하는 중...';
+      });
 
       try {
         score = await _evaluationService.evaluateInterview(
-          transcript: transcript,
+          transcript: transcript ?? '',
           args: widget.args,
         );
       } on InterviewEvaluationException catch (e) {
@@ -206,11 +230,11 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       }
       Navigator.of(context).pop(
         InterviewRecordingResult(
-          filePath: file.path,
+          filePath: recordedFilePath,
           transcript: transcript,
           transcriptConfidence: transcriptConfidence,
           score: score,
-          error: evaluationError,
+          evaluationError: evaluationError,
         ),
       );
     } on CameraException catch (e) {
@@ -223,15 +247,6 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         _savingStatusMessage = null;
       });
       _showErrorSnackBar('녹화 파일을 저장하지 못했습니다. (${e.code})');
-    } on InterviewSttException catch (e) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isSaving = false;
-        _savingStatusMessage = null;
-      });
-      _showErrorSnackBar(e.message);
     } catch (_) {
       if (!mounted) {
         return;
@@ -245,19 +260,32 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     }
   }
 
-  //Future<String> _transcribeRecording(String filePath) {
-  Future<InterviewTranscription> _transcribeRecording(String filePath) {
-    return _sttService.transcribeVideo(
-      videoPath: filePath,
-      onProgress: (message) {
-        if (!mounted) {
-          return;
-        }
+  Future<InterviewTranscription> _transcribeRecording(String filePath) async {
+    if (!mounted) {
+      throw InterviewSttException('화면이 닫혀 전사를 중단했습니다.');
+    }
+    setState(() {
+      _isTranscribing = true;
+    });
+    try {
+      return await _sttService.transcribeVideo(
+        videoPath: filePath,
+        onProgress: (message) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _savingStatusMessage = message;
+          });
+        },
+      );
+    } finally {
+      if (mounted) {
         setState(() {
-          _savingStatusMessage = message;
+          _isTranscribing = false;
         });
-      },
-    );
+      }
+    }
   }
 
   void _showErrorSnackBar(String message) {
@@ -309,7 +337,10 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton.icon(
-                        onPressed: canRecord && !_isRecording && !_isSaving
+                        onPressed: canRecord &&
+                                !_isRecording &&
+                                !_isSaving &&
+                                !_isTranscribing
                             ? _startRecording
                             : null,
                         icon: const Icon(Icons.fiber_manual_record,
@@ -318,7 +349,10 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
-                        onPressed: canRecord && _isRecording && !_isSaving
+                        onPressed: canRecord &&
+                                _isRecording &&
+                                !_isSaving &&
+                                !_isTranscribing
                             ? _stopRecording
                             : null,
                         icon: _isSaving
@@ -347,7 +381,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                   ],
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: _isSaving
+                    onPressed: _isSaving || _isTranscribing
                         ? null
                         : () {
                             Navigator.of(context).pop();

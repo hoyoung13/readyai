@@ -1,7 +1,13 @@
 import 'dart:async';
 import 'dart:io';
-
-import 'package:dio/dio.dart';
+import 'package:ai/features/camera/services/google_cloud_stt_service.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/ffprobe_kit.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/media_information.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/stream_information.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 typedef SttProgressCallback = void Function(String message);
 
@@ -14,114 +20,178 @@ class InterviewTranscription {
 
 class InterviewSttService {
   InterviewSttService({
-    Dio? dio,
-    String? baseUrl,
-    String? apiKey,
-    int maxRetries = 3,
-  })  : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 60),
-              ),
-            ),
-        _baseUrl = baseUrl ??
-            const String.fromEnvironment('STT_BASE_URL',
-                defaultValue: 'https://api.example.com'),
-        _apiKey = apiKey ??
-            const String.fromEnvironment('STT_API_KEY', defaultValue: ''),
-        _maxRetries = maxRetries;
+    GoogleCloudSttService? googleCloudSttService,
+    VideoToAudioConverter? audioConverter,
+  })  : _googleCloudSttService =
+            googleCloudSttService ?? GoogleCloudSttService(),
+        _audioConverter = audioConverter ?? const VideoToAudioConverter();
 
-  final Dio _dio;
-  final String _baseUrl;
-  final String _apiKey;
-  final int _maxRetries;
+  final GoogleCloudSttService _googleCloudSttService;
+  final VideoToAudioConverter _audioConverter;
 
-  //Future<String> transcribeVideo({
   Future<InterviewTranscription> transcribeVideo({
     required String videoPath,
     SttProgressCallback? onProgress,
   }) async {
-    if (_apiKey.isEmpty) {
-      throw InterviewSttException('STT API 키가 설정되지 않았습니다.');
-    }
-
     final videoFile = File(videoPath);
     if (!await videoFile.exists()) {
       throw InterviewSttException('녹화된 파일을 찾을 수 없습니다.');
     }
 
-    onProgress?.call('오디오를 준비하는 중...');
-    final audioFile = await _prepareAudioFile(videoFile);
+    onProgress?.call('녹화된 음성을 추출하는 중...');
+    AudioConversionResult conversion;
+    try {
+      conversion = await _audioConverter.convert(videoFile);
+    } on AudioConversionException catch (error) {
+      throw InterviewSttException(error.message, cause: error);
+    }
 
-    onProgress?.call('음성을 전사하는 중...');
-    final endpoint = '$_baseUrl/transcriptions';
-    final options = Options(
-      headers: {
-        HttpHeaders.authorizationHeader: 'Bearer $_apiKey',
-        Headers.contentTypeHeader: 'multipart/form-data',
-      },
-    );
-
-    DioException? lastError;
-    for (var attempt = 0; attempt < _maxRetries; attempt++) {
-      try {
-        final formData = FormData.fromMap({
-          'file': await MultipartFile.fromFile(
-            audioFile.path,
-            filename: audioFile.uri.pathSegments.last,
-          ),
-        });
-
-        final response = await _dio.post<Map<String, dynamic>>(
-          endpoint,
-          data: formData,
-          options: options,
-        );
-
-        final data = response.data;
-        final transcript = data?['transcript'] as String?;
-        if (transcript == null || transcript.isEmpty) {
-          throw InterviewSttException('전사 결과를 가져오지 못했습니다.');
-        }
-
-        //return transcript;
-        final confidenceValue = data?['confidence'];
-        final confidence =
-            confidenceValue is num ? confidenceValue.toDouble() : null;
-
-        return InterviewTranscription(
-          text: transcript,
-          confidence: confidence,
-        );
-      } on DioException catch (error) {
-        lastError = error;
-        if (attempt == _maxRetries - 1) {
-          break;
-        }
-        onProgress?.call('전사를 다시 시도하는 중...');
-        await Future<void>.delayed(Duration(seconds: 1 << attempt));
+    try {
+      onProgress?.call('음성을 Google STT로 전송하는 중...');
+      final result = await _googleCloudSttService.transcribe(
+        audioFile: conversion.file,
+        audioDuration: conversion.duration,
+        sampleRate: conversion.sampleRate,
+        onProgress: onProgress,
+      );
+      return InterviewTranscription(
+        text: result.transcript,
+        confidence: result.confidence,
+      );
+    } on GoogleCloudSttException catch (error) {
+      throw InterviewSttException(error.message, cause: error);
+    } finally {
+      if (conversion.shouldDelete) {
+        unawaited(_safeDelete(conversion.file));
       }
     }
+  }
 
-    throw InterviewSttException(
-      '음성 인식 서버와 통신하지 못했습니다.',
-      cause: lastError,
+  Future<void> _safeDelete(File file) async {
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
+  }
+}
+
+class AudioConversionResult {
+  const AudioConversionResult({
+    required this.file,
+    required this.shouldDelete,
+    this.duration,
+    this.sampleRate,
+  });
+
+  final File file;
+  final bool shouldDelete;
+  final Duration? duration;
+  final int? sampleRate;
+}
+
+class VideoToAudioConverter {
+  const VideoToAudioConverter({
+    this.sampleRate = 16000,
+    this.outputExtension = 'flac',
+    this.keepOutput = false,
+  });
+
+  final int sampleRate;
+  final String outputExtension;
+  final bool keepOutput;
+
+  Future<AudioConversionResult> convert(File videoFile) async {
+    if (!await videoFile.exists()) {
+      throw const AudioConversionException('녹화된 파일을 찾을 수 없습니다.');
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final outputPath = p.join(
+      tempDir.path,
+      '${p.basenameWithoutExtension(videoFile.path)}_${DateTime.now().millisecondsSinceEpoch}.$outputExtension',
+    );
+
+    final arguments = <String>[
+      '-y',
+      '-i',
+      videoFile.path,
+      '-vn',
+      '-ac',
+      '1',
+      '-ar',
+      '$sampleRate',
+      '-sample_fmt',
+      's16',
+      outputPath,
+    ];
+
+    final session = await FFmpegKit.executeWithArguments(arguments);
+    final returnCode = await session.getReturnCode();
+    if (!ReturnCode.isSuccess(returnCode)) {
+      throw AudioConversionException(
+        '오디오를 추출하지 못했습니다. (code: ${returnCode?.getValue() ?? -1})',
+      );
+    }
+
+    final probeSession = await FFprobeKit.getMediaInformation(outputPath);
+    final mediaInformation = await probeSession.getMediaInformation();
+
+    Duration? duration;
+    int? detectedSampleRate;
+
+    if (mediaInformation != null) {
+      duration = _parseDuration(mediaInformation);
+      detectedSampleRate = _parseSampleRate(mediaInformation);
+    }
+
+    return AudioConversionResult(
+      file: File(outputPath),
+      shouldDelete: !keepOutput,
+      duration: duration,
+      sampleRate: detectedSampleRate ?? sampleRate,
     );
   }
 
-  Future<File> _prepareAudioFile(File videoFile) async {
-    final extension = videoFile.path.split('.').last.toLowerCase();
-    const acceptedAudioExtensions = ['mp3', 'wav', 'm4a', 'aac'];
-    if (acceptedAudioExtensions.contains(extension)) {
-      return videoFile;
+  Duration? _parseDuration(MediaInformation mediaInformation) {
+    final durationString = mediaInformation.getDuration();
+    if (durationString == null) {
+      return null;
     }
-
-    // 많은 STT 서비스가 MP4/WEBM 비디오를 그대로 처리할 수 있으므로
-    // 기본적으로는 원본 파일을 그대로 반환합니다. 필요하다면
-    // ffmpeg 등의 툴을 이용해 오디오 트랙만 추출하도록 확장할 수 있습니다.
-    return videoFile;
+    final seconds = double.tryParse(durationString);
+    if (seconds == null) {
+      return null;
+    }
+    return Duration(milliseconds: (seconds * 1000).round());
   }
+
+  int? _parseSampleRate(MediaInformation mediaInformation) {
+    final streams = mediaInformation.getStreams();
+    if (streams == null) {
+      return null;
+    }
+    for (final StreamInformation stream in streams) {
+      if (stream.getType() == 'audio') {
+        final value = stream.getSampleRate();
+        if (value != null) {
+          final parsed = int.tryParse(value);
+          if (parsed != null) {
+            return parsed;
+          }
+        }
+      }
+    }
+    return null;
+  }
+}
+
+class AudioConversionException implements Exception {
+  const AudioConversionException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'AudioConversionException: $message';
 }
 
 class InterviewSttException implements Exception {
