@@ -10,9 +10,6 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
-  final _pageCtl = PageController(viewportFraction: 0.86);
-  int _page = 0;
-
   final _slides = const [
     _SlideData(
       title: '지금 채용 중인\n공고를 골라보세요',
@@ -41,12 +38,6 @@ class _HomeTabState extends State<HomeTab> {
   ];
 
   @override
-  void dispose() {
-    _pageCtl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
@@ -72,40 +63,18 @@ class _HomeTabState extends State<HomeTab> {
 
         const SizedBox(height: 8),
 
-        // 슬라이드
-        SizedBox(
-          height: 200,
-          child: PageView.builder(
-            controller: _pageCtl,
-            itemCount: _slides.length,
-            onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (_, i) => _SlideCard(data: _slides[i]),
-          ),
+        Column(
+          children: [
+            for (var i = 0; i < _slides.length; i++) ...[
+              if (i > 0) const SizedBox(height: 12),
+              _SlideCard(data: _slides[i]),
+            ],
+          ],
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 24),
 
-        // 도트 인디케이터
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_slides.length, (i) {
-            final active = i == _page;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: active ? 12 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: active ? AppColors.text : Colors.black26,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
-        ),
-
-        const SizedBox(height: 20),
-
-        // 추천 섹션 (샘플)
+        //  (샘플) 나중엔 api 가져와서
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
@@ -170,7 +139,6 @@ class _SlideCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            // 텍스트
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +177,7 @@ class _SlideCard extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-                      // TODO: 각 CTA 라우팅
+                      //  각 CTA 라우팅
                     },
                     child: Text(data.cta),
                   ),
