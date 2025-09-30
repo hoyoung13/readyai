@@ -149,14 +149,14 @@ class GoogleCloudSttService {
       final audioBytes = await audioFile.readAsBytes();
       final audio = speech.RecognitionAudio(content: base64Encode(audioBytes));
       final config = speech.RecognitionConfig(
-        encoding: speech.RecognitionConfig_AudioEncoding.flac,
+        encoding: 'FLAC',
         languageCode: languageCode,
         enableAutomaticPunctuation: enableAutomaticPunctuation,
         sampleRateHertz: sampleRate,
         audioChannelCount: 1,
         model: model,
       );
-      final request = speech.RecognizeRequest(audio: audio, config: config);
+      //final request = speech.RecognizeRequest(audio: audio, config: config);
 
       final useLongRunning = _shouldUseLongRunning(
         audioLengthBytes: audioBytes.length,
@@ -164,6 +164,8 @@ class GoogleCloudSttService {
       );
 
       if (useLongRunning) {
+        final request =
+            speech.LongRunningRecognizeRequest(config: config, audio: audio);
         onProgress?.call('장시간 음성을 인식하는 중...');
         final operation = await _retry(() async {
           return speechApi.speech.longrunningrecognize(request);
@@ -176,6 +178,8 @@ class GoogleCloudSttService {
       }
 
       onProgress?.call('음성 전사를 요청하는 중...');
+      final request = speech.RecognizeRequest(audio: audio, config: config);
+
       final response = await _retry(() async {
         return speechApi.speech.recognize(request);
       });
