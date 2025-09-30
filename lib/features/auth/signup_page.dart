@@ -34,20 +34,19 @@ class _SignupPageState extends State<SignupPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   InputDecoration _input(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFBABABA)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
-        ),
-      );
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: Color(0xFFBABABA)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
+    ),
+  );
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -119,8 +118,10 @@ class _SignupPageState extends State<SignupPage> {
     setState(() => _loading = true);
     try {
       // 1) Auth 사용자 생성
-      final cred = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: pw);
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: pw,
+      );
       final uid = cred.user!.uid;
 
       final db = FirebaseFirestore.instance;
@@ -180,8 +181,10 @@ class _SignupPageState extends State<SignupPage> {
             decoration: _input(hint).copyWith(
               suffixIcon: ok == null
                   ? null
-                  : Icon(ok ? Icons.check_circle : Icons.error,
-                      color: ok ? Colors.green : Colors.red),
+                  : Icon(
+                      ok ? Icons.check_circle : Icons.error,
+                      color: ok ? Colors.green : Colors.red,
+                    ),
             ),
           ),
         ),
@@ -239,9 +242,9 @@ class _SignupPageState extends State<SignupPage> {
                               _birthDate == null
                                   ? '날짜를 선택하세요'
                                   : _birthDate!
-                                      .toIso8601String()
-                                      .split('T')
-                                      .first,
+                                        .toIso8601String()
+                                        .split('T')
+                                        .first,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: _birthDate == null
@@ -297,7 +300,9 @@ class _SignupPageState extends State<SignupPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                             side: const BorderSide(
-                                color: Color(0xFF2CBF8E), width: 1),
+                              color: Color(0xFF2CBF8E),
+                              width: 1,
+                            ),
                           ),
                         ),
                         child: const Text(

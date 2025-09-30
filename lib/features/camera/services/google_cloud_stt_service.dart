@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:googleapis/speech/v1.dart' as speech;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
@@ -22,8 +22,8 @@ class RetryOptions {
     this.multiplier = 2.0,
     this.maxDelay = const Duration(seconds: 12),
     this.pollInterval = const Duration(seconds: 3),
-  })  : assert(maxAttempts > 0),
-        assert(multiplier >= 1.0);
+  }) : assert(maxAttempts > 0),
+       assert(multiplier >= 1.0);
 
   final int maxAttempts;
   final Duration initialDelay;
@@ -66,35 +66,43 @@ class GoogleCloudCredentialsProvider {
     String? serviceAccountJsonPath,
     String? serviceAccountJson,
     this.allowApplicationDefault = true,
-  })  : serviceAccountJsonPath =
-            serviceAccountJsonPath ?? _defaultServiceAccountJsonPath,
-        serviceAccountJson =
-            serviceAccountJson ?? _defaultInlineServiceAccountJson;
+  }) : serviceAccountJsonPath =
+           serviceAccountJsonPath ?? _defaultServiceAccountJsonPath,
+       serviceAccountJson =
+           serviceAccountJson ?? _defaultInlineServiceAccountJson;
 
   final List<String> scopes;
   final String? serviceAccountJsonPath;
   final String? serviceAccountJson;
   final bool allowApplicationDefault;
 
-  static const String _defaultServiceAccountJsonPath =
-      String.fromEnvironment('GOOGLE_APPLICATION_CREDENTIALS');
-  static const String _defaultInlineServiceAccountJson =
-      String.fromEnvironment('GOOGLE_SERVICE_ACCOUNT_JSON');
+  static const String _defaultServiceAccountJsonPath = String.fromEnvironment(
+    'GOOGLE_APPLICATION_CREDENTIALS',
+  );
+  static const String _defaultInlineServiceAccountJson = String.fromEnvironment(
+    'GOOGLE_SERVICE_ACCOUNT_JSON',
+  );
 
   Future<AuthClient> obtainClient(http.Client baseClient) async {
     final inlineJson = serviceAccountJson?.trim();
     if (inlineJson != null && inlineJson.isNotEmpty) {
       final credentials = ServiceAccountCredentials.fromJson(inlineJson);
-      return clientViaServiceAccount(credentials, scopes,
-          baseClient: baseClient);
+      return clientViaServiceAccount(
+        credentials,
+        scopes,
+        baseClient: baseClient,
+      );
     }
 
     final path = serviceAccountJsonPath?.trim();
     if (path != null && path.isNotEmpty) {
       final json = await File(path).readAsString();
       final credentials = ServiceAccountCredentials.fromJson(json);
-      return clientViaServiceAccount(credentials, scopes,
-          baseClient: baseClient);
+      return clientViaServiceAccount(
+        credentials,
+        scopes,
+        baseClient: baseClient,
+      );
     }
 
     if (allowApplicationDefault) {
@@ -118,10 +126,10 @@ class GoogleCloudSttService {
     this.longRunningThreshold = const Duration(minutes: 1),
     this.syncMaxFileSizeBytes = 10 * 1024 * 1024,
     RetryOptions? retryOptions,
-  })  : _httpClient = httpClient ?? http.Client(),
-        _credentialsProvider =
-            credentialsProvider ?? const GoogleCloudCredentialsProvider(),
-        _retryOptions = retryOptions ?? const RetryOptions();
+  }) : _httpClient = httpClient ?? http.Client(),
+       _credentialsProvider =
+           credentialsProvider ?? const GoogleCloudCredentialsProvider(),
+       _retryOptions = retryOptions ?? const RetryOptions();
 
   final http.Client _httpClient;
   final GoogleCloudCredentialsProvider _credentialsProvider;
@@ -164,17 +172,15 @@ class GoogleCloudSttService {
       );
 
       if (useLongRunning) {
-        final request =
-            speech.LongRunningRecognizeRequest(config: config, audio: audio);
+        final request = speech.LongRunningRecognizeRequest(
+          config: config,
+          audio: audio,
+        );
         onProgress?.call('장시간 음성을 인식하는 중...');
         final operation = await _retry(() async {
           return speechApi.speech.longrunningrecognize(request);
         });
-        return _waitForOperation(
-          speechApi,
-          operation,
-          onProgress,
-        );
+        return _waitForOperation(speechApi, operation, onProgress);
       }
 
       onProgress?.call('음성 전사를 요청하는 중...');
@@ -214,7 +220,8 @@ class GoogleCloudSttService {
 
     if (!(currentOperation.done ?? false)) {
       throw const GoogleCloudSttException(
-          '전사 작업이 예상보다 오래 걸리고 있습니다. 나중에 다시 시도해 주세요.');
+        '전사 작업이 예상보다 오래 걸리고 있습니다. 나중에 다시 시도해 주세요.',
+      );
     }
 
     if (currentOperation.error != null) {
@@ -277,8 +284,8 @@ class GoogleCloudSttService {
   }
 
   Duration _increaseDelay(Duration delay) {
-    final scaledMilliseconds =
-        (delay.inMilliseconds * _retryOptions.multiplier).round();
+    final scaledMilliseconds = (delay.inMilliseconds * _retryOptions.multiplier)
+        .round();
     final nextDelay = Duration(milliseconds: scaledMilliseconds);
     if (nextDelay > _retryOptions.maxDelay) {
       return _retryOptions.maxDelay;
@@ -287,7 +294,8 @@ class GoogleCloudSttService {
   }
 
   GoogleCloudSttResult _mapRecognizeResponse(
-      speech.RecognizeResponse response) {
+    speech.RecognizeResponse response,
+  ) {
     final results = response.results;
     if (results == null || results.isEmpty) {
       throw const GoogleCloudSttException('전사 결과를 찾을 수 없습니다.');

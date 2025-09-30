@@ -5,10 +5,7 @@ class JobCategory {
   final String subtitle;
 }
 
-enum InterviewMode {
-  ai,
-  selfIntro,
-}
+enum InterviewMode { ai, selfIntro }
 
 extension InterviewModeX on InterviewMode {
   String get title {

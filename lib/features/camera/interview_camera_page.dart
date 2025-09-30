@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_stt_service.dart';
 import 'package:ai/features/camera/interview_evaluation_service.dart';
+import 'dart:io';
 
 class InterviewCameraPage extends StatefulWidget {
   const InterviewCameraPage({required this.args, super.key});
@@ -33,6 +34,23 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     _sttService = InterviewSttService();
     _evaluationService = InterviewEvaluationService();
     _initializeCamera();
+    _initSttService();
+  }
+
+  Future<void> _initSttService() async {
+    final saJson = await rootBundle.loadString(
+      'assets/keys/service-account.json',
+    );
+    setState(() {
+      _sttService = GoogleCloudSttService(
+        credentialsProvider: GoogleCloudCredentialsProvider(
+          serviceAccountJson: saJson,
+          allowApplicationDefault: false,
+        ),
+        languageCode: 'ko-KR',
+        enableAutomaticPunctuation: true,
+      );
+    });
   }
 
   @override
@@ -113,6 +131,22 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     }
   }
 
+  Future<bool> _waitFileReady(
+    String path, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final f = File(path);
+      if (await f.exists()) {
+        final len = await f.length();
+        if (len > 0) return true;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    return false;
+  }
+
   Future<bool> _requestPermissions() async {
     final statuses = await Future.wait([
       Permission.camera.request(),
@@ -123,66 +157,98 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
 
   Future<void> _startRecording() async {
     final controller = _controller;
-    if (controller == null || _isRecording || _isSaving) {
-      return;
-    }
+    if (controller == null || _isRecording || _isSaving) return;
 
     try {
-      await controller.prepareForVideoRecording();
-      await controller.startVideoRecording();
-      if (!mounted) {
+      if (!controller.value.isInitialized) {
+        _showErrorSnackBar('카메라가 아직 준비되지 않았습니다.');
         return;
       }
+      if (controller.value.isRecordingVideo) {
+        _showErrorSnackBar('이미 녹화 중입니다.');
+        return;
+      }
+
+      await controller.prepareForVideoRecording();
+      await controller.startVideoRecording();
+
+      if (!mounted) return;
       setState(() {
         _isRecording = true;
         _savingStatusMessage = null;
       });
-    } on CameraException catch (e) {
-      _showErrorSnackBar('녹화를 시작할 수 없습니다. (${e.code})');
-    } catch (_) {
+    } on CameraException catch (e, st) {
+      _showErrorSnackBar(
+        '녹화를 시작할 수 없습니다. (${e.code}) ${e.description ?? ""}'.trim(),
+      );
+      // ignore: avoid_print
+      print('CameraException at start: ${e.code} ${e.description}\n$st');
+    } catch (e, st) {
       _showErrorSnackBar('녹화를 시작하는 중 문제가 발생했습니다.');
+      // ignore: avoid_print
+      print('Unexpected error at start: $e\n$st');
     }
   }
 
   Future<void> _stopRecording() async {
     final controller = _controller;
-    if (controller == null || !_isRecording || _isSaving) {
+    if (controller == null || _isSaving) return;
+
+    // 실제 녹화 중인지 안전 체크 (내 상태변수 대신 컨트롤러 상태 기준)
+    if (!controller.value.isRecordingVideo) {
+      _showErrorSnackBar('이미 녹화가 종료되었습니다.');
+      setState(() {
+        _isRecording = false;
+      });
       return;
     }
 
     setState(() {
       _isSaving = true;
       _isTranscribing = false;
-
       _savingStatusMessage = '녹화 파일을 정리하는 중...';
     });
 
     try {
-      final file = await controller.stopVideoRecording();
+      // 1) 녹화 종료
+      final XFile file = await controller.stopVideoRecording();
       final recordedFilePath = file.path;
 
-      if (!mounted) {
+      final ok = await _waitFileReady(recordedFilePath);
+      if (!ok) {
+        setState(() {
+          _isSaving = false;
+          _isRecording = false;
+          _savingStatusMessage = null;
+        });
+        _showErrorSnackBar('녹화 파일이 준비되지 않았습니다.');
         return;
       }
+      if (!mounted) return;
+
       setState(() {
         _isRecording = false;
         _savingStatusMessage = '전사를 준비하는 중...';
       });
+
+      // 2) 전사
       String? transcript;
       double? transcriptConfidence;
       String? transcriptionError;
-
       try {
         final transcription = await _transcribeRecording(recordedFilePath);
         transcript = transcription.text;
         transcriptConfidence = transcription.confidence;
       } on InterviewSttException catch (error) {
         transcriptionError = error.message;
+      } catch (e, st) {
+        transcriptionError = 'STT 실패: ${e.toString()}';
+        // 개발 로그
+        // ignore: avoid_print
+        print('STT unexpected error: $e\n$st');
       }
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       if (transcriptionError != null) {
         setState(() {
@@ -190,6 +256,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
           _savingStatusMessage = null;
         });
         _showErrorSnackBar(transcriptionError);
+
+        // pop 이후에는 setState 호출 금지
         Navigator.of(context).pop(
           InterviewRecordingResult(
             filePath: recordedFilePath,
@@ -200,13 +268,14 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         );
         return;
       }
-      InterviewScore? score;
-      String? evaluationError;
 
+      // 3) 평가
       setState(() {
         _savingStatusMessage = '답변을 평가하는 중...';
       });
 
+      InterviewScore? score;
+      String? evaluationError;
       try {
         score = await _evaluationService.evaluateInterview(
           transcript: transcript ?? '',
@@ -214,20 +283,24 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         );
       } on InterviewEvaluationException catch (e) {
         evaluationError = e.message;
-      } catch (_) {
+      } catch (e, st) {
         evaluationError = '답변을 평가하는 중 문제가 발생했습니다.';
+        // ignore: avoid_print
+        print('Evaluation error: $e\n$st');
       }
-      if (!mounted) {
-        return;
-      }
+
+      if (!mounted) return;
 
       setState(() {
         _isSaving = false;
         _savingStatusMessage = null;
       });
+
       if (evaluationError != null) {
         _showErrorSnackBar(evaluationError);
       }
+
+      // pop 이후에는 더 이상 setState 호출하지 않기
       Navigator.of(context).pop(
         InterviewRecordingResult(
           filePath: recordedFilePath,
@@ -237,26 +310,30 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
           evaluationError: evaluationError,
         ),
       );
-    } on CameraException catch (e) {
-      if (!mounted) {
-        return;
-      }
+    } on CameraException catch (e, st) {
+      if (!mounted) return;
       setState(() {
         _isSaving = false;
         _isRecording = false;
         _savingStatusMessage = null;
       });
-      _showErrorSnackBar('녹화 파일을 저장하지 못했습니다. (${e.code})');
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
+      // 오류 원인을 그대로 보여주면 원인 파악이 쉬움
+      _showErrorSnackBar(
+        '녹화를 종료/저장할 수 없습니다. (${e.code}) ${e.description ?? ""}'.trim(),
+      );
+      // ignore: avoid_print
+      print('CameraException at stop: ${e.code} ${e.description}\n$st');
+    } catch (e, st) {
+      if (!mounted) return;
       setState(() {
         _isSaving = false;
         _isRecording = false;
         _savingStatusMessage = null;
       });
-      _showErrorSnackBar('녹화 파일을 저장하는 중 문제가 발생했습니다.');
+      _showErrorSnackBar('녹화 파일을 저장하는 중 문제가 발생했습니다.'); // 기존 메시지
+      // 개발용 로그
+      // ignore: avoid_print
+      print('Unexpected error at stop: $e\n$st');
     }
   }
 
@@ -298,14 +375,16 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final canRecord = controller != null &&
+    final canRecord =
+        controller != null &&
         controller.value.isInitialized &&
         _errorMessage == null;
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            Text('${widget.args.category.title} · ${widget.args.mode.title}'),
+        title: Text(
+          '${widget.args.category.title} · ${widget.args.mode.title}',
+        ),
       ),
       body: Column(
         children: [
@@ -337,19 +416,23 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton.icon(
-                        onPressed: canRecord &&
+                        onPressed:
+                            canRecord &&
                                 !_isRecording &&
                                 !_isSaving &&
                                 !_isTranscribing
                             ? _startRecording
                             : null,
-                        icon: const Icon(Icons.fiber_manual_record,
-                            color: Colors.red),
+                        icon: const Icon(
+                          Icons.fiber_manual_record,
+                          color: Colors.red,
+                        ),
                         label: const Text('녹화 시작'),
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
-                        onPressed: canRecord &&
+                        onPressed:
+                            canRecord &&
                                 _isRecording &&
                                 !_isSaving &&
                                 !_isTranscribing
@@ -359,8 +442,9 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.stop),
                         label: Text(
@@ -439,10 +523,7 @@ class _ErrorView extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: onRetry,
-            child: const Text('다시 시도'),
-          ),
+          ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
           if (showSettingsButton) ...[
             const SizedBox(height: 8),
             TextButton(

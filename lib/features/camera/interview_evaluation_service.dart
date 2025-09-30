@@ -4,25 +4,24 @@ import 'package:dio/dio.dart';
 import 'package:ai/features/camera/interview_models.dart';
 
 class InterviewEvaluationService {
-  InterviewEvaluationService({
-    Dio? dio,
-    String? baseUrl,
-    String? apiKey,
-  })  : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 60),
-              ),
+  InterviewEvaluationService({Dio? dio, String? baseUrl, String? apiKey})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 60),
             ),
-        _baseUrl = baseUrl ??
-            const String.fromEnvironment(
-              'EVALUATION_BASE_URL',
-              defaultValue: 'https://api.example.com',
-            ),
-        _apiKey = apiKey ??
-            const String.fromEnvironment('EVALUATION_API_KEY',
-                defaultValue: '');
+          ),
+      _baseUrl =
+          baseUrl ??
+          const String.fromEnvironment(
+            'EVALUATION_BASE_URL',
+            defaultValue: 'https://api.example.com',
+          ),
+      _apiKey =
+          apiKey ??
+          const String.fromEnvironment('EVALUATION_API_KEY', defaultValue: '');
 
   final Dio _dio;
   final String _baseUrl;
@@ -75,17 +74,20 @@ class InterviewEvaluationService {
       final perQuestionFeedback = feedbackList == null
           ? <QuestionFeedback>[]
           : feedbackList
-              .whereType<Map<String, dynamic>>()
-              .map(
-                (item) => QuestionFeedback(
-                  question: (item['question'] as String?)?.trim() ?? '',
-                  feedback: (item['feedback'] as String?)?.trim() ?? '',
-                  score: (item['score'] as num?)?.toDouble(),
-                ),
-              )
-              .where((feedback) =>
-                  feedback.question.isNotEmpty || feedback.feedback.isNotEmpty)
-              .toList();
+                .whereType<Map<String, dynamic>>()
+                .map(
+                  (item) => QuestionFeedback(
+                    question: (item['question'] as String?)?.trim() ?? '',
+                    feedback: (item['feedback'] as String?)?.trim() ?? '',
+                    score: (item['score'] as num?)?.toDouble(),
+                  ),
+                )
+                .where(
+                  (feedback) =>
+                      feedback.question.isNotEmpty ||
+                      feedback.feedback.isNotEmpty,
+                )
+                .toList();
 
       return InterviewScore(
         overallScore: overallScore,

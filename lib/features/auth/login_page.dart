@@ -96,20 +96,19 @@ class _LoginPageState extends State<LoginPage> {
     const borderRadius = 16.0;
 
     InputDecoration inputStyle(String hint) => InputDecoration(
-          hintText: hint,
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-            borderSide: const BorderSide(color: Color(0xFFBABABA)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-            borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
-          ),
-        );
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(borderRadius),
+        borderSide: const BorderSide(color: Color(0xFFBABABA)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(borderRadius),
+        borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),

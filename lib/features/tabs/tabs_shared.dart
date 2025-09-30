@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 앱 공통 컬러
+///임시 공통 컬러
 class AppColors {
   static const bg = Color(0xFFF7F7F7);
   static const mint = Color(0xFF2EE8A5);
@@ -26,10 +26,7 @@ class SectionHeader extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        TextButton(
-          onPressed: () {},
-          child: const Text('전체보기'),
-        ),
+        TextButton(onPressed: () {}, child: const Text('전체보기')),
       ],
     );
   }
@@ -59,7 +56,7 @@ class JobMiniCard extends StatelessWidget {
             color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 6),
-          )
+          ),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -89,10 +86,7 @@ class JobMiniCard extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.chevron_right),
-          )
+          IconButton(onPressed: () {}, icon: const Icon(Icons.chevron_right)),
         ],
       ),
     );

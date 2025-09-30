@@ -19,11 +19,7 @@ final router = GoRouter(
         if (extra is InterviewCameraArgs) {
           return InterviewCameraPage(args: extra);
         }
-        return const Scaffold(
-          body: Center(
-            child: Text('면접 정보를 불러오지 못했습니다.'),
-          ),
-        );
+        return const Scaffold(body: Center(child: Text('면접 정보를 불러오지 못했습니다.')));
       },
     ),
   ],

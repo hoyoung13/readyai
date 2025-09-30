@@ -24,7 +24,7 @@ class CameraTab extends StatelessWidget {
                   color: Colors.black.withOpacity(0.08),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
-                )
+                ),
               ],
             ),
             child: IconButton(
@@ -181,7 +181,9 @@ Future<void> _showInterviewSummary(
                   Text(
                     '신뢰도: ${(transcriptConfidence * 100).clamp(0, 100).toStringAsFixed(0)}%',
                     style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 4),
@@ -215,8 +217,9 @@ Future<bool> _ensureCameraPermission(BuildContext context) async {
     return true;
   }
 
-  final permanentlyDenied = statuses
-      .any((status) => status.isPermanentlyDenied || status.isRestricted);
+  final permanentlyDenied = statuses.any(
+    (status) => status.isPermanentlyDenied || status.isRestricted,
+  );
 
   ScaffoldMessenger.of(context)
     ..removeCurrentSnackBar()
@@ -271,10 +274,7 @@ Future<JobCategory?> _showJobCategorySheet(BuildContext context) {
                   const SizedBox(height: 6),
                   const Text(
                     '분야를 선택하면 카메라 화면으로 넘어갑니다.',
-                    style: TextStyle(
-                      color: AppColors.subtext,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: AppColors.subtext, fontSize: 13),
                   ),
                   const SizedBox(height: 22),
                   GridView.builder(
@@ -283,11 +283,11 @@ Future<JobCategory?> _showJobCategorySheet(BuildContext context) {
                     itemCount: _jobCategories.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.8,
-                    ),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 1.8,
+                        ),
                     itemBuilder: (context, index) {
                       final category = _jobCategories[index];
                       return _SelectableCard(
@@ -351,10 +351,7 @@ Future<InterviewMode?> _showInterviewModeSheet(
             children: [
               Text(
                 '선택: ${category.title}',
-                style: const TextStyle(
-                  color: AppColors.subtext,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: AppColors.subtext, fontSize: 13),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -416,8 +413,9 @@ class _SelectableCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = isSelected ? AppColors.mint : const Color(0xFFE5E5EA);
-    final background =
-        isSelected ? AppColors.mint.withOpacity(0.15) : Colors.white;
+    final background = isSelected
+        ? AppColors.mint.withOpacity(0.15)
+        : Colors.white;
 
     return InkWell(
       onTap: onTap,
@@ -445,10 +443,7 @@ class _SelectableCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppColors.subtext,
-              ),
+              style: const TextStyle(fontSize: 12.5, color: AppColors.subtext),
             ),
           ],
         ),

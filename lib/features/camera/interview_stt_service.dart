@@ -9,6 +9,8 @@ import 'package:ffmpeg_kit_flutter_new/stream_information.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 typedef SttProgressCallback = void Function(String message);
 
@@ -23,9 +25,9 @@ class InterviewSttService {
   InterviewSttService({
     GoogleCloudSttService? googleCloudSttService,
     VideoToAudioConverter? audioConverter,
-  })  : _googleCloudSttService =
-            googleCloudSttService ?? GoogleCloudSttService(),
-        _audioConverter = audioConverter ?? const VideoToAudioConverter();
+  }) : _googleCloudSttService =
+           googleCloudSttService ?? GoogleCloudSttService(),
+       _audioConverter = audioConverter ?? const VideoToAudioConverter();
 
   final GoogleCloudSttService _googleCloudSttService;
   final VideoToAudioConverter _audioConverter;
@@ -45,6 +47,19 @@ class InterviewSttService {
       conversion = await _audioConverter.convert(videoFile);
     } on AudioConversionException catch (error) {
       throw InterviewSttException(error.message, cause: error);
+    } on MissingPluginException catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(exception: error, stack: stackTrace),
+      );
+      throw InterviewSttException(
+        '현재 기기에서는 오디오 추출 기능을 사용할 수 없습니다.',
+        cause: error,
+      );
+    } on Exception catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(exception: error, stack: stackTrace),
+      );
+      throw InterviewSttException('녹화된 음성을 추출하는 중 문제가 발생했습니다.', cause: error);
     }
 
     try {

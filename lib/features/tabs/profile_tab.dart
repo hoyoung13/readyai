@@ -31,11 +31,7 @@ class ProfileTab extends StatelessWidget {
           title: '이력서 공개 설정',
           onTap: () {},
         ),
-        ProfileTile(
-          icon: Icons.logout,
-          title: '로그아웃',
-          onTap: () {},
-        ),
+        ProfileTile(icon: Icons.logout, title: '로그아웃', onTap: () {}),
       ],
     );
   }

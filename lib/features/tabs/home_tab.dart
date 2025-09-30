@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'tabs_shared.dart';
 
 class HomeTab extends StatefulWidget {
@@ -84,7 +83,10 @@ class _HomeTabState extends State<HomeTab> {
               JobMiniCard(title: '백엔드 엔지니어', company: '무지개컴퍼니', tag: '신입/주니어'),
               SizedBox(height: 8),
               JobMiniCard(
-                  title: 'Flutter 앱 개발자', company: '아이엠', tag: '경력 1~3년'),
+                title: 'Flutter 앱 개발자',
+                company: '아이엠',
+                tag: '경력 1~3년',
+              ),
             ],
           ),
         ),
@@ -133,7 +135,7 @@ class _SlideCard extends StatelessWidget {
               color: Colors.black.withOpacity(0.06),
               blurRadius: 16,
               offset: const Offset(0, 8),
-            )
+            ),
           ],
         ),
         padding: const EdgeInsets.all(20),
@@ -142,25 +144,30 @@ class _SlideCard extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    data.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                      color: Colors.black87,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          height: 1.25,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        data.subtitle,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    data.subtitle,
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
                   FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.mint,
@@ -172,9 +179,7 @@ class _SlideCard extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     onPressed: () {
                       //  각 CTA 라우팅
@@ -185,10 +190,7 @@ class _SlideCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              data.emoji,
-              style: const TextStyle(fontSize: 40),
-            ),
+            Text(data.emoji, style: const TextStyle(fontSize: 40)),
           ],
         ),
       ),

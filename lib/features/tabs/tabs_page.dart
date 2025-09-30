@@ -15,10 +15,10 @@ class _TabsPageState extends State<TabsPage> {
   int _index = 0;
 
   static const _pages = <Widget>[
-    HomeTab(), // 홈: 공고 슬라이드 + 추천
-    JobsTab(), // 공고: 리스트
-    CameraTab(), // 카메라/AI 면접 시작
-    ProfileTab(), // 마이
+    HomeTab(),
+    JobsTab(),
+    CameraTab(),
+    ProfileTab(),
   ];
 
   @override
