@@ -98,8 +98,10 @@ class GoogleCloudCredentialsProvider {
     }
 
     if (allowApplicationDefault) {
-      return clientViaApplicationDefaultCredentials(scopes,
-          baseClient: baseClient);
+      return clientViaApplicationDefaultCredentials(
+        scopes: scopes,
+        baseClient: baseClient,
+      );
     }
 
     throw const GoogleCloudSttException('Google Cloud 인증 정보를 찾을 수 없습니다.');
