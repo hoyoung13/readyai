@@ -5,13 +5,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/arthenica/ffmpeg-kit")
-            credentials {
-                username = ffmpegGitHubUser ?: ""
-                password = ffmpegGitHubToken ?: ""
-            }
-        }
+        
     }
 }
 

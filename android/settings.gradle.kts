@@ -16,6 +16,23 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/arthenica/ffmpeg-kit")
+            credentials {
+                // gradle.properties 또는 환경 변수에서 읽기
+                username = providers.gradleProperty("gpr.user").orNull
+                    ?: System.getenv("GPR_USER") ?: ""
+                password = providers.gradleProperty("gpr.key").orNull
+                    ?: System.getenv("GPR_KEY") ?: ""
+            }
+        }
+    }
+}
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"

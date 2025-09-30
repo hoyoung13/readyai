@@ -48,7 +48,7 @@ dependencies:
   googleapis: ^13.1.0
   googleapis_auth: ">=2.0.0 <3.0.0"
   http: ^1.2.2
-  ffmpeg_kit_flutter_min_gpl: ^6.0.3
+  ffmpeg_kit_flutter: ^6.0.3
   path: ^1.9.0
   path_provider: ^2.1.4
 
