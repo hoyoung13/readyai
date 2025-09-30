@@ -1,3 +1,5 @@
+import org.gradle.api.GradleException
+
 pluginManagement {
     val flutterSdkPath =
         run {
@@ -25,10 +27,23 @@ dependencyResolutionManagement {
             url = uri("https://maven.pkg.github.com/arthenica/ffmpeg-kit")
             credentials {
                 // gradle.properties 또는 환경 변수에서 읽기
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: System.getenv("GPR_USER") ?: ""
-                password = providers.gradleProperty("gpr.key").orNull
-                    ?: System.getenv("GPR_KEY") ?: ""
+                val gprUser = (providers.gradleProperty("gpr.user").orNull
+                    ?: System.getenv("GPR_USER"))
+                    ?.takeIf { it.isNotBlank() }
+                    ?: throw GradleException(
+                        "GitHub Packages username is missing. " +
+                            "Set gpr.user in ~/.gradle/gradle.properties or export GPR_USER."
+                    )
+                val gprKey = (providers.gradleProperty("gpr.key").orNull
+                    ?: System.getenv("GPR_KEY"))
+                    ?.takeIf { it.isNotBlank() }
+                    ?: throw GradleException(
+                        "GitHub Packages token is missing. " +
+                            "Set gpr.key in ~/.gradle/gradle.properties or export GPR_KEY."
+                    )
+
+                username = gprUser
+                password = gprKey
             }
         }
     }
