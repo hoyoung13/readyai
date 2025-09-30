@@ -230,8 +230,8 @@ class GoogleCloudSttService {
       throw const GoogleCloudSttException('Google Cloud에서 전사 응답을 반환하지 않았습니다.');
     }
 
-    final response = speech.LongRunningRecognizeResponse.fromJson(responseMap);
-    return _mapLongRunningResponse(response);
+    final response = speech.RecognizeResponse.fromJson(responseMap);
+    return _mapRecognizeResponse(response);
   }
 
   Future<T> _retry<T>(Future<T> Function() request) async {
@@ -295,14 +295,14 @@ class GoogleCloudSttService {
     return _mapAlternatives(results.map((r) => r.alternatives ?? const []));
   }
 
-  GoogleCloudSttResult _mapLongRunningResponse(
+  /*GoogleCloudSttResult _mapLongRunningResponse(
       speech.LongRunningRecognizeResponse response) {
     final results = response.results;
     if (results == null || results.isEmpty) {
       throw const GoogleCloudSttException('전사 결과를 찾을 수 없습니다.');
     }
     return _mapAlternatives(results.map((r) => r.alternatives ?? const []));
-  }
+  }*/
 
   GoogleCloudSttResult _mapAlternatives(
     Iterable<List<speech.SpeechRecognitionAlternative>> groupedAlternatives,
