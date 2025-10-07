@@ -1,11 +1,12 @@
-import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import 'package:ai/features/camera/interview_evaluation_service.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_stt_service.dart';
-import 'package:ai/features/camera/interview_evaluation_service.dart';
-import 'package:flutter/services.dart'; 
-import 'dart:io';
+import 'package:ai/features/camera/services/google_cloud_stt_service.dart';
+import 'package:camera/camera.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class InterviewCameraPage extends StatefulWidget {
   const InterviewCameraPage({required this.args, super.key});
@@ -26,24 +27,31 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   String? _savingStatusMessage;
   String? _errorMessage;
   bool _permissionDenied = false;
-  late final InterviewSttService _sttService;
+  InterviewSttService? _sttService;
+  bool _isSttInitializing = false;
+  String? _sttInitializationError;
   late final InterviewEvaluationService _evaluationService;
 
   @override
   void initState() {
     super.initState();
-    _sttService = InterviewSttService();
     _evaluationService = InterviewEvaluationService();
     _initializeCamera();
     _initSttService();
   }
 
   Future<void> _initSttService() async {
-    final saJson = await rootBundle.loadString(
-      'assets/keys/service-account.json',
-    );
     setState(() {
-      _sttService = GoogleCloudSttService(
+      _isSttInitializing = true;
+      _sttInitializationError = null;
+    });
+
+    try {
+      final saJson = await rootBundle.loadString(
+        'assets/keys/service-account.json',
+      );
+
+      final googleService = GoogleCloudSttService(
         credentialsProvider: GoogleCloudCredentialsProvider(
           serviceAccountJson: saJson,
           allowApplicationDefault: false,
@@ -51,7 +59,27 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         languageCode: 'ko-KR',
         enableAutomaticPunctuation: true,
       );
-    });
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _sttService = InterviewSttService(
+          googleCloudSttService: googleService,
+        );
+        _isSttInitializing = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSttInitializing = false;
+        _sttInitializationError = '음성 인식 서비스를 초기화할 수 없습니다. 다시 시도해 주세요.';
+      });
+      // ignore: avoid_print
+      print('Failed to initialize STT service: $error');
+    }
   }
 
   @override
@@ -342,11 +370,15 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     if (!mounted) {
       throw InterviewSttException('화면이 닫혀 전사를 중단했습니다.');
     }
+    final sttService = _sttService;
+    if (sttService == null) {
+      throw InterviewSttException('음성 인식 서비스가 아직 준비되지 않았습니다.');
+    }
     setState(() {
       _isTranscribing = true;
     });
     try {
-      return await _sttService.transcribeVideo(
+      return await sttService.transcribeVideo(
         videoPath: filePath,
         onProgress: (message) {
           if (!mounted) {
@@ -376,11 +408,11 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final canRecord =
-        controller != null &&
+    final canRecord = controller != null &&
         controller.value.isInitialized &&
-        _errorMessage == null;
-
+        _errorMessage == null &&
+        !_isSttInitializing &&
+        _sttService != null;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -406,9 +438,13 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _isRecording
-                        ? '면접이 진행 중입니다. 종료하려면 정지 버튼을 눌러 주세요.'
-                        : '전면 카메라로 면접을 준비했어요. 준비가 되면 녹화를 시작해 주세요.',
+                    _sttInitializationError != null
+                        ? _sttInitializationError!
+                        : _isRecording
+                            ? '면접이 진행 중입니다. 종료하려면 정지 버튼을 눌러 주세요.'
+                            : _isSttInitializing
+                                ? '음성 인식 서비스를 준비하고 있어요. 잠시만 기다려 주세요.'
+                                : '전면 카메라로 면접을 준비했어요. 준비가 되면 녹화를 시작해 주세요.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
@@ -417,8 +453,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton.icon(
-                        onPressed:
-                            canRecord &&
+                        onPressed: canRecord &&
                                 !_isRecording &&
                                 !_isSaving &&
                                 !_isTranscribing
@@ -432,8 +467,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
-                        onPressed:
-                            canRecord &&
+                        onPressed: canRecord &&
                                 _isRecording &&
                                 !_isSaving &&
                                 !_isTranscribing
