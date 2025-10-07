@@ -22,8 +22,8 @@ class RetryOptions {
     this.multiplier = 2.0,
     this.maxDelay = const Duration(seconds: 12),
     this.pollInterval = const Duration(seconds: 3),
-  }) : assert(maxAttempts > 0),
-       assert(multiplier >= 1.0);
+  })  : assert(maxAttempts > 0),
+        assert(multiplier >= 1.0);
 
   final int maxAttempts;
   final Duration initialDelay;
@@ -66,10 +66,10 @@ class GoogleCloudCredentialsProvider {
     String? serviceAccountJsonPath,
     String? serviceAccountJson,
     this.allowApplicationDefault = true,
-  }) : serviceAccountJsonPath =
-           serviceAccountJsonPath ?? _defaultServiceAccountJsonPath,
-       serviceAccountJson =
-           serviceAccountJson ?? _defaultInlineServiceAccountJson;
+  })  : serviceAccountJsonPath =
+            serviceAccountJsonPath ?? _defaultServiceAccountJsonPath,
+        serviceAccountJson =
+            serviceAccountJson ?? _defaultInlineServiceAccountJson;
 
   final List<String> scopes;
   final String? serviceAccountJsonPath;
@@ -126,10 +126,10 @@ class GoogleCloudSttService {
     this.longRunningThreshold = const Duration(minutes: 1),
     this.syncMaxFileSizeBytes = 10 * 1024 * 1024,
     RetryOptions? retryOptions,
-  }) : _httpClient = httpClient ?? http.Client(),
-       _credentialsProvider =
-           credentialsProvider ?? const GoogleCloudCredentialsProvider(),
-       _retryOptions = retryOptions ?? const RetryOptions();
+  })  : _httpClient = httpClient ?? http.Client(),
+        _credentialsProvider =
+            credentialsProvider ?? const GoogleCloudCredentialsProvider(),
+        _retryOptions = retryOptions ?? const RetryOptions();
 
   final http.Client _httpClient;
   final GoogleCloudCredentialsProvider _credentialsProvider;
@@ -284,8 +284,8 @@ class GoogleCloudSttService {
   }
 
   Duration _increaseDelay(Duration delay) {
-    final scaledMilliseconds = (delay.inMilliseconds * _retryOptions.multiplier)
-        .round();
+    final scaledMilliseconds =
+        (delay.inMilliseconds * _retryOptions.multiplier).round();
     final nextDelay = Duration(milliseconds: scaledMilliseconds);
     if (nextDelay > _retryOptions.maxDelay) {
       return _retryOptions.maxDelay;

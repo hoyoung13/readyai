@@ -62,6 +62,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       final googleService = GoogleCloudSttService(
         credentialsProvider: GoogleCloudCredentialsProvider(
           serviceAccountJson: serviceAccountJson,
+          allowApplicationDefault: !Platform.isAndroid,
         ),
         languageCode: 'ko-KR',
         enableAutomaticPunctuation: true,
