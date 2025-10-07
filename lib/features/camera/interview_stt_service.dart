@@ -25,9 +25,9 @@ class InterviewSttService {
   InterviewSttService({
     GoogleCloudSttService? googleCloudSttService,
     VideoToAudioConverter? audioConverter,
-  }) : _googleCloudSttService =
-           googleCloudSttService ?? GoogleCloudSttService(),
-       _audioConverter = audioConverter ?? const VideoToAudioConverter();
+  })  : _googleCloudSttService =
+            googleCloudSttService ?? GoogleCloudSttService(),
+        _audioConverter = audioConverter ?? const VideoToAudioConverter();
 
   final GoogleCloudSttService _googleCloudSttService;
   final VideoToAudioConverter _audioConverter;
