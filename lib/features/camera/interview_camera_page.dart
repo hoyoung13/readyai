@@ -47,14 +47,21 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     });
 
     try {
-      final saJson = await rootBundle.loadString(
-        'assets/keys/service-account.json',
-      );
+      String? serviceAccountJson;
+      try {
+        serviceAccountJson = await rootBundle.loadString(
+          'assets/keys/service-account.json',
+        );
+        if (serviceAccountJson.trim().isEmpty) {
+          serviceAccountJson = null;
+        }
+      } on FlutterError {
+        serviceAccountJson = null;
+      }
 
       final googleService = GoogleCloudSttService(
         credentialsProvider: GoogleCloudCredentialsProvider(
-          serviceAccountJson: saJson,
-          allowApplicationDefault: false,
+          serviceAccountJson: serviceAccountJson,
         ),
         languageCode: 'ko-KR',
         enableAutomaticPunctuation: true,
