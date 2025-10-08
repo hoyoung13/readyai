@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:ai/features/camera/interview_evaluation_service.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_stt_service.dart';
+import 'package:ai/features/camera/services/azure_face_service.dart';
 import 'package:ai/features/camera/services/google_cloud_stt_service.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -31,11 +32,14 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   bool _isSttInitializing = false;
   String? _sttInitializationError;
   late final InterviewEvaluationService _evaluationService;
+  late final AzureFaceAnalysisService _faceAnalysisService;
+
 
   @override
   void initState() {
     super.initState();
     _evaluationService = InterviewEvaluationService();
+    _faceAnalysisService = AzureFaceAnalysisService();
     _initializeCamera();
     _initSttService();
   }
@@ -272,6 +276,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       String? transcript;
       double? transcriptConfidence;
       String? transcriptionError;
+      FaceAnalysisResult? faceAnalysis;
+      String? faceAnalysisError;
       try {
         final transcription = await _transcribeRecording(recordedFilePath);
         transcript = transcription.text;
@@ -306,7 +312,23 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         return;
       }
 
-      // 3) 평가
+      // 3) 얼굴 시선/표정 분석
+      setState(() {
+        _savingStatusMessage = '시선과 표정을 분석하는 중...';
+      });
+
+      try {
+        faceAnalysis = await _faceAnalysisService.analyzeVideo(recordedFilePath);
+      } on FaceAnalysisException catch (e) {
+        faceAnalysisError = e.message;
+      } catch (e, st) {
+        faceAnalysisError = '영상 분석 중 알 수 없는 오류가 발생했습니다.';
+        print('Face analysis error: $e\n$st');
+      }
+
+      if (!mounted) return;
+
+      // 4) 평가
       setState(() {
         _savingStatusMessage = '답변을 평가하는 중...';
       });
@@ -343,6 +365,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
           filePath: recordedFilePath,
           transcript: transcript,
           transcriptConfidence: transcriptConfidence,
+          faceAnalysis: faceAnalysis,
+          faceAnalysisError: faceAnalysisError,
           score: score,
           evaluationError: evaluationError,
         ),

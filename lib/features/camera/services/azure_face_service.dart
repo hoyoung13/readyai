@@ -108,7 +108,7 @@ class AzureFaceAnalysisService {
     final uri =
         Uri.parse('$_endpoint/face/v1.0/detect').replace(queryParameters: {
       'returnFaceId': 'false',
-      'returnFaceAttributes': 'headPose,emotion',
+      'returnFaceAttributes': 'headPose',
       'detectionModel': 'detection_03',
       'faceIdTimeToLive': '60',
     });
