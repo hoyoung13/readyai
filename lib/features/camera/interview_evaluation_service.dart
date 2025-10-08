@@ -56,8 +56,10 @@ class InterviewEvaluationService {
         {
           'role': 'system',
           'content':
-              'You are an expert interview evaluator. Score answers concisely and fairly. '
-                  'Return ONLY the JSON that matches the provided schema.'
+              '너는 면접관 역할의 전문가 평가자입니다. 항상 한국어로 평가하세요. '
+              '면접 답변의 내용을 객관적이고 간결하게 평가하고, 주어진 JSON 스키마 형식에 맞게 결과를 반환하세요. '
+              '평가 결과의 모든 텍스트(피드백, 질문 등)는 반드시 한국어로 작성해야 합니다. '
+              'JSON 외의 추가 텍스트는 절대 포함하지 마세요.'
         },
         {
           'role': 'user',

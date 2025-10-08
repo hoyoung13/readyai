@@ -49,10 +49,13 @@ class FaceAnalysisResult {
   const FaceAnalysisResult({
     required this.headPose,
     required this.gazeDirection,
+    required this.feedback,
   });
 
   final HeadPose headPose;
   final GazeDirection gazeDirection;
+  final String feedback;
+
 }
 
 class AzureFaceAnalysisService {
@@ -153,11 +156,12 @@ class AzureFaceAnalysisService {
       roll: (headPoseData['roll'] as num?)?.toDouble() ?? 0,
       yaw: (headPoseData['yaw'] as num?)?.toDouble() ?? 0,
     );
+    final gazeDirection = _interpretGaze(headPose);
 
     return FaceAnalysisResult(
       headPose: headPose,
-      gazeDirection: _interpretGaze(headPose),
-    );
+      gazeDirection: gazeDirection,
+      feedback: _buildGazeFeedback(headPose, gazeDirection),    );
   }
 
   Future<Uint8List> _extractFrame(File videoFile) async {
@@ -227,5 +231,38 @@ class AzureFaceAnalysisService {
       return GazeDirection.up;
     }
     return GazeDirection.down;
+  }
+  String _buildGazeFeedback(HeadPose headPose, GazeDirection direction) {
+    final yaw = headPose.yaw;
+    final pitch = headPose.pitch;
+    final maxTilt = [yaw.abs(), pitch.abs()].reduce((a, b) => a > b ? a : b);
+
+    switch (direction) {
+      case GazeDirection.forward:
+        if (maxTilt < _gazeThreshold / 2) {
+          return '정면을 안정적으로 바라보며 면접에 집중하는 모습이에요.';
+        }
+        return '대체로 정면을 바라봤지만 시선이 살짝 흔들렸어요. 카메라를 조금 더 안정적으로 응시해 보세요.';
+      case GazeDirection.left:
+        if (maxTilt > _gazeThreshold * 2) {
+          return '시선이 자주 왼쪽으로 크게 치우쳐 집중도가 떨어져 보여요. 답변할 때는 정면을 바라보는 연습이 필요해요.';
+        }
+        return '시선이 왼쪽으로 자주 이동했어요. 답변 중에도 면접관을 바라보는 습관을 들이면 더 신뢰감을 줄 수 있어요.';
+      case GazeDirection.right:
+        if (maxTilt > _gazeThreshold * 2) {
+          return '시선이 계속 오른쪽에 머물러 면접관과의 눈맞춤이 부족해 보여요. 정면 응시를 더 의식해 보세요.';
+        }
+        return '시선이 오른쪽으로 자주 향했어요. 말할 때 카메라나 면접관을 다시 바라보는 연습이 필요해요.';
+      case GazeDirection.up:
+        if (maxTilt > _gazeThreshold * 2) {
+          return '답변하는 동안 위쪽을 바라보는 시간이 길었어요. 생각이 나지 않더라도 정면을 바라보며 답변하면 집중력이 좋아 보여요.';
+        }
+        return '답변을 떠올리며 위를 보는 모습이 있었어요. 정면을 바라보며 자연스럽게 말하는 연습을 해보면 좋아요.';
+      case GazeDirection.down:
+        if (maxTilt > _gazeThreshold * 2) {
+          return '고개가 아래로 많이 숙여져 자신감이 부족해 보일 수 있어요. 시선을 들어 정면을 바라보면 더 당당해 보여요.';
+        }
+        return '시선이 아래로 자주 향했어요. 답변할 때 고개를 들고 면접관을 바라보는 습관을 들이면 좋아요.';
+    }
   }
 }

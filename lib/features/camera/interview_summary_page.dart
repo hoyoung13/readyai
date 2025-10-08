@@ -238,14 +238,7 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                   ),
                 ),
                 pw.SizedBox(height: 6),
-                pw.Text('시선 방향: ${result.faceAnalysis!.gazeDirection.label}'),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  'Head Pose (pitch/yaw/roll): '
-                  '${result.faceAnalysis!.headPose.pitch.toStringAsFixed(1)}° / '
-                  '${result.faceAnalysis!.headPose.yaw.toStringAsFixed(1)}° / '
-                  '${result.faceAnalysis!.headPose.roll.toStringAsFixed(1)}°',
-                ),
+                pw.Text(result.faceAnalysis!.feedback),
               ] else if (result.faceAnalysisError != null) ...[
                 pw.SizedBox(height: 16),
                 pw.Text(
@@ -377,7 +370,7 @@ class _SummaryHeader extends StatelessWidget {
           const SizedBox(height: 18),
           const Divider(height: 1),
           const SizedBox(height: 16),
-          const Text(
+          /*const Text(
             '녹화 파일 위치',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
@@ -385,7 +378,7 @@ class _SummaryHeader extends StatelessWidget {
           SelectableText(
             filePath,
             style: const TextStyle(fontSize: 13, color: AppColors.subtext),
-          ),
+          ),*/
         ],
       ),
     );
@@ -518,41 +511,18 @@ class _FaceAnalysisSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.visibility_outlined, color: AppColors.mint),
               const SizedBox(width: 8),
-              Text(
-                result.gazeDirection.label,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          const Text(
-            'Head Pose',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _InfoPill(
-                label: 'Pitch',
-                value: '${result.headPose.pitch.toStringAsFixed(1)}°',
-              ),
-              _InfoPill(
-                label: 'Yaw',
-                value: '${result.headPose.yaw.toStringAsFixed(1)}°',
-              ),
-              _InfoPill(
-                label: 'Roll',
-                value: '${result.headPose.roll.toStringAsFixed(1)}°',
+              Expanded(
+                child: Text(
+                  result.feedback,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
               ),
             ],
           ),
