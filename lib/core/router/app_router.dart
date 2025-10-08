@@ -5,6 +5,7 @@ import 'package:ai/features/auth/signup_page.dart';
 import 'package:ai/features/tabs/tabs_page.dart';
 import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
+import 'package:ai/features/camera/interview_summary_page.dart';
 
 final router = GoRouter(
   routes: [
@@ -20,6 +21,18 @@ final router = GoRouter(
           return InterviewCameraPage(args: extra);
         }
         return const Scaffold(body: Center(child: Text('면접 정보를 불러오지 못했습니다.')));
+      },
+    ),
+    GoRoute(
+      path: '/interview/summary',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is InterviewSummaryPageArgs) {
+          return InterviewSummaryPage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('면접 결과를 불러오지 못했습니다.')),
+        );
       },
     ),
   ],

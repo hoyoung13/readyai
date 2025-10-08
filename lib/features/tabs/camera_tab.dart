@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ai/features/camera/interview_models.dart';
+import 'package:ai/features/camera/interview_summary_page.dart';
 import 'tabs_shared.dart';
 
 class CameraTab extends StatelessWidget {
@@ -52,7 +53,14 @@ Future<void> _handleStartInterview(BuildContext context) async {
 
   final mode = await _showInterviewModeSheet(context, category);
   if (mode == null || !context.mounted) return;
+  await _startInterview(context, category, mode);
+}
 
+Future<void> _startInterview(
+  BuildContext context,
+  JobCategory category,
+  InterviewMode mode,
+) async {
   final granted = await _ensureCameraPermission(context);
   if (!granted || !context.mounted) return;
 
@@ -77,133 +85,20 @@ Future<void> _handleStartInterview(BuildContext context) async {
       );
   }
 
-  await _showInterviewSummary(context, result);
-}
-
-Future<void> _showInterviewSummary(
-  BuildContext context,
-  InterviewRecordingResult result,
-) {
-  return showDialog<void>(
-    context: context,
-    builder: (context) {
-      final transcript = result.transcript;
-      final transcriptConfidence = result.transcriptConfidence;
-
-      final score = result.score;
-
-      return AlertDialog(
-        title: const Text('면접 요약'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '저장 위치\n${result.filePath}',
-                style: const TextStyle(fontSize: 13),
-              ),
-              if (result.transcriptionError != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '전사를 완료하지 못했습니다.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  result.transcriptionError!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ],
-              if (result.evaluationError != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '평가 결과를 불러오는 중 문제가 발생했습니다.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  result.evaluationError!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ],
-              if (score != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '종합 점수: ${score.overallScore.toStringAsFixed(1)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                if (score.perQuestionFeedback.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  const Text('문항별 피드백:'),
-                  const SizedBox(height: 4),
-                  ...score.perQuestionFeedback.map(
-                    (feedback) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            feedback.question,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          if (feedback.score != null)
-                            Text('점수: ${feedback.score!.toStringAsFixed(1)}'),
-                          Text(feedback.feedback),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-              if (transcript != null && transcript.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  '전사 내용',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                if (transcriptConfidence != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '신뢰도: ${(transcriptConfidence * 100).clamp(0, 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  transcript,
-                  style: const TextStyle(fontSize: 13, height: 1.4),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
-      );
-    },
+  final summaryResult = await context.push<InterviewSummaryResult>(
+    '/interview/summary',
+    extra: InterviewSummaryPageArgs(
+      result: result,
+      category: category,
+      mode: mode,
+    ),
   );
+
+  if (!context.mounted) return;
+
+  if (summaryResult == InterviewSummaryResult.retry) {
+    await _startInterview(context, category, mode);
+  }
 }
 
 Future<bool> _ensureCameraPermission(BuildContext context) async {
@@ -283,11 +178,11 @@ Future<JobCategory?> _showJobCategorySheet(BuildContext context) {
                     itemCount: _jobCategories.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 1.8,
-                        ),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.8,
+                    ),
                     itemBuilder: (context, index) {
                       final category = _jobCategories[index];
                       return _SelectableCard(
@@ -413,9 +308,8 @@ class _SelectableCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = isSelected ? AppColors.mint : const Color(0xFFE5E5EA);
-    final background = isSelected
-        ? AppColors.mint.withOpacity(0.15)
-        : Colors.white;
+    final background =
+        isSelected ? AppColors.mint.withOpacity(0.15) : Colors.white;
 
     return InkWell(
       onTap: onTap,
