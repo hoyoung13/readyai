@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-
+import 'package:ai/features/camera/services/azure_face_service.dart';
 import 'package:printing/printing.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
@@ -57,7 +57,7 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                 score: score,
                 filePath: result.filePath,
               ),
-              if (result.hasTranscriptionError || result.hasEvaluationError)
+              if (result.hasError)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: _ErrorBanner(result: result),
@@ -73,6 +73,20 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                   child: _PlaceholderCard(
                     title: '평가 결과를 불러오지 못했습니다.',
                     description: '다시 시도하면 결과를 확인할 수 있습니다.',
+                  ),
+                ),
+              if (result.faceAnalysis != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: _FaceAnalysisSection(result: result.faceAnalysis!),
+                ),
+              if (result.faceAnalysis == null &&
+                  result.faceAnalysisError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: _PlaceholderCard(
+                    title: '시선·표정 분석 결과를 확인할 수 없어요.',
+                    description: result.faceAnalysisError!,
                   ),
                 ),
               if (result.transcript != null &&
@@ -213,6 +227,59 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(result.evaluationError!),
+              ],
+              if (result.faceAnalysis != null) ...[
+                pw.SizedBox(height: 16),
+                pw.Text(
+                  '시선 · 표정 분석',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Text('시선 방향: ${result.faceAnalysis!.gazeDirection.label}'),
+                pw.Text(
+                  '지배적인 감정: '
+                  '${_FaceAnalysisSection._emotionDisplayNames[result.faceAnalysis!.dominantEmotion.label.toLowerCase()] ?? result.faceAnalysis!.dominantEmotion.label}'
+                  ' (${(result.faceAnalysis!.dominantEmotion.probability * 100).clamp(0, 100).toStringAsFixed(0)}%)',
+                ),
+                if (result.faceAnalysis!.emotions.length > 1) ...[
+                  pw.SizedBox(height: 4),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: result.faceAnalysis!.emotions.take(3).map(
+                      (emotion) {
+                        final label = _FaceAnalysisSection._emotionDisplayNames[
+                                emotion.label.toLowerCase()] ??
+                            emotion.label;
+                        final percent = (emotion.probability * 100)
+                            .clamp(0, 100)
+                            .toStringAsFixed(0);
+                        return pw.Text('$label: $percent%');
+                      },
+                    ).toList(),
+                  ),
+                ],
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'Head Pose (pitch/yaw/roll): '
+                  '${result.faceAnalysis!.headPose.pitch.toStringAsFixed(1)}° / '
+                  '${result.faceAnalysis!.headPose.yaw.toStringAsFixed(1)}° / '
+                  '${result.faceAnalysis!.headPose.roll.toStringAsFixed(1)}°',
+                ),
+              ] else if (result.faceAnalysisError != null) ...[
+                pw.SizedBox(height: 16),
+                pw.Text(
+                  '시선 · 표정 분석 오류',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.red,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(result.faceAnalysisError!),
               ],
               if (result.transcriptionError != null) ...[
                 pw.SizedBox(height: 16),
@@ -439,6 +506,143 @@ class _ScoreBreakdown extends StatelessWidget {
   }
 }
 
+class _FaceAnalysisSection extends StatelessWidget {
+  const _FaceAnalysisSection({required this.result});
+
+  final FaceAnalysisResult result;
+
+  static const Map<String, String> _emotionDisplayNames = {
+    'anger': '분노',
+    'contempt': '경멸',
+    'disgust': '혐오',
+    'fear': '두려움',
+    'happiness': '행복',
+    'neutral': '중립',
+    'sadness': '슬픔',
+    'surprise': '놀람',
+  };
+
+  String _formatEmotionLabel(String key) {
+    return _emotionDisplayNames[key.toLowerCase()] ?? key;
+  }
+
+  String _formatProbability(double value) =>
+      '${(value * 100).clamp(0, 100).toStringAsFixed(0)}%';
+
+  @override
+  Widget build(BuildContext context) {
+    final topEmotions = result.emotions.take(3).toList();
+    final additionalEmotions = topEmotions.skip(1);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '시선 · 표정 분석',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.visibility_outlined, color: AppColors.mint),
+              const SizedBox(width: 8),
+              Text(
+                result.gazeDirection.label,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '지배적인 감정: '
+            '${_formatEmotionLabel(result.dominantEmotion.label)} '
+            '(${_formatProbability(result.dominantEmotion.probability)})',
+            style: const TextStyle(fontSize: 15),
+          ),
+          if (additionalEmotions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              '감정 분포',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...additionalEmotions.map(
+              (emotion) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatEmotionLabel(emotion.label),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    Text(
+                      _formatProbability(emotion.probability),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const Text(
+            'Head Pose',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _InfoPill(
+                label: 'Pitch',
+                value: '${result.headPose.pitch.toStringAsFixed(1)}°',
+              ),
+              _InfoPill(
+                label: 'Yaw',
+                value: '${result.headPose.yaw.toStringAsFixed(1)}°',
+              ),
+              _InfoPill(
+                label: 'Roll',
+                value: '${result.headPose.roll.toStringAsFixed(1)}°',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TranscriptSection extends StatelessWidget {
   const _TranscriptSection({required this.transcript, this.confidence});
 
@@ -498,6 +702,7 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final errors = [
       if (result.transcriptionError != null) result.transcriptionError!,
+      if (result.faceAnalysisError != null) result.faceAnalysisError!,
       if (result.evaluationError != null) result.evaluationError!,
     ];
 

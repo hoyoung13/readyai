@@ -1,3 +1,5 @@
+import 'package:ai/features/camera/services/azure_face_service.dart';
+
 class JobCategory {
   const JobCategory({required this.title, required this.subtitle});
 
@@ -62,6 +64,8 @@ class InterviewRecordingResult {
     this.transcript,
     this.transcriptConfidence,
     this.score,
+    this.faceAnalysis,
+    this.faceAnalysisError,
     this.transcriptionError,
     this.evaluationError,
   });
@@ -69,11 +73,16 @@ class InterviewRecordingResult {
   final String? transcript;
   final double? transcriptConfidence;
   final InterviewScore? score;
+  final FaceAnalysisResult? faceAnalysis;
+  final String? faceAnalysisError;
   final String? transcriptionError;
   final String? evaluationError;
   bool get hasTranscriptionError => transcriptionError != null;
 
   bool get hasEvaluationError => evaluationError != null;
 
-  bool get hasError => hasTranscriptionError || hasEvaluationError;
+  bool get hasFaceAnalysisError => faceAnalysisError != null;
+
+  bool get hasError =>
+      hasTranscriptionError || hasEvaluationError || hasFaceAnalysisError;
 }
