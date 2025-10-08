@@ -231,7 +231,7 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
               if (result.faceAnalysis != null) ...[
                 pw.SizedBox(height: 16),
                 pw.Text(
-                  '시선 · 표정 분석',
+                  '시선 분석',
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
@@ -239,28 +239,6 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                 ),
                 pw.SizedBox(height: 6),
                 pw.Text('시선 방향: ${result.faceAnalysis!.gazeDirection.label}'),
-                pw.Text(
-                  '지배적인 감정: '
-                  '${_FaceAnalysisSection._emotionDisplayNames[result.faceAnalysis!.dominantEmotion.label.toLowerCase()] ?? result.faceAnalysis!.dominantEmotion.label}'
-                  ' (${(result.faceAnalysis!.dominantEmotion.probability * 100).clamp(0, 100).toStringAsFixed(0)}%)',
-                ),
-                if (result.faceAnalysis!.emotions.length > 1) ...[
-                  pw.SizedBox(height: 4),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: result.faceAnalysis!.emotions.take(3).map(
-                      (emotion) {
-                        final label = _FaceAnalysisSection._emotionDisplayNames[
-                                emotion.label.toLowerCase()] ??
-                            emotion.label;
-                        final percent = (emotion.probability * 100)
-                            .clamp(0, 100)
-                            .toStringAsFixed(0);
-                        return pw.Text('$label: $percent%');
-                      },
-                    ).toList(),
-                  ),
-                ],
                 pw.SizedBox(height: 4),
                 pw.Text(
                   'Head Pose (pitch/yaw/roll): '
@@ -271,7 +249,7 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
               ] else if (result.faceAnalysisError != null) ...[
                 pw.SizedBox(height: 16),
                 pw.Text(
-                  '시선 · 표정 분석 오류',
+                  '시선 분석 오류',
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
@@ -511,28 +489,8 @@ class _FaceAnalysisSection extends StatelessWidget {
 
   final FaceAnalysisResult result;
 
-  static const Map<String, String> _emotionDisplayNames = {
-    'anger': '분노',
-    'contempt': '경멸',
-    'disgust': '혐오',
-    'fear': '두려움',
-    'happiness': '행복',
-    'neutral': '중립',
-    'sadness': '슬픔',
-    'surprise': '놀람',
-  };
-
-  String _formatEmotionLabel(String key) {
-    return _emotionDisplayNames[key.toLowerCase()] ?? key;
-  }
-
-  String _formatProbability(double value) =>
-      '${(value * 100).clamp(0, 100).toStringAsFixed(0)}%';
-
   @override
   Widget build(BuildContext context) {
-    final topEmotions = result.emotions.take(3).toList();
-    final additionalEmotions = topEmotions.skip(1);
 
     return Container(
       width: double.infinity,
@@ -552,7 +510,7 @@ class _FaceAnalysisSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '시선 · 표정 분석',
+            '시선 분석',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,
@@ -570,46 +528,7 @@ class _FaceAnalysisSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            '지배적인 감정: '
-            '${_formatEmotionLabel(result.dominantEmotion.label)} '
-            '(${_formatProbability(result.dominantEmotion.probability)})',
-            style: const TextStyle(fontSize: 15),
-          ),
-          if (additionalEmotions.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Text(
-              '감정 분포',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...additionalEmotions.map(
-              (emotion) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _formatEmotionLabel(emotion.label),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                    Text(
-                      _formatProbability(emotion.probability),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          
           const SizedBox(height: 16),
           const Text(
             'Head Pose',

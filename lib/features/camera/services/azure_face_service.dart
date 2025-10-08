@@ -33,13 +33,6 @@ class HeadPose {
   final double yaw;
 }
 
-class EmotionScore {
-  const EmotionScore(this.label, this.probability);
-
-  final String label;
-  final double probability;
-}
-
 enum GazeDirection {
   forward('정면 응시'),
   left('왼쪽을 보고 있음'),
@@ -55,14 +48,10 @@ enum GazeDirection {
 class FaceAnalysisResult {
   const FaceAnalysisResult({
     required this.headPose,
-    required this.dominantEmotion,
-    required this.emotions,
     required this.gazeDirection,
   });
 
   final HeadPose headPose;
-  final EmotionScore dominantEmotion;
-  final List<EmotionScore> emotions;
   final GazeDirection gazeDirection;
 }
 
@@ -155,10 +144,8 @@ class AzureFaceAnalysisService {
     }
 
     final headPoseData = attributes['headPose'] as Map<String, dynamic>?;
-    final emotionData = attributes['emotion'] as Map<String, dynamic>?;
-
-    if (headPoseData == null || emotionData == null) {
-      throw FaceAnalysisException('시선 또는 감정 데이터가 응답에 포함되지 않았습니다.');
+    if (headPoseData == null) {
+      throw FaceAnalysisException('시선 데이터가 응답에 포함되지 않았습니다.');
     }
 
     final headPose = HeadPose(
@@ -167,25 +154,8 @@ class AzureFaceAnalysisService {
       yaw: (headPoseData['yaw'] as num?)?.toDouble() ?? 0,
     );
 
-    final emotions = emotionData.entries
-        .where((entry) => entry.value is num)
-        .map(
-          (entry) => EmotionScore(
-            entry.key,
-            (entry.value as num).toDouble(),
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.probability.compareTo(a.probability));
-
-    if (emotions.isEmpty) {
-      throw FaceAnalysisException('감정 분석 결과가 비어 있습니다.');
-    }
-
     return FaceAnalysisResult(
       headPose: headPose,
-      dominantEmotion: emotions.first,
-      emotions: emotions,
       gazeDirection: _interpretGaze(headPose),
     );
   }
