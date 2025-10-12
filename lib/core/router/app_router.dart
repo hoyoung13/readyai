@@ -6,6 +6,7 @@ import 'package:ai/features/tabs/tabs_page.dart';
 import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
+import 'package:ai/features/profile/interview_history_page.dart';
 
 final router = GoRouter(
   routes: [
@@ -13,6 +14,10 @@ final router = GoRouter(
     GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/signup', builder: (_, __) => const SignupPage()),
     GoRoute(path: '/tabs', builder: (_, __) => const TabsPage()),
+    GoRoute(
+      path: '/profile/history',
+      builder: (_, __) => const InterviewHistoryPage(),
+    ),
     GoRoute(
       path: '/interview/camera',
       builder: (_, state) {

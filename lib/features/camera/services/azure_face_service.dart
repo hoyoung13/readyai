@@ -31,6 +31,20 @@ class HeadPose {
   final double pitch;
   final double roll;
   final double yaw;
+  Map<String, dynamic> toMap() => {
+        'pitch': pitch,
+        'roll': roll,
+        'yaw': yaw,
+      };
+
+  factory HeadPose.fromMap(Map<String, dynamic>? map) {
+    final data = map ?? const <String, dynamic>{};
+    return HeadPose(
+      pitch: (data['pitch'] as num?)?.toDouble() ?? 0.0,
+      roll: (data['roll'] as num?)?.toDouble() ?? 0.0,
+      yaw: (data['yaw'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
 
 enum GazeDirection {
@@ -45,6 +59,15 @@ enum GazeDirection {
   final String label;
 }
 
+extension GazeDirectionX on GazeDirection {
+  static GazeDirection fromName(String value) {
+    return GazeDirection.values.firstWhere(
+      (direction) => direction.name == value,
+      orElse: () => GazeDirection.forward,
+    );
+  }
+}
+
 class FaceAnalysisResult {
   const FaceAnalysisResult({
     required this.headPose,
@@ -56,6 +79,21 @@ class FaceAnalysisResult {
   final GazeDirection gazeDirection;
   final String feedback;
 
+  Map<String, dynamic> toMap() => {
+        'headPose': headPose.toMap(),
+        'gazeDirection': gazeDirection.name,
+        'feedback': feedback,
+      };
+
+  factory FaceAnalysisResult.fromMap(Map<String, dynamic>? map) {
+    final data = map ?? const <String, dynamic>{};
+    return FaceAnalysisResult(
+      headPose: HeadPose.fromMap(data['headPose'] as Map<String, dynamic>?),
+      gazeDirection:
+          GazeDirectionX.fromName(data['gazeDirection'] as String? ?? ''),
+      feedback: data['feedback'] as String? ?? '',
+    );
+  }
 }
 
 class AzureFaceAnalysisService {
@@ -161,7 +199,8 @@ class AzureFaceAnalysisService {
     return FaceAnalysisResult(
       headPose: headPose,
       gazeDirection: gazeDirection,
-      feedback: _buildGazeFeedback(headPose, gazeDirection),    );
+      feedback: _buildGazeFeedback(headPose, gazeDirection),
+    );
   }
 
   Future<Uint8List> _extractFrame(File videoFile) async {
@@ -232,6 +271,7 @@ class AzureFaceAnalysisService {
     }
     return GazeDirection.down;
   }
+
   String _buildGazeFeedback(HeadPose headPose, GazeDirection direction) {
     final yaw = headPose.yaw;
     final pitch = headPose.pitch;

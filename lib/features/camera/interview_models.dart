@@ -5,6 +5,19 @@ class JobCategory {
 
   final String title;
   final String subtitle;
+
+  Map<String, dynamic> toMap() => {
+        'title': title,
+        'subtitle': subtitle,
+      };
+
+  factory JobCategory.fromMap(Map<String, dynamic>? map) {
+    final data = map ?? const <String, dynamic>{};
+    return JobCategory(
+      title: data['title'] as String? ?? '미지정',
+      subtitle: data['subtitle'] as String? ?? '',
+    );
+  }
 }
 
 enum InterviewMode { ai, selfIntro }
@@ -29,6 +42,13 @@ extension InterviewModeX on InterviewMode {
   }
 }
 
+InterviewMode interviewModeFromName(String value) {
+  return InterviewMode.values.firstWhere(
+    (mode) => mode.name == value,
+    orElse: () => InterviewMode.ai,
+  );
+}
+
 class InterviewCameraArgs {
   const InterviewCameraArgs({
     required this.category,
@@ -38,7 +58,6 @@ class InterviewCameraArgs {
   final JobCategory category;
   final InterviewMode mode;
   final List<String> questions;
-
 }
 
 class QuestionFeedback {
@@ -51,6 +70,20 @@ class QuestionFeedback {
   final String question;
   final String feedback;
   final double? score;
+  Map<String, dynamic> toMap() => {
+        'question': question,
+        'feedback': feedback,
+        if (score != null) 'score': score,
+      };
+
+  factory QuestionFeedback.fromMap(Map<String, dynamic>? map) {
+    final data = map ?? const <String, dynamic>{};
+    return QuestionFeedback(
+      question: data['question'] as String? ?? '',
+      feedback: data['feedback'] as String? ?? '',
+      score: (data['score'] as num?)?.toDouble(),
+    );
+  }
 }
 
 class InterviewScore {
@@ -61,6 +94,24 @@ class InterviewScore {
 
   final double overallScore;
   final List<QuestionFeedback> perQuestionFeedback;
+  Map<String, dynamic> toMap() => {
+        'overallScore': overallScore,
+        'perQuestionFeedback':
+            perQuestionFeedback.map((feedback) => feedback.toMap()).toList(),
+      };
+
+  factory InterviewScore.fromMap(Map<String, dynamic>? map) {
+    final data = map ?? const <String, dynamic>{};
+    final feedbackList =
+        (data['perQuestionFeedback'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(QuestionFeedback.fromMap)
+            .toList();
+    return InterviewScore(
+      overallScore: (data['overallScore'] as num?)?.toDouble() ?? 0,
+      perQuestionFeedback: feedbackList,
+    );
+  }
 }
 
 class InterviewRecordingResult {
@@ -90,4 +141,36 @@ class InterviewRecordingResult {
 
   bool get hasError =>
       hasTranscriptionError || hasEvaluationError || hasFaceAnalysisError;
+  Map<String, dynamic> toMap() => {
+        'filePath': filePath,
+        if (transcript != null) 'transcript': transcript,
+        if (transcriptConfidence != null)
+          'transcriptConfidence': transcriptConfidence,
+        if (score != null) 'score': score!.toMap(),
+        if (faceAnalysis != null) 'faceAnalysis': faceAnalysis!.toMap(),
+        if (faceAnalysisError != null) 'faceAnalysisError': faceAnalysisError,
+        if (transcriptionError != null)
+          'transcriptionError': transcriptionError,
+        if (evaluationError != null) 'evaluationError': evaluationError,
+      };
+
+  factory InterviewRecordingResult.fromMap(Map<String, dynamic>? map) {
+    final data = map ?? const <String, dynamic>{};
+    return InterviewRecordingResult(
+      filePath: data['filePath'] as String? ?? '',
+      transcript: data['transcript'] as String?,
+      transcriptConfidence: (data['transcriptConfidence'] as num?)?.toDouble(),
+      score: data['score'] is Map<String, dynamic>
+          ? InterviewScore.fromMap(data['score'] as Map<String, dynamic>?)
+          : null,
+      faceAnalysis: data['faceAnalysis'] is Map<String, dynamic>
+          ? FaceAnalysisResult.fromMap(
+              data['faceAnalysis'] as Map<String, dynamic>?,
+            )
+          : null,
+      faceAnalysisError: data['faceAnalysisError'] as String?,
+      transcriptionError: data['transcriptionError'] as String?,
+      evaluationError: data['evaluationError'] as String?,
+    );
+  }
 }

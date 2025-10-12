@@ -71,7 +71,7 @@ Future<void> _startInterview(
 
   final result = await context.push<InterviewRecordingResult>(
     '/interview/camera',
-extra: InterviewCameraArgs(
+    extra: InterviewCameraArgs(
       category: category,
       mode: mode,
       questions: questions,
@@ -101,7 +101,6 @@ extra: InterviewCameraArgs(
       category: category,
       mode: mode,
       questions: questions,
-
     ),
   );
 

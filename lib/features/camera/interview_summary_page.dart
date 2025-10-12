@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -14,14 +17,16 @@ class InterviewSummaryPageArgs {
     required this.category,
     required this.mode,
     this.questions = const [],
-
+    this.recordId,
+    this.shouldPersist = true,
   });
 
   final InterviewRecordingResult result;
   final JobCategory category;
   final InterviewMode mode;
   final List<String> questions;
-
+  final String? recordId;
+  final bool shouldPersist;
 }
 
 class InterviewSummaryPage extends StatefulWidget {
@@ -35,6 +40,48 @@ class InterviewSummaryPage extends StatefulWidget {
 
 class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
   bool _isSavingPdf = false;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_persistResultIfNeeded());
+  }
+
+  Future<void> _persistResultIfNeeded() async {
+    if (!widget.args.shouldPersist) {
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return;
+    }
+
+    final interviewsCollection = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('interviews');
+
+    final payload = {
+      'category': widget.args.category.toMap(),
+      'mode': widget.args.mode.name,
+      'questions': widget.args.questions,
+      'result': widget.args.result.toMap(),
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    try {
+      await interviewsCollection.add(payload);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('면접 결과를 저장하지 못했습니다. 네트워크를 확인해 주세요.'),
+          ),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +250,8 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
                             pw.Text('${entry.key + 1}. ',
-                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold)),
                             pw.Expanded(child: pw.Text(entry.value)),
                           ],
                         ),
@@ -511,6 +559,7 @@ class _ScoreBreakdown extends StatelessWidget {
     );
   }
 }
+
 class _QuestionListSection extends StatelessWidget {
   const _QuestionListSection({required this.questions});
 
@@ -550,7 +599,8 @@ class _QuestionListSection extends StatelessWidget {
           ...List.generate(questions.length, (index) {
             final question = questions[index];
             return Padding(
-              padding: EdgeInsets.only(bottom: index == questions.length - 1 ? 0 : 12),
+              padding: EdgeInsets.only(
+                  bottom: index == questions.length - 1 ? 0 : 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -588,7 +638,6 @@ class _FaceAnalysisSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
