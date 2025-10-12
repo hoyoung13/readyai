@@ -48,6 +48,14 @@ class InterviewEvaluationService {
     }
 
     final endpoint = '$_baseUrl/chat/completions';
+    final questions = args.questions;
+    final questionSection = questions.isEmpty
+        ? '질문이 별도로 제공되지 않았습니다.'
+        : questions
+            .asMap()
+            .entries
+            .map((entry) => '${entry.key + 1}. ${entry.value}')
+            .join('\n');
 
     final requestBody = <String, dynamic>{
       'model': _model,
@@ -57,8 +65,9 @@ class InterviewEvaluationService {
           'role': 'system',
           'content':
               '너는 면접관 역할의 전문가 평가자입니다. 항상 한국어로 평가하세요. '
-              '면접 답변의 내용을 객관적이고 간결하게 평가하고, 주어진 JSON 스키마 형식에 맞게 결과를 반환하세요. '
-              '평가 결과의 모든 텍스트(피드백, 질문 등)는 반드시 한국어로 작성해야 합니다. '
+              '제공된 질문 목록을 기준으로 면접 답변을 객관적이고 간결하게 평가하고, 각 질문에 대한 피드백과 점수를 생성하세요. '
+              '반드시 질문 순서를 유지하고, 질문 텍스트는 제공된 문장을 그대로 사용하세요. '
+              '주어진 JSON 스키마 형식에 맞게 결과를 반환하세요. 평가 결과의 모든 텍스트(피드백, 질문 등)는 반드시 한국어로 작성해야 합니다. '
               'JSON 외의 추가 텍스트는 절대 포함하지 마세요.'
         },
         {
@@ -68,6 +77,9 @@ Evaluate the following interview answer.
 
 Category: ${args.category.title}
 Mode: ${args.mode.title}
+
+Questions:
+$questionSection
 
 Transcript:
 """${_truncate(transcript, 6000)}"""
@@ -102,7 +114,7 @@ Transcript:
                       'maximum': 100
                     }
                   },
-                  'required': ['feedback']
+                  'required': ['question', 'feedback']
                 }
               }
             },
@@ -149,7 +161,7 @@ Transcript:
       }
 
       final feedbackList = (json['feedback'] as List?) ?? const [];
-      final perQuestion = feedbackList
+      List<QuestionFeedback> perQuestion = feedbackList
           .whereType<Map<String, dynamic>>()
           .map((m) => QuestionFeedback(
                 question: (m['question'] as String?)?.trim() ?? '',
@@ -159,6 +171,23 @@ Transcript:
               ))
           .where((f) => f.feedback.isNotEmpty || f.question.isNotEmpty)
           .toList();
+          if (questions.isNotEmpty) {
+        perQuestion = List.generate(questions.length, (index) {
+          if (index < perQuestion.length) {
+            final item = perQuestion[index];
+            return QuestionFeedback(
+              question: questions[index],
+              feedback: item.feedback,
+              score: item.score,
+            );
+          }
+          return QuestionFeedback(
+            question: questions[index],
+            feedback: '해당 질문에 대한 답변이 명확하지 않아 평가할 수 없습니다.',
+            score: null,
+          );
+        });
+      }
 
       return InterviewScore(
         overallScore: overall.clamp(0, 100),

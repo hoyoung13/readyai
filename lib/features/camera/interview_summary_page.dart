@@ -13,11 +13,15 @@ class InterviewSummaryPageArgs {
     required this.result,
     required this.category,
     required this.mode,
+    this.questions = const [],
+
   });
 
   final InterviewRecordingResult result;
   final JobCategory category;
   final InterviewMode mode;
+  final List<String> questions;
+
 }
 
 class InterviewSummaryPage extends StatefulWidget {
@@ -57,6 +61,13 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                 score: score,
                 filePath: result.filePath,
               ),
+              if (widget.args.questions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: _QuestionListSection(
+                    questions: widget.args.questions,
+                  ),
+                ),
               if (result.hasError)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
@@ -176,6 +187,30 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
               pw.Text('면접 유형: ${widget.args.mode.title}'),
               pw.Text('녹화 파일: ${result.filePath}'),
               pw.SizedBox(height: 16),
+              if (widget.args.questions.isNotEmpty) ...[
+                pw.Text(
+                  '면접 질문',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                ...widget.args.questions.asMap().entries.map(
+                      (entry) => pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 4),
+                        child: pw.Row(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('${entry.key + 1}. ',
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            pw.Expanded(child: pw.Text(entry.value)),
+                          ],
+                        ),
+                      ),
+                    ),
+                pw.SizedBox(height: 12),
+              ],
               if (score != null) ...[
                 pw.Text(
                   '종합 점수: ${score.overallScore.toStringAsFixed(1)}점',
@@ -473,6 +508,75 @@ class _ScoreBreakdown extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+class _QuestionListSection extends StatelessWidget {
+  const _QuestionListSection({required this.questions});
+
+  final List<String> questions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (questions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '면접 질문',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...List.generate(questions.length, (index) {
+            final question = questions[index];
+            return Padding(
+              padding: EdgeInsets.only(bottom: index == questions.length - 1 ? 0 : 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${index + 1}.',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.mint,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      question,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

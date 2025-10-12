@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ai/features/camera/interview_models.dart';
+import 'package:ai/features/camera/interview_question_bank.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'tabs_shared.dart';
 
@@ -61,12 +62,20 @@ Future<void> _startInterview(
   JobCategory category,
   InterviewMode mode,
 ) async {
+  final questions = InterviewQuestionBank.getQuestions(
+    category: category,
+    mode: mode,
+  );
   final granted = await _ensureCameraPermission(context);
   if (!granted || !context.mounted) return;
 
   final result = await context.push<InterviewRecordingResult>(
     '/interview/camera',
-    extra: InterviewCameraArgs(category: category, mode: mode),
+extra: InterviewCameraArgs(
+      category: category,
+      mode: mode,
+      questions: questions,
+    ),
   );
 
   if (!context.mounted || result == null) return;
@@ -91,6 +100,8 @@ Future<void> _startInterview(
       result: result,
       category: category,
       mode: mode,
+      questions: questions,
+
     ),
   );
 

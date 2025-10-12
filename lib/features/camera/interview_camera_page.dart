@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:ai/features/camera/interview_evaluation_service.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_stt_service.dart';
@@ -7,6 +8,7 @@ import 'package:ai/features/camera/services/google_cloud_stt_service.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class InterviewCameraPage extends StatefulWidget {
@@ -33,15 +35,22 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   String? _sttInitializationError;
   late final InterviewEvaluationService _evaluationService;
   late final AzureFaceAnalysisService _faceAnalysisService;
-
+  late final List<String> _questions;
+  int _currentQuestionIndex = 0;
+  FlutterTts? _tts;
+  String? _ttsInitializationError;
+  final Set<int> _spokenQuestions = {};
 
   @override
   void initState() {
     super.initState();
     _evaluationService = InterviewEvaluationService();
     _faceAnalysisService = AzureFaceAnalysisService();
+    _questions = List<String>.from(widget.args.questions);
     _initializeCamera();
     _initSttService();
+    _initTts();
+
   }
 
   Future<void> _initSttService() async {
@@ -96,8 +105,81 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
 
   @override
   void dispose() {
+    _tts?.stop();
     _controller?.dispose();
     super.dispose();
+  }
+  Future<void> _initTts() async {
+    try {
+      final tts = FlutterTts();
+      await tts.setLanguage('ko-KR');
+      await tts.setSpeechRate(0.92);
+      await tts.setVolume(1.0);
+      await tts.setPitch(1.0);
+      if (!mounted) {
+        await tts.stop();
+        return;
+      }
+      setState(() {
+        _tts = tts;
+        _ttsInitializationError = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _ttsInitializationError = '질문 음성 안내를 사용할 수 없습니다.';
+      });
+    }
+  }
+
+  Future<void> _speakCurrentQuestion({bool force = false}) async {
+    if (_questions.isEmpty) {
+      return;
+    }
+    final tts = _tts;
+    if (tts == null) {
+      return;
+    }
+    final index = _currentQuestionIndex;
+    if (!force && _spokenQuestions.contains(index)) {
+      return;
+    }
+    final text = _questions[index];
+    try {
+      await tts.stop();
+      await tts.speak(text);
+      _spokenQuestions.add(index);
+    } catch (_) {}
+  }
+
+  void _goToNextQuestion() {
+    if (_questions.isEmpty) {
+      return;
+    }
+    if (_currentQuestionIndex >= _questions.length - 1) {
+      return;
+    }
+    setState(() {
+      _currentQuestionIndex++;
+    });
+    _spokenQuestions.remove(_currentQuestionIndex);
+    unawaited(_speakCurrentQuestion(force: true));
+  }
+
+  void _goToPreviousQuestion() {
+    if (_questions.isEmpty) {
+      return;
+    }
+    if (_currentQuestionIndex <= 0) {
+      return;
+    }
+    setState(() {
+      _currentQuestionIndex--;
+    });
+    _spokenQuestions.remove(_currentQuestionIndex);
+    unawaited(_speakCurrentQuestion(force: true));
   }
 
   Future<void> _initializeCamera() async {
@@ -218,6 +300,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         _isRecording = true;
         _savingStatusMessage = null;
       });
+      _spokenQuestions.remove(_currentQuestionIndex);
+      unawaited(_speakCurrentQuestion());
     } on CameraException catch (e, st) {
       _showErrorSnackBar(
         '녹화를 시작할 수 없습니다. (${e.code}) ${e.description ?? ""}'.trim(),
@@ -458,7 +542,19 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
               padding: const EdgeInsets.all(16),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
-                child: _buildCameraPreview(controller),
+child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildCameraPreview(controller),
+                    if (_questions.isNotEmpty)
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                        child: _buildQuestionOverlay(context),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -565,6 +661,24 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
 
     return CameraPreview(controller);
   }
+   Widget _buildQuestionOverlay(BuildContext context) {
+    final theme = Theme.of(context);
+    final total = _questions.length;
+    final question = _questions[_currentQuestionIndex];
+    final canGoPrev = _currentQuestionIndex > 0;
+    final canGoNext = _currentQuestionIndex < total - 1;
+
+    return _QuestionOverlay(
+      question: question,
+      index: _currentQuestionIndex,
+      total: total,
+      onReplay: _tts != null ? () => _speakCurrentQuestion(force: true) : null,
+      onNext: canGoNext ? _goToNextQuestion : null,
+      onPrevious: canGoPrev ? _goToPreviousQuestion : null,
+      ttsError: _ttsInitializationError,
+      theme: theme,
+    );
+  }
 }
 
 class _ErrorView extends StatelessWidget {
@@ -598,6 +712,104 @@ class _ErrorView extends StatelessWidget {
                 openAppSettings();
               },
               child: const Text('설정 열기'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+class _QuestionOverlay extends StatelessWidget {
+  const _QuestionOverlay({
+    required this.question,
+    required this.index,
+    required this.total,
+    required this.theme,
+    this.onReplay,
+    this.onNext,
+    this.onPrevious,
+    this.ttsError,
+  });
+
+  final String question;
+  final int index;
+  final int total;
+  final VoidCallback? onReplay;
+  final VoidCallback? onNext;
+  final VoidCallback? onPrevious;
+  final String? ttsError;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: Colors.white70,
+      fontWeight: FontWeight.w600,
+    );
+    final questionStyle = theme.textTheme.titleMedium?.copyWith(
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+      height: 1.4,
+    );
+
+    final buttons = <Widget>[
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white70),
+        ),
+        onPressed: onReplay,
+        icon: const Icon(Icons.volume_up_outlined),
+        label: const Text('질문 다시 듣기'),
+      ),
+      if (onPrevious != null)
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white70),
+          ),
+          onPressed: onPrevious,
+          icon: const Icon(Icons.navigate_before),
+          label: const Text('이전 질문'),
+        ),
+      if (onNext != null)
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+          ),
+          onPressed: onNext,
+          icon: const Icon(Icons.navigate_next),
+          label: const Text('다음 질문'),
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('질문 ${index + 1}/$total', style: labelStyle),
+          const SizedBox(height: 8),
+          Text(question, style: questionStyle),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: buttons,
+          ),
+          if (ttsError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              ttsError!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.orange.shade200,
+              ),
             ),
           ],
         ],

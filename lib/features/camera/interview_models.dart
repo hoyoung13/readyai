@@ -30,10 +30,15 @@ extension InterviewModeX on InterviewMode {
 }
 
 class InterviewCameraArgs {
-  const InterviewCameraArgs({required this.category, required this.mode});
-
+  const InterviewCameraArgs({
+    required this.category,
+    required this.mode,
+    this.questions = const [],
+  });
   final JobCategory category;
   final InterviewMode mode;
+  final List<String> questions;
+
 }
 
 class QuestionFeedback {
