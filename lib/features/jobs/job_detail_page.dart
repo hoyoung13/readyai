@@ -21,7 +21,7 @@ class JobDetailPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              job.organizationName,
+              job.companyLabel,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -37,61 +37,51 @@ class JobDetailPage extends StatelessWidget {
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    _statusLabel(job.status),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                _InfoTag(
+                  icon: Icons.place_outlined,
+                  label: job.regionLabel,
                 ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: () => _launchApply(job.url, context),
-                  child: const Text('입사지원'),
-                ),
+                if (job.prettyPostedDate != null)
+                  _InfoTag(
+                    icon: Icons.event_note,
+                    label: '${job.prettyPostedDate} 등록',
+                  ),
               ],
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => _launchDetail(job.url, context),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('상세 공고 보기'),
             ),
             const SizedBox(height: 28),
             _InfoBlock(
-              title: '모집기간',
+              title: '기본 정보',
               children: [
-                _InfoRow(label: '등록일', value: _formatDate(job.regDate)),
-                _InfoRow(label: '수정일', value: _formatDate(job.modDate)),
+                _InfoRow(label: '기업명', value: job.companyLabel),
+                _InfoRow(label: '근무지', value: job.regionLabel),
                 _InfoRow(
-                    label: '마감일',
-                    value: _formatDate(job.endDate, placeholder: '채용시까지')),
+                    label: '등록일',
+                  value: job.prettyPostedDate ?? '정보 없음',
+                ),
+                _InfoRow(
+                  label: '상세 링크',
+                  value: job.hasUrl ? job.url : '제공되지 않음',
+                ),
               ],
             ),
             const SizedBox(height: 20),
             _InfoBlock(
-              title: '채용기관 정보',
-              children: [
-                _InfoRow(label: '기관명', value: job.organizationName),
-                _InfoRow(label: '공고 번호', value: '#${job.id}'),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _InfoBlock(
-              title: '지원 안내',
+              title: '안내',
               children: const [
-                Text('공고 상세 페이지에서 지원 절차를 확인하고 제출해 주세요.'),
+                Text('상세 공고 페이지에서 지원 절차를 확인한 뒤 지원해 주세요.'),
                 SizedBox(height: 8),
-                Text('입사지원 버튼을 눌러 한국저작권위원회 채용 게시판으로 이동합니다.'),
+                Text('본 정보는 JobKorea 검색 결과를 기반으로 수집되었습니다.'),
               ],
             ),
           ],
@@ -100,11 +90,11 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
-  void _launchApply(String url, BuildContext context) async {
+  void _launchDetail(String url, BuildContext context) async {
     final trimmed = url.trim();
     if (trimmed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('지원 링크가 제공되지 않았습니다.')),
+        const SnackBar(content: Text('상세 링크가 제공되지 않았습니다.')),
       );
       return;
     }
@@ -113,9 +103,44 @@ class JobDetailPage extends StatelessWidget {
         await launchUrlString(trimmed, mode: LaunchMode.externalApplication);
     if (!launched) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('지원 페이지를 열 수 없습니다.')),
+        const SnackBar(content: Text('상세 페이지를 열 수 없습니다.')),
       );
     }
+  }
+}
+class _InfoTag extends StatelessWidget {
+  const _InfoTag({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.subtext),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -191,25 +216,5 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-String _formatDate(DateTime? value, {String placeholder = '정보 없음'}) {
-  if (value == null) {
-    return placeholder;
-  }
-  final month = value.month.toString().padLeft(2, '0');
-  final day = value.day.toString().padLeft(2, '0');
-  return '${value.year}.$month.$day';
-}
-
-String _statusLabel(String status) {
-  switch (status.toUpperCase()) {
-    case 'Y':
-      return '모집중';
-    case 'N':
-      return '마감';
-    default:
-      return status.isEmpty ? '상태 미확인' : status;
   }
 }

@@ -191,7 +191,7 @@ Future<JobCategory?> _showJobCategorySheet(BuildContext context) {
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 1.8,
+                      childAspectRatio: 1.6,
                     ),
                     itemBuilder: (context, index) {
                       final category = _jobCategories[index];

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../jobs/job_detail_page.dart';
 import '../jobs/job_posting.dart';
-import '../jobs/job_posting_api.dart';
+import '../jobs/job_posting_loader.dart';
 import 'tabs_shared.dart';
 
 class JobsTab extends StatefulWidget {
@@ -12,7 +12,7 @@ class JobsTab extends StatefulWidget {
 
 class _JobsTabState extends State<JobsTab> {
   late Future<JobFeed> _future;
-  final JobPostingApi _api = JobPostingApi();
+  final JobPostingLoader _loader = const JobPostingLoader();
 
   @override
   void initState() {
@@ -20,17 +20,7 @@ class _JobsTabState extends State<JobsTab> {
     _future = _fetch();
   }
 
-  @override
-  void dispose() {
-    _api.dispose();
-    super.dispose();
-  }
-
-  Future<JobFeed> _fetch() {
-    final now = DateTime.now();
-    final start = now.subtract(const Duration(days: 90));
-    return _api.fetch(start: start, end: now);
-  }
+  Future<JobFeed> _fetch() => _loader.load();
 
   Future<void> _handleRefresh() {
     final future = _fetch();
@@ -149,7 +139,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Text(
-          '채용정보 총 $totalCount건',
+          '검색 결과 총 $totalCount건',
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
@@ -183,7 +173,7 @@ class _Header extends StatelessWidget {
               ),
               SizedBox(height: 6),
               Text(
-                '최근 3개월 동안 게시된 한국저작권위원회 채용공고를 모아 보여드려요.',
+                'JobKorea에서 수집한 최신 채용공고를 한눈에 확인해 보세요.',
                 style: TextStyle(
                   color: AppColors.subtext,
                   height: 1.3,
@@ -322,7 +312,7 @@ class _JobCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                job.organizationName,
+                job.companyLabel,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -355,12 +345,12 @@ class _JobCard extends StatelessWidget {
   }
 
   String _buildSummary(JobPosting job) {
-    final reg = job.regDate != null ? _formatDate(job.regDate!) : null;
-    final end = job.endDate != null ? _formatDate(job.endDate!) : '채용시까지';
-    if (reg == null) {
-      return '마감일 $end';
+    final location = job.regionLabel;
+    final date = job.prettyPostedDate;
+    if (date != null) {
+      return '$location · $date';
     }
-    return '$reg 등록 · 마감일 $end';
+    return location;
   }
 }
 
@@ -432,12 +422,6 @@ class _ErrorView extends StatelessWidget {
       ],
     );
   }
-}
-
-String _formatDate(DateTime date) {
-  final month = date.month.toString().padLeft(2, '0');
-  final day = date.day.toString().padLeft(2, '0');
-  return '${date.year}.$month.$day';
 }
 
 extension _IterableMapIndexed<E> on Iterable<E> {
