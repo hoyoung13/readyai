@@ -9,6 +9,9 @@ class InterviewRecord {
     required this.questions,
     required this.result,
     required this.createdAt,
+    required this.categoryKey,
+    this.videoUrl,
+    this.videoStoragePath,
   });
 
   final String id;
@@ -17,6 +20,9 @@ class InterviewRecord {
   final List<String> questions;
   final InterviewRecordingResult result;
   final DateTime createdAt;
+  final String categoryKey;
+  final String? videoUrl;
+  final String? videoStoragePath;
 
   factory InterviewRecord.fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -25,6 +31,12 @@ class InterviewRecord {
     final rawCategory = data['category'] as Map<String, dynamic>?;
     final rawQuestions = data['questions'] as List<dynamic>? ?? const [];
     final timestamp = data['createdAt'];
+    final categoryKey = data['categoryKey'] as String?;
+    final resultMap = data['result'] as Map<String, dynamic>?;
+    final result = InterviewRecordingResult.fromMap(resultMap);
+
+    final resolvedCategoryKey =
+        categoryKey ?? buildCategoryKey(JobCategory.fromMap(rawCategory));
 
     DateTime createdAt;
     if (timestamp is Timestamp) {
@@ -42,9 +54,11 @@ class InterviewRecord {
         data['mode'] as String? ?? InterviewMode.ai.name,
       ),
       questions: rawQuestions.whereType<String>().toList(),
-      result: InterviewRecordingResult.fromMap(
-          data['result'] as Map<String, dynamic>?),
+      result: result,
       createdAt: createdAt,
+      categoryKey: resolvedCategoryKey,
+      videoUrl: result.videoUrl,
+      videoStoragePath: result.videoStoragePath,
     );
   }
 }

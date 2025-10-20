@@ -2,15 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
-import 'package:ai/features/camera/interview_models.dart';
-import 'package:ai/features/camera/interview_summary_page.dart';
+import 'package:ai/features/profile/models/interview_folder.dart';
+import 'package:ai/features/profile/interview_folder_page.dart';
 import 'package:ai/features/profile/models/interview_record.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 
-class InterviewHistoryPage extends StatelessWidget {
+class InterviewHistoryPage extends StatefulWidget {
   const InterviewHistoryPage({super.key});
+  @override
+  State<InterviewHistoryPage> createState() => _InterviewHistoryPageState();
+}
 
+class _InterviewHistoryPageState extends State<InterviewHistoryPage> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -21,9 +24,13 @@ class InterviewHistoryPage extends StatelessWidget {
       );
     }
 
-    final stream = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
+    final userDoc =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final foldersStream = userDoc
+        .collection('interviewFolders')
+        .orderBy('updatedAt', descending: true)
+        .snapshots();
+    final recordsStream = userDoc
         .collection('interviews')
         .orderBy('createdAt', descending: true)
         .snapshots();
@@ -37,68 +44,175 @@ class InterviewHistoryPage extends StatelessWidget {
         elevation: 0.5,
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: stream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
+        stream: foldersStream,
+        builder: (context, foldersSnapshot) {
+          if (foldersSnapshot.hasError) {
             return const Center(
-              child: Text('면접 기록을 불러오지 못했습니다.'),
+              child: Text('폴더 정보를 불러오지 못했습니다.'),
             );
           }
 
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: recordsStream,
+            builder: (context, recordsSnapshot) {
+              if (recordsSnapshot.hasError) {
+                return const Center(
+                  child: Text('면접 기록을 불러오지 못했습니다.'),
+                );
+              }
 
-          final records =
-              snapshot.data?.docs.map(InterviewRecord.fromDoc).toList() ??
-                  const <InterviewRecord>[];
+              if ((foldersSnapshot.connectionState == ConnectionState.waiting &&
+                      !foldersSnapshot.hasData) ||
+                  (recordsSnapshot.connectionState == ConnectionState.waiting &&
+                      !recordsSnapshot.hasData)) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          if (records.isEmpty) {
-            return const _EmptyHistoryState();
-          }
+              final folderDocs = foldersSnapshot.data?.docs ??
+                  const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+              final recordDocs = recordsSnapshot.data?.docs ??
+                  const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-            itemCount: records.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              return _HistoryTile(record: records[index]);
+              final folders = folderDocs.map(InterviewFolder.fromDoc).toList();
+              final records = recordDocs.map(InterviewRecord.fromDoc).toList();
+
+              if (folders.isEmpty && records.isEmpty) {
+                return const _EmptyHistoryState();
+              }
+
+              final folderIdSet = folderDocs.map((doc) => doc.id).toSet();
+              final folderById = {
+                for (final folder in folders) folder.id: folder
+              };
+              final groupedRecords = <String, List<InterviewRecord>>{};
+              for (final record in records) {
+                groupedRecords
+                    .putIfAbsent(record.categoryKey, () => [])
+                    .add(record);
+              }
+
+              for (final entry in groupedRecords.entries) {
+                folderById.putIfAbsent(
+                  entry.key,
+                  () => InterviewFolder(
+                    id: entry.key,
+                    category: entry.value.first.category,
+                    defaultName: entry.value.first.category.title,
+                    createdAt: entry.value.first.createdAt,
+                    updatedAt: entry.value.first.createdAt,
+                  ),
+                );
+              }
+
+              final foldersToShow = folderById.values.toList()
+                ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                itemCount: foldersToShow.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final folder = foldersToShow[index];
+                  final folderRecords =
+                      groupedRecords[folder.id] ?? const <InterviewRecord>[];
+                  final canRename = folderIdSet.contains(folder.id);
+                  return _FolderTile(
+                    folder: folder,
+                    records: folderRecords,
+                    canRename: canRename,
+                    onRename: canRename
+                        ? () => _handleRenameFolder(
+                              context,
+                              userDoc
+                                  .collection('interviewFolders')
+                                  .doc(folder.id),
+                              folder,
+                            )
+                        : null,
+                  );
+                },
+              );
             },
           );
         },
       ),
     );
   }
+
+  Future<void> _handleRenameFolder(
+    BuildContext context,
+    DocumentReference<Map<String, dynamic>> folderRef,
+    InterviewFolder folder,
+  ) async {
+    final controller =
+        TextEditingController(text: folder.customName ?? folder.defaultName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('폴더 이름 수정'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: '폴더 이름을 입력하세요.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('저장'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (newName == null) {
+      return;
+    }
+
+    try {
+      await folderRef.update({
+        'customName': newName.isEmpty ? null : newName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('폴더 이름을 저장하지 못했습니다. 다시 시도해 주세요.')),
+        );
+    }
+  }
 }
 
-class _HistoryTile extends StatelessWidget {
-  const _HistoryTile({required this.record});
+class _FolderTile extends StatelessWidget {
+  const _FolderTile({
+    required this.folder,
+    required this.records,
+    required this.canRename,
+    this.onRename,
+  });
 
-  final InterviewRecord record;
-
+  final InterviewFolder folder;
+  final List<InterviewRecord> records;
+  final bool canRename;
+  final VoidCallback? onRename;
   @override
   Widget build(BuildContext context) {
-    final score = record.result.score?.overallScore;
-    final hasError = record.result.hasError;
-    final statusLabel =
-        score != null ? '총점 ${score.toStringAsFixed(1)}점' : '평가 대기';
-    final errorMessage = record.result.evaluationError ??
-        record.result.transcriptionError ??
-        record.result.faceAnalysisError;
-
     return GestureDetector(
       onTap: () {
         context.push(
-          '/interview/summary',
-          extra: InterviewSummaryPageArgs(
-            result: record.result,
-            category: record.category,
-            mode: record.mode,
-            questions: record.questions,
-            recordId: record.id,
-            shouldPersist: false,
-          ),
+          '/profile/history/folder',
+          extra: InterviewFolderPageArgs(folder: folder),
         );
       },
       child: Container(
@@ -114,51 +228,39 @@ class _HistoryTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              record.category.title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${record.mode.title} · ${_formatDate(record.createdAt)}',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.subtext,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text(
-                  statusLabel,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+            const Icon(Icons.folder_outlined, size: 32, color: AppColors.mint),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    folder.displayName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.subtext,
-                ),
-              ],
-            ),
-            if (hasError && errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                errorMessage,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.redAccent,
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${records.length}개의 면접 영상',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.subtext,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
+            if (canRename)
+              IconButton(
+                onPressed: onRename,
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: '폴더 이름 변경',
+              ),
+            const Icon(Icons.chevron_right, color: AppColors.subtext),
           ],
         ),
       ),
@@ -189,13 +291,4 @@ class _EmptyHistoryState extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatDate(DateTime date) {
-  final y = date.year.toString();
-  final m = date.month.toString().padLeft(2, '0');
-  final d = date.day.toString().padLeft(2, '0');
-  final hh = date.hour.toString().padLeft(2, '0');
-  final mm = date.minute.toString().padLeft(2, '0');
-  return '$y.$m.$d $hh:$mm';
 }

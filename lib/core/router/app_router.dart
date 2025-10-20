@@ -7,6 +7,8 @@ import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/interview_history_page.dart';
+import 'package:ai/features/profile/interview_folder_page.dart';
+import 'package:ai/features/profile/interview_video_page.dart';
 
 final router = GoRouter(
   routes: [
@@ -17,6 +19,30 @@ final router = GoRouter(
     GoRoute(
       path: '/profile/history',
       builder: (_, __) => const InterviewHistoryPage(),
+    ),
+    GoRoute(
+      path: '/profile/history/folder',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is InterviewFolderPageArgs) {
+          return InterviewFolderPage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('폴더 정보를 불러오지 못했습니다.')),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/profile/history/video',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is InterviewVideoPageArgs) {
+          return InterviewVideoPage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('영상을 불러오지 못했습니다.')),
+        );
+      },
     ),
     GoRoute(
       path: '/interview/camera',

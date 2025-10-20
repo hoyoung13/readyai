@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:ai/features/camera/services/azure_face_service.dart';
+import 'package:ai/features/camera/services/interview_video_storage_service.dart';
 import 'package:printing/printing.dart';
 import 'package:ai/features/camera/interview_models.dart';
+import 'package:ai/features/profile/interview_video_page.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 
 enum InterviewSummaryResult { none, retry }
@@ -40,9 +43,13 @@ class InterviewSummaryPage extends StatefulWidget {
 
 class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
   bool _isSavingPdf = false;
+  late InterviewRecordingResult _result;
+  final InterviewVideoStorageService _videoStorageService =
+      InterviewVideoStorageService();
   @override
   void initState() {
     super.initState();
+    _result = widget.args.result;
     unawaited(_persistResultIfNeeded());
   }
 
@@ -60,17 +67,68 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
         .collection('users')
         .doc(user.uid)
         .collection('interviews');
+    final categoryKey = buildCategoryKey(widget.args.category);
+    var resultToPersist = _result;
+
+    if (_result.videoUrl == null && _result.filePath.isNotEmpty) {
+      try {
+        final uploaded = await _videoStorageService.uploadVideo(
+          localFilePath: _result.filePath,
+          userId: user.uid,
+          categoryKey: categoryKey,
+        );
+        resultToPersist = resultToPersist.copyWith(
+          videoUrl: uploaded.downloadUrl,
+          videoStoragePath: uploaded.storagePath,
+        );
+      } on InterviewVideoUploadException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..removeCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(content: Text(error.message)),
+            );
+        }
+      }
+    }
+
+    final userDoc = interviewsCollection.parent;
+    final folderRef = userDoc.collection('interviewFolders').doc(categoryKey);
+    final folderDoc = await folderRef.get();
+    if (!folderDoc.exists) {
+      await folderRef.set({
+        'categoryKey': categoryKey,
+        'category': widget.args.category.toMap(),
+        'defaultName': widget.args.category.title,
+        'customName': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      await folderRef.update({
+        'category': widget.args.category.toMap(),
+        'defaultName': widget.args.category.title,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
 
     final payload = {
       'category': widget.args.category.toMap(),
       'mode': widget.args.mode.name,
       'questions': widget.args.questions,
-      'result': widget.args.result.toMap(),
+      'categoryKey': categoryKey,
+      'folderId': categoryKey,
+      'result': resultToPersist.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
     };
 
     try {
       await interviewsCollection.add(payload);
+      if (mounted) {
+        setState(() {
+          _result = resultToPersist;
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -85,7 +143,7 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final result = widget.args.result;
+    final result = _result;
     final score = result.score;
 
     return Scaffold(
@@ -106,7 +164,7 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
                 category: widget.args.category,
                 mode: widget.args.mode,
                 score: score,
-                filePath: result.filePath,
+                result: result,
               ),
               if (widget.args.questions.isNotEmpty)
                 Padding(
@@ -396,17 +454,18 @@ class _SummaryHeader extends StatelessWidget {
   const _SummaryHeader({
     required this.category,
     required this.mode,
-    required this.filePath,
+    required this.result,
     this.score,
   });
 
   final JobCategory category;
   final InterviewMode mode;
   final InterviewScore? score;
-  final String filePath;
+  final InterviewRecordingResult result;
 
   @override
   Widget build(BuildContext context) {
+    final videoUrl = result.videoUrl;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -462,6 +521,23 @@ class _SummaryHeader extends StatelessWidget {
             filePath,
             style: const TextStyle(fontSize: 13, color: AppColors.subtext),
           ),*/
+          if (videoUrl != null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  context.push(
+                    '/profile/history/video',
+                    extra: InterviewVideoPageArgs(
+                      videoUrl: videoUrl,
+                      title: '${category.title} · ${mode.title}',
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.play_circle_outline),
+                label: const Text('녹화 영상 보기'),
+              ),
+            ),
         ],
       ),
     );

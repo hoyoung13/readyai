@@ -124,6 +124,8 @@ class InterviewRecordingResult {
     this.faceAnalysisError,
     this.transcriptionError,
     this.evaluationError,
+    this.videoUrl,
+    this.videoStoragePath,
   });
   final String filePath;
   final String? transcript;
@@ -133,6 +135,8 @@ class InterviewRecordingResult {
   final String? faceAnalysisError;
   final String? transcriptionError;
   final String? evaluationError;
+  final String? videoUrl;
+  final String? videoStoragePath;
   bool get hasTranscriptionError => transcriptionError != null;
 
   bool get hasEvaluationError => evaluationError != null;
@@ -143,6 +147,8 @@ class InterviewRecordingResult {
       hasTranscriptionError || hasEvaluationError || hasFaceAnalysisError;
   Map<String, dynamic> toMap() => {
         'filePath': filePath,
+        if (videoUrl != null) 'videoUrl': videoUrl,
+        if (videoStoragePath != null) 'videoStoragePath': videoStoragePath,
         if (transcript != null) 'transcript': transcript,
         if (transcriptConfidence != null)
           'transcriptConfidence': transcriptConfidence,
@@ -171,6 +177,49 @@ class InterviewRecordingResult {
       faceAnalysisError: data['faceAnalysisError'] as String?,
       transcriptionError: data['transcriptionError'] as String?,
       evaluationError: data['evaluationError'] as String?,
+      videoUrl: data['videoUrl'] as String?,
+      videoStoragePath: data['videoStoragePath'] as String?,
     );
   }
+  InterviewRecordingResult copyWith({
+    String? filePath,
+    String? transcript,
+    double? transcriptConfidence,
+    InterviewScore? score,
+    FaceAnalysisResult? faceAnalysis,
+    String? faceAnalysisError,
+    String? transcriptionError,
+    String? evaluationError,
+    String? videoUrl,
+    String? videoStoragePath,
+  }) {
+    return InterviewRecordingResult(
+      filePath: filePath ?? this.filePath,
+      transcript: transcript ?? this.transcript,
+      transcriptConfidence: transcriptConfidence ?? this.transcriptConfidence,
+      score: score ?? this.score,
+      faceAnalysis: faceAnalysis ?? this.faceAnalysis,
+      faceAnalysisError: faceAnalysisError ?? this.faceAnalysisError,
+      transcriptionError: transcriptionError ?? this.transcriptionError,
+      evaluationError: evaluationError ?? this.evaluationError,
+      videoUrl: videoUrl ?? this.videoUrl,
+      videoStoragePath: videoStoragePath ?? this.videoStoragePath,
+    );
+  }
+}
+
+String buildCategoryKey(JobCategory category) {
+  final raw = '${category.title}_${category.subtitle}'.trim().toLowerCase();
+  var sanitized = raw.replaceAll(RegExp('[^a-z0-9가-힣]+'), '_');
+  sanitized = sanitized.replaceAll(RegExp('_+'), '_');
+  if (sanitized.startsWith('_')) {
+    sanitized = sanitized.substring(1);
+  }
+  if (sanitized.endsWith('_')) {
+    sanitized = sanitized.substring(0, sanitized.length - 1);
+  }
+  if (sanitized.isEmpty) {
+    return 'category';
+  }
+  return sanitized;
 }
