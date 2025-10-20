@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/interview_video_page.dart';
 import 'package:ai/features/profile/models/interview_folder.dart';

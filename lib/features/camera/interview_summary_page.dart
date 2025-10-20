@@ -93,6 +93,9 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
     }
 
     final userDoc = interviewsCollection.parent;
+    if (userDoc == null) {
+      return;
+    }
     final folderRef = userDoc.collection('interviewFolders').doc(categoryKey);
     final folderDoc = await folderRef.get();
     if (!folderDoc.exists) {
