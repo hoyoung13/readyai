@@ -34,9 +34,9 @@ class InterviewFolderPage extends StatelessWidget {
         .doc(user.uid)
         .collection('interviews')
         .where('categoryKey', isEqualTo: args.folder.id)
-        .orderBy('createdAt', descending: true)
+        
         .snapshots();
-
+//.orderBy('createdAt', descending: true)
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -58,10 +58,13 @@ class InterviewFolderPage extends StatelessWidget {
               !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-
+//const <InterviewRecord>[]; 두줄아래
           final records =
               snapshot.data?.docs.map(InterviewRecord.fromDoc).toList() ??
-                  const <InterviewRecord>[];
+                  
+                  <InterviewRecord>[];
+
+          records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
           if (records.isEmpty) {
             return const _EmptyFolderState();
