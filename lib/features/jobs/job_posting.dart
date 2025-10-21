@@ -28,6 +28,36 @@ class JobFeed {
   }
 }
 
+class JobSummaryItem {
+  const JobSummaryItem({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  factory JobSummaryItem.fromJson(Map<String, dynamic> json) {
+    final label = (json['label'] ?? '').toString();
+    final value = (json['value'] ?? '').toString();
+    return JobSummaryItem(label: label, value: value);
+  }
+
+  bool get isEmpty => label.trim().isEmpty && value.trim().isEmpty;
+}
+
+class JobDetailRow {
+  const JobDetailRow({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  factory JobDetailRow.fromJson(Map<String, dynamic> json) {
+    final title = (json['title'] ?? '').toString();
+    final description = (json['description'] ?? '').toString();
+    return JobDetailRow(title: title, description: description);
+  }
+
+  bool get isEmpty => title.trim().isEmpty && description.trim().isEmpty;
+}
+
 class JobPosting {
   const JobPosting({
     required this.title,
@@ -36,6 +66,11 @@ class JobPosting {
     required this.url,
     required this.postedDateText,
     this.postedDate,
+    this.tags = const <String>[],
+    this.summaryItems = const <JobSummaryItem>[],
+    this.detailRows = const <JobDetailRow>[],
+    this.description = '',
+    this.notice = '',
   });
 
   final String title;
@@ -44,6 +79,11 @@ class JobPosting {
   final String url;
   final String postedDateText;
   final DateTime? postedDate;
+  final List<String> tags;
+  final List<JobSummaryItem> summaryItems;
+  final List<JobDetailRow> detailRows;
+  final String description;
+  final String notice;
 
   factory JobPosting.fromJson(Map<String, dynamic> json) {
     final title = _readFirst(json, const ['title', 'job_title', 'subject']);
@@ -54,6 +94,29 @@ class JobPosting {
     final postedDateText = _readFirst(
         json, const ['date', 'posted_date', 'postedDate', 'reg_date']);
 
+    final tags = (json['tags'] as List<dynamic>?)
+            ?.map((dynamic value) => value.toString().trim())
+            .where((element) => element.isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+
+    final summaryItems = (json['summaryItems'] as List<dynamic>?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(JobSummaryItem.fromJson)
+            .where((element) => !element.isEmpty)
+            .toList(growable: false) ??
+        const <JobSummaryItem>[];
+
+    final detailRows = (json['detailRows'] as List<dynamic>?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(JobDetailRow.fromJson)
+            .where((element) => !element.isEmpty)
+            .toList(growable: false) ??
+        const <JobDetailRow>[];
+
+    final description = (json['description'] ?? '').toString();
+    final notice = (json['notice'] ?? '').toString();
+
     return JobPosting(
       title: title,
       company: company,
@@ -61,8 +124,14 @@ class JobPosting {
       url: url,
       postedDateText: postedDateText,
       postedDate: _parseDate(postedDateText),
+      tags: tags,
+      summaryItems: summaryItems,
+      detailRows: detailRows,
+      description: description,
+      notice: notice,
     );
   }
+
   String get companyLabel => company.isNotEmpty ? company : '기업명 미확인';
 
   String get regionLabel => region.isNotEmpty ? region : '지역 정보 없음';
@@ -77,6 +146,19 @@ class JobPosting {
 
     final trimmed = postedDateText.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String get tagsSummary {
+    if (tags.isNotEmpty) {
+      return tags.join(' · ');
+    }
+
+    final location = regionLabel;
+    final date = prettyPostedDate;
+    if (date != null) {
+      return '$location · $date';
+    }
+    return location;
   }
 
   bool get hasUrl => url.trim().isNotEmpty;
