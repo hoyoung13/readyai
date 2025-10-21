@@ -509,6 +509,8 @@ class _SummaryHeader extends StatelessWidget {
             runSpacing: 8,
             children: [
               _InfoPill(label: '카테고리', value: category.title),
+              if (category.subtitle.trim().isNotEmpty)
+                _InfoPill(label: '지원 직무', value: category.subtitle),
               _InfoPill(label: '면접 유형', value: mode.title),
             ],
           ),

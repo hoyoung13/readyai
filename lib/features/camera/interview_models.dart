@@ -209,17 +209,29 @@ class InterviewRecordingResult {
 }
 
 String buildCategoryKey(JobCategory category) {
-  final raw = '${category.title}_${category.subtitle}'.trim().toLowerCase();
-  var sanitized = raw.replaceAll(RegExp('[^a-z0-9가-힣]+'), '_');
-  sanitized = sanitized.replaceAll(RegExp('_+'), '_');
-  if (sanitized.startsWith('_')) {
-    sanitized = sanitized.substring(1);
+  String sanitize(String value) {
+    var sanitized = value.trim().toLowerCase();
+    sanitized = sanitized.replaceAll(RegExp('[^a-z0-9가-힣]+'), '_');
+    sanitized = sanitized.replaceAll(RegExp('_+'), '_');
+    if (sanitized.startsWith('_')) {
+      sanitized = sanitized.substring(1);
+    }
+    if (sanitized.endsWith('_')) {
+      sanitized = sanitized.substring(0, sanitized.length - 1);
+    }
+    return sanitized;
   }
-  if (sanitized.endsWith('_')) {
-    sanitized = sanitized.substring(0, sanitized.length - 1);
+
+  final primary = sanitize(category.title);
+  if (primary.isNotEmpty) {
+    return primary;
   }
-  if (sanitized.isEmpty) {
-    return 'category';
+
+  final secondary = sanitize(category.subtitle);
+  if (secondary.isNotEmpty) {
+    return secondary;
   }
-  return sanitized;
+
+  final fallback = sanitize('${category.title}_${category.subtitle}');
+  return fallback.isNotEmpty ? fallback : 'category';
 }
