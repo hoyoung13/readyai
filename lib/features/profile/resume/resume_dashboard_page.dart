@@ -12,13 +12,12 @@ class ResumeDashboardPage extends StatefulWidget {
 }
 
 class _ResumeDashboardPageState extends State<ResumeDashboardPage> {
-
   static const _profileSummary = ResumeProfileSummary(
     name: '부천대',
     description: '남자, 2025년생',
   );
 
-   List<Resume> _resumes = const [];
+  List<Resume> _resumes = const [];
   bool _isLoading = true;
 
   @override
@@ -186,12 +185,14 @@ class _ResumePreviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusLabel = resume.completionStatus == ResumeCompletionStatus.completed
-        ? '작성 완료'
-        : '작성 미완료';
-    final statusColor = resume.completionStatus == ResumeCompletionStatus.completed
-        ? const Color(0xFF6D5CFF)
-        : AppColors.subtext;
+    final statusLabel =
+        resume.completionStatus == ResumeCompletionStatus.completed
+            ? '작성 완료'
+            : '작성 미완료';
+    final statusColor =
+        resume.completionStatus == ResumeCompletionStatus.completed
+            ? const Color(0xFF6D5CFF)
+            : AppColors.subtext;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -218,8 +219,8 @@ class _ResumePreviewTile extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(999),
@@ -243,6 +244,27 @@ class _ResumePreviewTile extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                if (resume.name.isNotEmpty || resume.phone.isNotEmpty)
+                  Text(
+                    '${resume.name}${resume.name.isNotEmpty && resume.phone.isNotEmpty ? ' · ' : ''}${resume.phone}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.subtext,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                if (resume.email.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      resume.email,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.subtext,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -262,7 +284,9 @@ class _ResumePreviewTile extends StatelessWidget {
                 resume.isPublic
                     ? Icons.radio_button_checked
                     : Icons.radio_button_off,
-                color: resume.isPublic ? const Color(0xFF6D5CFF) : AppColors.subtext,
+                color: resume.isPublic
+                    ? const Color(0xFF6D5CFF)
+                    : AppColors.subtext,
                 size: 20,
               ),
             ],
