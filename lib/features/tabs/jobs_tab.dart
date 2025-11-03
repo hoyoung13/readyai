@@ -143,6 +143,15 @@ class _Header extends StatelessWidget {
             height: 1.2,
           ),
         ),
+        const SizedBox(height: 8),
+        const Text(
+          '데이터 출처: 공공데이터포털(기획재정부 공공기관 채용정보 조회서비스)',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.subtext,
+            height: 1.4,
+          ),
+        ),
       ],
     );
   }

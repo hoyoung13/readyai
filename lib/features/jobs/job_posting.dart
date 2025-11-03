@@ -86,13 +86,57 @@ class JobPosting {
   final String notice;
 
   factory JobPosting.fromJson(Map<String, dynamic> json) {
-    final title = _readFirst(json, const ['title', 'job_title', 'subject']);
-    final company =
-        _readFirst(json, const ['company', 'company_name', 'companyName']);
-    final region = _readFirst(json, const ['region', 'location', 'area']);
-    final url = _readFirst(json, const ['url', 'link', 'detail_url']);
-    final postedDateText = _readFirst(
-        json, const ['date', 'posted_date', 'postedDate', 'reg_date']);
+    final title = _readFirst(json, const [
+      'title',
+      'job_title',
+      'subject',
+      'recruitmentTitle',
+      'busiNm',
+      'announcementTitle',
+      'jobTitle',
+    ]);
+    final company = _readFirst(json, const [
+      'company',
+      'company_name',
+      'companyName',
+      'instNm',
+      'organNm',
+      'orgName',
+      'publicInstitutionNm',
+      'agency',
+      'organization',
+    ]);
+    final region = _readFirst(json, const [
+      'region',
+      'location',
+      'area',
+      'workPlcNm',
+      'workRegion',
+      'workRegionNm',
+      'workLocation',
+      'workPlace',
+    ]);
+    final url = _readFirst(json, const [
+      'url',
+      'link',
+      'detail_url',
+      'detailUrl',
+      'detailLink',
+      'infoUrl',
+      'homepageUrl',
+      'recruitUrl',
+    ]);
+    final postedDateText = _readFirst(json, const [
+      'date',
+      'posted_date',
+      'postedDate',
+      'reg_date',
+      'receiptCloseDt',
+      'receiptEndDt',
+      'rcptEdDt',
+      'deadline',
+      'applyEndDate',
+    ]);
 
     final tags = (json['tags'] as List<dynamic>?)
             ?.map((dynamic value) => value.toString().trim())

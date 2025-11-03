@@ -108,7 +108,7 @@ class JobDetailPage extends StatelessWidget {
               children: const [
                 Text('상세 공고 페이지에서 지원 절차를 확인한 뒤 지원해 주세요.'),
                 SizedBox(height: 8),
-                Text('본 정보는 JobKorea 검색 결과를 기반으로 수집되었습니다.'),
+                Text('본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.'),
               ],
             ),
           ],
