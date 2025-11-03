@@ -53,10 +53,9 @@ class _HomeTabState extends State<HomeTab> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset('assets/logo.png', width: 20, height: 20),
+                  child: Image.asset('assets/logo.png', width: 50, height: 50),
                 ),
                 const SizedBox(width: 8),
-                const Text('앱이름', style: TextStyle(fontSize: 14)),
                 const Spacer(),
                 IconButton(
                   onPressed: () {},
@@ -78,25 +77,6 @@ class _HomeTabState extends State<HomeTab> {
           ),
 
           const SizedBox(height: 24),
-
-          //  (샘플) 나중엔 api 가져와서
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: const [
-                SectionHeader(title: '추천 공고'),
-                SizedBox(height: 8),
-                JobMiniCard(
-                    title: '백엔드 엔지니어', company: '무지개컴퍼니', tag: '신입/주니어'),
-                SizedBox(height: 8),
-                JobMiniCard(
-                  title: 'Flutter 앱 개발자',
-                  company: '아이엠',
-                  tag: '경력 1~3년',
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

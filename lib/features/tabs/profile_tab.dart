@@ -80,7 +80,7 @@ class ProfileTab extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
               children: [
                 const Text(
-                  '앱이름',
+                  '마이페이지',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -111,7 +111,6 @@ class ProfileTab extends StatelessWidget {
                   description: '스크랩/지원 내역',
                   buttonLabel: '확인',
                   onPressed: () => context.push('/profile/jobs'),
-
                 ),
                 const SizedBox(height: 28),
                 const Text(
