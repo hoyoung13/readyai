@@ -122,7 +122,6 @@ class _InterviewHistoryPageState extends State<InterviewHistoryPage> {
                     canRename: canRename,
                     onRename: canRename
                         ? () => _handleRenameFolder(
-                              context,
                               userDoc
                                   .collection('interviewFolders')
                                   .doc(folder.id),
@@ -140,15 +139,16 @@ class _InterviewHistoryPageState extends State<InterviewHistoryPage> {
   }
 
   Future<void> _handleRenameFolder(
-    BuildContext context,
     DocumentReference<Map<String, dynamic>> folderRef,
     InterviewFolder folder,
   ) async {
+    if (!mounted) return;
+
     final controller =
         TextEditingController(text: folder.customName ?? folder.defaultName);
     final newName = await showDialog<String>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('폴더 이름 수정'),
           content: TextField(
@@ -160,12 +160,12 @@ class _InterviewHistoryPageState extends State<InterviewHistoryPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('취소'),
             ),
             TextButton(
               onPressed: () =>
-                  Navigator.of(context).pop(controller.text.trim()),
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
               child: const Text('저장'),
             ),
           ],
@@ -174,7 +174,7 @@ class _InterviewHistoryPageState extends State<InterviewHistoryPage> {
     );
     controller.dispose();
 
-    if (newName == null) {
+    if (!mounted || newName == null) {
       return;
     }
 

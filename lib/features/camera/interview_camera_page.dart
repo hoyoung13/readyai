@@ -578,42 +578,64 @@ child: Stack(
                   ),
                   const SizedBox(height: 18),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: canRecord &&
-                                !_isRecording &&
-                                !_isSaving &&
-                                !_isTranscribing
-                            ? _startRecording
-                            : null,
-                        icon: const Icon(
-                          Icons.fiber_manual_record,
-                          color: Colors.red,
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: canRecord &&
+                                  !_isRecording &&
+                                  !_isSaving &&
+                                  !_isTranscribing
+                              ? _startRecording
+                              : null,
+                          icon: const Icon(
+                            Icons.fiber_manual_record,
+                            color: Colors.red,
+                          ),
+                          label: const Text('녹화 시작'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                          ),
                         ),
-                        label: const Text('녹화 시작'),
                       ),
                       const SizedBox(width: 16),
-                      FilledButton.icon(
-                        onPressed: canRecord &&
-                                _isRecording &&
-                                !_isSaving &&
-                                !_isTranscribing
-                            ? _stopRecording
-                            : null,
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: canRecord &&
+                                  _isRecording &&
+                                  !_isSaving &&
+                                  !_isTranscribing
+                              ? _stopRecording
+                              : null,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.max,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_isSaving)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                const Icon(Icons.stop),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  _isSaving
+                                      ? (_savingStatusMessage ?? '저장 중...')
+                                      : '녹화 종료',
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              )
-                            : const Icon(Icons.stop),
-                        label: Text(
-                          _isSaving
-                              ? (_savingStatusMessage ?? '저장 중...')
-                              : '녹화 종료',
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
