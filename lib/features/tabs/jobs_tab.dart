@@ -71,29 +71,35 @@ class _JobsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highlightJobs = feed.items.take(12).toList(growable: false);
+    final tableJobs = feed.items.take(6).toList(growable: false);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
       children: [
         _Header(totalCount: feed.totalCount),
         const SizedBox(height: 24),
         const _FilterRow(),
         const SizedBox(height: 24),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: feed.items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.88,
+        _JobsTable(jobs: tableJobs),
+        const SizedBox(height: 32),
+        const Text(
+          '이 공고, 놓치지 마세요!',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
           ),
-          itemBuilder: (context, index) {
-            final job = feed.items[index];
-            return _JobCard(job: job);
-          },
         ),
+        const SizedBox(height: 8),
+        const Text(
+          'AI가 엄선한 인기 채용 공고를 지금 확인해 보세요.',
+          style: TextStyle(
+            color: AppColors.subtext,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 24),
+        _HighlightsGrid(jobs: highlightJobs),
       ],
     );
   }
@@ -136,7 +142,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Text(
-          '검색 결과 총 $totalCount건',
+          '채용정보 총 $totalCount건',
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
@@ -164,11 +170,19 @@ class _FilterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black, width: 1.2),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.black, width: 1.1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 520;
@@ -219,21 +233,25 @@ class _FilterChip extends StatelessWidget {
       child: OutlinedButton(
         onPressed: () {},
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.black, width: 1.2),
+          side: const BorderSide(color: Colors.black, width: 1.0),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           foregroundColor: AppColors.text,
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
           alignment: Alignment.centerLeft,
-          backgroundColor: Colors.transparent,
+          backgroundColor: Colors.white,
         ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-          ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Icon(Icons.expand_more, size: 18, color: AppColors.subtext),
+          ],
         ),
       ),
     );
@@ -249,8 +267,9 @@ class _SearchField extends StatelessWidget {
       height: 48,
       child: DecoratedBox(
         decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black, width: 1.2),
+          border: Border.all(color: Colors.black, width: 1.0),
         ),
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
@@ -273,58 +292,228 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _JobCard extends StatelessWidget {
-  const _JobCard({required this.job});
+class _JobsTable extends StatelessWidget {
+  const _JobsTable({required this.jobs});
 
-  final JobPosting job;
+  final List<JobPosting> jobs;
 
   @override
   Widget build(BuildContext context) {
+    if (jobs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final headingStyle = theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.subtext,
+        ) ??
+        const TextStyle(fontWeight: FontWeight.w700, color: AppColors.subtext);
+
+    final dataStyle = theme.textTheme.bodyMedium?.copyWith(height: 1.3) ??
+        const TextStyle(height: 1.3);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: 24,
+            horizontalMargin: 20,
+            headingRowHeight: 44,
+            dataRowMinHeight: 56,
+            dataRowMaxHeight: 64,
+            headingTextStyle: headingStyle,
+            dataTextStyle: dataStyle,
+            columns: const [
+              DataColumn(label: Text('기업')),
+              DataColumn(label: Text('채용 공고')),
+              DataColumn(label: Text('지역')),
+              DataColumn(label: Text('마감일')),
+            ],
+            rows: jobs
+                .map(
+                  (job) => DataRow(
+                    onSelectChanged: (_) => _openDetail(context, job),
+                    cells: [
+                      DataCell(Text(job.companyLabel,
+                          overflow: TextOverflow.ellipsis)),
+                      DataCell(
+                          Text(job.title, overflow: TextOverflow.ellipsis)),
+                      DataCell(Text(job.regionLabel,
+                          overflow: TextOverflow.ellipsis)),
+                      DataCell(
+                        Text(
+                          job.prettyPostedDate ?? '상시',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context, JobPosting job) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
+    );
+  }
+}
+
+class _HighlightsGrid extends StatelessWidget {
+  const _HighlightsGrid({required this.jobs});
+
+  final List<JobPosting> jobs;
+
+  static const _palette = <Color>[
+    Color(0xFF6C63FF),
+    Color(0xFF4F86FF),
+    Color(0xFF2CB1A3),
+    Color(0xFFFF7043),
+    Color(0xFF8E24AA),
+    Color(0xFF43A047),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (jobs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        const spacing = 16.0;
+        final crossAxisCount = width >= 920
+            ? 3
+            : width >= 600
+                ? 2
+                : 1;
+        final cardWidth = crossAxisCount == 1
+            ? width
+            : (width - spacing * (crossAxisCount - 1)) / crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: List.generate(jobs.length, (index) {
+            final job = jobs[index];
+            final color = _palette[index % _palette.length];
+            return SizedBox(
+              width: crossAxisCount == 1 ? width : cardWidth,
+              child: _HighlightCard(job: job, color: color),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+class _HighlightCard extends StatelessWidget {
+  const _HighlightCard({required this.job, required this.color});
+
+  final JobPosting job;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tagSummary = job.tags.take(2).join(' · ');
+    final meta = _buildMeta(job);
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
           );
         },
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.black, width: 1.2),
+            color: color,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 job.companyLabel,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text,
-                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withOpacity(0.85),
+                      fontWeight: FontWeight.w700,
+                    ) ??
+                    const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 job.title,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.3,
-                ),
+                style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                    ) ??
+                    const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                    ),
               ),
-              const Spacer(),
-              Text(
-                _buildSummary(job),
-                style: const TextStyle(
-                  color: AppColors.subtext,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
+              const SizedBox(height: 16),
+              if (tagSummary.isNotEmpty) ...[
+                Text(
+                  tagSummary,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                const SizedBox(height: 12),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      meta,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, color: Colors.white),
+                ],
               ),
             ],
           ),
@@ -333,13 +522,15 @@ class _JobCard extends StatelessWidget {
     );
   }
 
-  String _buildSummary(JobPosting job) {
-    final location = job.regionLabel;
+  String _buildMeta(JobPosting job) {
     final date = job.prettyPostedDate;
-    if (date != null) {
-      return '$location · $date';
+    if (date != null && date.isNotEmpty) {
+      return '${job.regionLabel} · $date';
     }
-    return location;
+    if (job.tags.isNotEmpty) {
+      return '${job.regionLabel} · ${job.tags.first}';
+    }
+    return job.regionLabel;
   }
 }
 

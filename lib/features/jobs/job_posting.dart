@@ -94,6 +94,7 @@ class JobPosting {
       'busiNm',
       'announcementTitle',
       'jobTitle',
+      'recrutPbancTtl',
     ]);
     final company = _readFirst(json, const [
       'company',
@@ -115,6 +116,7 @@ class JobPosting {
       'workRegionNm',
       'workLocation',
       'workPlace',
+      'workRgnNmLst',
     ]);
     final url = _readFirst(json, const [
       'url',
@@ -136,6 +138,8 @@ class JobPosting {
       'rcptEdDt',
       'deadline',
       'applyEndDate',
+      'pbancEndYmd',
+      'pbancBgngYmd',
     ]);
     final tags = (json['tags'] as List<dynamic>?)
             ?.map((dynamic value) => value.toString().trim())
