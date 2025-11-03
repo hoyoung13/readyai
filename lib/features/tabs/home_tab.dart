@@ -17,6 +17,7 @@ class _HomeTabState extends State<HomeTab> {
       rightColor: Color(0xFFEEC0C6),
       emoji: '📋',
       cta: '공고 보러가기',
+      tabIndex: 1,
     ),
     _SlideData(
       title: 'AI 면접으로\n실전처럼 연습해요',
@@ -24,7 +25,8 @@ class _HomeTabState extends State<HomeTab> {
       leftColor: Color(0xFF84FAB0),
       rightColor: Color(0xFF8FD3F4),
       emoji: '🤖',
-      cta: '면접 연습 시작',
+      cta: '면접 시작',
+      tabIndex: 2,
     ),
     _SlideData(
       title: '지원 현황과\n피드백을 한눈에',
@@ -33,6 +35,7 @@ class _HomeTabState extends State<HomeTab> {
       rightColor: Color(0xFFFFAAA6),
       emoji: '📈',
       cta: '대시보드 열기',
+      tabIndex: 3,
     ),
   ];
 
@@ -63,28 +66,28 @@ class _HomeTabState extends State<HomeTab> {
             ),
           ),
 
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-        Column(
+          Column(
             children: [
               for (var i = 0; i < _slides.length; i++) ...[
                 if (i > 0) const SizedBox(height: 12),
                 _SlideCard(data: _slides[i]),
               ],
             ],
-          
-        ),
+          ),
 
-        const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-        //  (샘플) 나중엔 api 가져와서
+          //  (샘플) 나중엔 api 가져와서
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: const [
                 SectionHeader(title: '추천 공고'),
                 SizedBox(height: 8),
-                JobMiniCard(title: '백엔드 엔지니어', company: '무지개컴퍼니', tag: '신입/주니어'),
+                JobMiniCard(
+                    title: '백엔드 엔지니어', company: '무지개컴퍼니', tag: '신입/주니어'),
                 SizedBox(height: 8),
                 JobMiniCard(
                   title: 'Flutter 앱 개발자',
@@ -108,6 +111,7 @@ class _SlideData {
     required this.rightColor,
     required this.emoji,
     required this.cta,
+    this.tabIndex,
   });
 
   final String title;
@@ -116,6 +120,7 @@ class _SlideData {
   final Color rightColor;
   final String emoji;
   final String cta;
+  final int? tabIndex;
 }
 
 class _SlideCard extends StatelessWidget {
@@ -187,7 +192,11 @@ class _SlideCard extends StatelessWidget {
                       textStyle: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     onPressed: () {
-                      //  각 CTA 라우팅
+                      final targetTab = data.tabIndex;
+                      if (targetTab != null) {
+                        final navigation = TabsNavigation.of(context);
+                        navigation?.goTo(targetTab);
+                      }
                     },
                     child: Text(data.cta),
                   ),

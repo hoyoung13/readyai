@@ -23,35 +23,45 @@ class _TabsPageState extends State<TabsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(child: _pages[_index]),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        indicatorColor: AppColors.mint.withOpacity(0.18),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.work_outline),
-            selectedIcon: Icon(Icons.work),
-            label: '공고',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.photo_camera_outlined),
-            selectedIcon: Icon(Icons.photo_camera),
-            label: '카메라',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '마이',
-          ),
-        ],
+    return TabsNavigation(
+      currentIndex: _index,
+      goTo: (value) {
+        if (value == _index) {
+          return;
+        }
+        final clamped = value.clamp(0, _pages.length - 1).toInt();
+        setState(() => _index = clamped);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        body: SafeArea(child: _pages[_index]),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          indicatorColor: AppColors.mint.withOpacity(0.18),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: '홈',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.work_outline),
+              selectedIcon: Icon(Icons.work),
+              label: '공고',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.photo_camera_outlined),
+              selectedIcon: Icon(Icons.photo_camera),
+              label: '카메라',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: '마이',
+            ),
+          ],
+        ),
       ),
     );
   }

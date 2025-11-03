@@ -1,5 +1,26 @@
 import 'package:flutter/material.dart';
 
+class TabsNavigation extends InheritedWidget {
+  const TabsNavigation({
+    required this.currentIndex,
+    required this.goTo,
+    super.key,
+    required super.child,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> goTo;
+
+  static TabsNavigation? of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<TabsNavigation>();
+  }
+
+  @override
+  bool updateShouldNotify(TabsNavigation oldWidget) {
+    return currentIndex != oldWidget.currentIndex;
+  }
+}
+
 ///임시 공통 컬러
 class AppColors {
   static const bg = Color(0xFFF7F7F7);

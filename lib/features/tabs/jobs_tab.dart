@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../jobs/job_detail_page.dart';
 import '../jobs/job_posting.dart';
@@ -64,42 +65,85 @@ class _JobsTabState extends State<JobsTab> {
   }
 }
 
-class _JobsList extends StatelessWidget {
+class _JobsList extends StatefulWidget {
   const _JobsList({required this.feed});
 
   final JobFeed feed;
+  @override
+  State<_JobsList> createState() => _JobsListState();
+}
+
+class _JobsListState extends State<_JobsList> {
+  static const _pageSize = 20;
+  int _currentPage = 1;
+
+  @override
+  void didUpdateWidget(covariant _JobsList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.feed.items, oldWidget.feed.items) ||
+        widget.feed.totalCount != oldWidget.feed.totalCount) {
+      final totalPages = _totalPages;
+      if (_currentPage > totalPages) {
+        setState(() {
+          _currentPage = totalPages;
+        });
+      }
+    }
+  }
+
+  int get _totalPages {
+    final count = widget.feed.items.length;
+    if (count == 0) {
+      return 1;
+    }
+    return ((count - 1) / _pageSize).floor() + 1;
+  }
+
+  List<JobPosting> get _visibleJobs {
+    final startIndex = (_currentPage - 1) * _pageSize;
+    return widget.feed.items
+        .skip(startIndex)
+        .take(_pageSize)
+        .toList(growable: false);
+  }
+
+  void _onPageSelected(int page) {
+    if (page == _currentPage) {
+      return;
+    }
+
+    final totalPages = _totalPages;
+    var nextPage = page;
+    if (nextPage < 1) {
+      nextPage = 1;
+    } else if (nextPage > totalPages) {
+      nextPage = totalPages;
+    }
+
+    setState(() {
+      _currentPage = nextPage;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final highlightJobs = feed.items.take(12).toList(growable: false);
-    final tableJobs = feed.items.take(6).toList(growable: false);
+    final jobs = _visibleJobs;
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
       children: [
-        _Header(totalCount: feed.totalCount),
+        _Header(totalCount: widget.feed.totalCount),
         const SizedBox(height: 24),
         const _FilterRow(),
         const SizedBox(height: 24),
-        _JobsTable(jobs: tableJobs),
+        _JobsGrid(jobs: jobs),
         const SizedBox(height: 32),
-        const Text(
-          '이 공고, 놓치지 마세요!',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-          ),
+        _PaginationControls(
+          currentPage: _currentPage,
+          totalPages: _totalPages,
+          onPageSelected: _onPageSelected,
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'AI가 엄선한 인기 채용 공고를 지금 확인해 보세요.',
-          style: TextStyle(
-            color: AppColors.subtext,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 24),
-        _HighlightsGrid(jobs: highlightJobs),
       ],
     );
   }
@@ -292,93 +336,8 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _JobsTable extends StatelessWidget {
-  const _JobsTable({required this.jobs});
-
-  final List<JobPosting> jobs;
-
-  @override
-  Widget build(BuildContext context) {
-    if (jobs.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final theme = Theme.of(context);
-    final headingStyle = theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: AppColors.subtext,
-        ) ??
-        const TextStyle(fontWeight: FontWeight.w700, color: AppColors.subtext);
-
-    final dataStyle = theme.textTheme.bodyMedium?.copyWith(height: 1.3) ??
-        const TextStyle(height: 1.3);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columnSpacing: 24,
-            horizontalMargin: 20,
-            headingRowHeight: 44,
-            dataRowMinHeight: 56,
-            dataRowMaxHeight: 64,
-            headingTextStyle: headingStyle,
-            dataTextStyle: dataStyle,
-            columns: const [
-              DataColumn(label: Text('기업')),
-              DataColumn(label: Text('채용 공고')),
-              DataColumn(label: Text('지역')),
-              DataColumn(label: Text('마감일')),
-            ],
-            rows: jobs
-                .map(
-                  (job) => DataRow(
-                    onSelectChanged: (_) => _openDetail(context, job),
-                    cells: [
-                      DataCell(Text(job.companyLabel,
-                          overflow: TextOverflow.ellipsis)),
-                      DataCell(
-                          Text(job.title, overflow: TextOverflow.ellipsis)),
-                      DataCell(Text(job.regionLabel,
-                          overflow: TextOverflow.ellipsis)),
-                      DataCell(
-                        Text(
-                          job.prettyPostedDate ?? '상시',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-                .toList(growable: false),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openDetail(BuildContext context, JobPosting job) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
-    );
-  }
-}
-
-class _HighlightsGrid extends StatelessWidget {
-  const _HighlightsGrid({required this.jobs});
+class _JobsGrid extends StatelessWidget {
+  const _JobsGrid({required this.jobs});
 
   final List<JobPosting> jobs;
 
@@ -394,54 +353,70 @@ class _HighlightsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (jobs.isEmpty) {
-      return const SizedBox.shrink();
+      return SizedBox(
+        height: 160,
+        child: Center(
+          child: Text(
+            '해당 페이지에 표시할 공고가 없습니다.',
+            style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: AppColors.subtext) ??
+                const TextStyle(color: AppColors.subtext),
+          ),
+        ),
+      );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         const spacing = 16.0;
-        final crossAxisCount = width >= 920
+        final crossAxisCount = width >= 900
             ? 3
-            : width >= 600
+            : width >= 640
                 ? 2
                 : 1;
-        final cardWidth = crossAxisCount == 1
+        final itemWidth = crossAxisCount == 1
             ? width
             : (width - spacing * (crossAxisCount - 1)) / crossAxisCount;
 
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
-          children: List.generate(jobs.length, (index) {
-            final job = jobs[index];
-            final color = _palette[index % _palette.length];
-            return SizedBox(
-              width: crossAxisCount == 1 ? width : cardWidth,
-              child: _HighlightCard(job: job, color: color),
-            );
-          }),
+          children: [
+            for (var i = 0; i < jobs.length; i++)
+              SizedBox(
+                width: crossAxisCount == 1 ? width : itemWidth,
+                child: _JobCard(
+                  job: jobs[i],
+                  color: _palette[i % _palette.length],
+                ),
+              ),
+          ],
         );
       },
     );
   }
 }
 
-class _HighlightCard extends StatelessWidget {
-  const _HighlightCard({required this.job, required this.color});
+class _JobCard extends StatelessWidget {
+  const _JobCard({required this.job, required this.color});
 
   final JobPosting job;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tagSummary = job.tags.take(2).join(' · ');
     final meta = _buildMeta(job);
+    final secondaryStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.subtext,
+            ) ??
+        const TextStyle(color: AppColors.subtext);
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
@@ -450,71 +425,64 @@ class _HighlightCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(24),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                job.companyLabel,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.85),
-                      fontWeight: FontWeight.w700,
-                    ) ??
-                    const TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                job.title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ) ??
-                    const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              if (tagSummary.isNotEmpty) ...[
-                Text(
-                  tagSummary,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w600,
-                  ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 12),
-              ],
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      meta,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.chevron_right, color: Colors.white),
-                ],
               ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      job.companyLabel,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      job.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      meta,
+                      style: secondaryStyle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Icon(Icons.chevron_right, color: AppColors.subtext),
             ],
           ),
         ),
@@ -523,14 +491,166 @@ class _HighlightCard extends StatelessWidget {
   }
 
   String _buildMeta(JobPosting job) {
-    final date = job.prettyPostedDate;
-    if (date != null && date.isNotEmpty) {
-      return '${job.regionLabel} · $date';
+    final parts = <String>[];
+    final region = job.regionLabel.trim();
+    if (region.isNotEmpty) {
+      parts.add(region);
     }
     if (job.tags.isNotEmpty) {
-      return '${job.regionLabel} · ${job.tags.first}';
+      parts.add(job.tags.first);
+    } else {
+      final date = job.prettyPostedDate;
+      if (date != null && date.isNotEmpty) {
+        parts.add(date);
+      }
     }
-    return job.regionLabel;
+    if (parts.isEmpty) {
+      return '상세 정보 확인';
+    }
+    return parts.join(' · ');
+  }
+}
+
+class _PaginationControls extends StatelessWidget {
+  const _PaginationControls({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPageSelected,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final ValueChanged<int> onPageSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (totalPages <= 1) {
+      return const SizedBox.shrink();
+    }
+
+    final pages = _visiblePages();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _ArrowButton(
+          icon: Icons.chevron_left,
+          onPressed:
+              currentPage > 1 ? () => onPageSelected(currentPage - 1) : null,
+        ),
+        const SizedBox(width: 12),
+        for (final page in pages)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: _PageButton(
+              page: page,
+              isActive: page == currentPage,
+              onTap: () => onPageSelected(page),
+            ),
+          ),
+        const SizedBox(width: 12),
+        _ArrowButton(
+          icon: Icons.chevron_right,
+          onPressed: currentPage < totalPages
+              ? () => onPageSelected(currentPage + 1)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  List<int> _visiblePages() {
+    const window = 5;
+    if (totalPages <= window) {
+      return [for (var i = 1; i <= totalPages; i++) i];
+    }
+    final block = ((currentPage - 1) / window).floor();
+    final start = block * window + 1;
+    final end = math.min(start + window - 1, totalPages);
+    return [for (var i = start; i <= end; i++) i];
+  }
+}
+
+class _PageButton extends StatelessWidget {
+  const _PageButton({
+    required this.page,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final int page;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = isActive ? AppColors.mint : Colors.white;
+    final foreground = isActive ? Colors.black : AppColors.subtext;
+    final borderColor = isActive ? AppColors.mint : const Color(0xFFE1E1E5);
+
+    return SizedBox(
+      width: 44,
+      height: 40,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: foreground,
+          side: BorderSide(color: borderColor),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ) ??
+              const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        child: Text('$page'),
+      ),
+    );
+  }
+}
+
+class _ArrowButton extends StatelessWidget {
+  const _ArrowButton({required this.icon, this.onPressed});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final background = enabled ? Colors.white : const Color(0xFFE9E9EC);
+    final iconColor = enabled ? AppColors.text : AppColors.subtext;
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.6,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: enabled
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: iconColor),
+          ),
+        ),
+      ),
+    );
   }
 }
 
