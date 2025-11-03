@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:ai/features/profile/resume/data/resume_repository.dart';
+import 'package:ai/features/profile/resume/models/resume.dart';
 import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 
@@ -25,6 +26,7 @@ class _ResumeEditorPageState extends State<ResumeEditorPage> {
   late final TextEditingController _titleController;
 
   bool _isPublic = true;
+   bool _isSaving = false;
 
   @override
   void initState() {
@@ -159,7 +161,7 @@ class _ResumeEditorPageState extends State<ResumeEditorPage> {
           ),
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: () {},
+            onPressed: _isSaving ? null : _handleSave,
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF6D5CFF),
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -178,6 +180,58 @@ class _ResumeEditorPageState extends State<ResumeEditorPage> {
         ],
       ),
     );
+  }
+  Future<void> _handleSave() async {
+    final education = _educationController.text.trim();
+    final experience = _experienceController.text.trim();
+    final title = _titleController.text.trim();
+
+    if (education.isEmpty || experience.isEmpty || title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('학력, 경력, 이력서 명은 필수 입력 항목입니다.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final resume = Resume(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      education: education,
+      experience: experience,
+      certificates: _certificateController.text.trim().isEmpty
+          ? null
+          : _certificateController.text.trim(),
+      preferences: _preferenceController.text.trim().isEmpty
+          ? null
+          : _preferenceController.text.trim(),
+      coverLetter: _coverLetterController.text.trim().isEmpty
+          ? null
+          : _coverLetterController.text.trim(),
+      portfolio: _portfolioController.text.trim().isEmpty
+          ? null
+          : _portfolioController.text.trim(),
+      isPublic: _isPublic,
+      updatedAt: DateTime.now(),
+    );
+
+    final repository = await ResumeRepository.instance();
+    await repository.save(resume);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+    });
+
+    Navigator.of(context).pop(true);
   }
 }
 

@@ -1,33 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:ai/features/profile/resume/data/resume_repository.dart';
+import 'package:ai/features/profile/resume/models/resume.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 
-class ResumeDashboardPage extends StatelessWidget {
+class ResumeDashboardPage extends StatefulWidget {
   const ResumeDashboardPage({super.key});
+
+  @override
+  State<ResumeDashboardPage> createState() => _ResumeDashboardPageState();
+}
+
+class _ResumeDashboardPageState extends State<ResumeDashboardPage> {
 
   static const _profileSummary = ResumeProfileSummary(
     name: '부천대',
     description: '남자, 2025년생',
   );
 
-  static final List<_ResumePreview> _samples = [
-    _ResumePreview(
-      title: '백엔드 지원 전용',
-      status: ResumeCompletionStatus.completed,
-      lastUpdated: DateTime(2024, 9, 26),
-      isPublic: true,
-    ),
-    _ResumePreview(
-      title: '이번에는 합격하자',
-      status: ResumeCompletionStatus.inProgress,
-      lastUpdated: DateTime(2024, 9, 23),
-      isPublic: false,
-    ),
-  ];
+   List<Resume> _resumes = const [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadResumes();
+  }
+
+  Future<void> _loadResumes() async {
+    final repository = await ResumeRepository.instance();
+    final resumes = await repository.fetchAll();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _resumes = resumes;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _handleCreateResume() async {
+    final saved = await context.push<bool>(
+      '/profile/resume/new',
+      extra: _profileSummary,
+    );
+
+    if (saved == true && mounted) {
+      await _loadResumes();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이력서가 저장되었습니다.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final Widget resumeListContent;
+    if (_isLoading) {
+      resumeListContent = const Center(child: CircularProgressIndicator());
+    } else if (_resumes.isEmpty) {
+      resumeListContent = const _ResumeEmptyState();
+    } else {
+      resumeListContent = Column(
+        children: _resumes
+            .map(
+              (resume) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ResumePreviewTile(resume: resume),
+              ),
+            )
+            .toList(),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -39,20 +86,12 @@ class ResumeDashboardPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          ResumeProfileHeaderCard(summary: _profileSummary),
+          const ResumeProfileHeaderCard(summary: _profileSummary),
           const SizedBox(height: 18),
-          ..._samples.map(
-            (resume) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ResumePreviewTile(resume: resume),
-            ),
-          ),
+          resumeListContent,
           const SizedBox(height: 8),
           _ResumeActions(
-            onCreate: () => context.push(
-              '/profile/resume/new',
-              extra: _profileSummary,
-            ),
+            onCreate: _handleCreateResume,
             onTemplates: () {},
           ),
         ],
@@ -69,25 +108,6 @@ class ResumeProfileSummary {
 
   final String name;
   final String description;
-}
-
-enum ResumeCompletionStatus { completed, inProgress }
-
-class _ResumePreview {
-  const _ResumePreview({
-    required this.title,
-    required this.status,
-    required this.lastUpdated,
-    required this.isPublic,
-  });
-
-  final String title;
-  final ResumeCompletionStatus status;
-  final DateTime lastUpdated;
-  final bool isPublic;
-
-  String get formattedDate =>
-      '${lastUpdated.month.toString().padLeft(2, '0')}-${lastUpdated.day.toString().padLeft(2, '0')}';
 }
 
 class ResumeProfileHeaderCard extends StatelessWidget {
@@ -162,14 +182,14 @@ class ResumeProfileHeaderCard extends StatelessWidget {
 class _ResumePreviewTile extends StatelessWidget {
   const _ResumePreviewTile({required this.resume});
 
-  final _ResumePreview resume;
+  final Resume resume;
 
   @override
   Widget build(BuildContext context) {
-    final statusLabel = resume.status == ResumeCompletionStatus.completed
+    final statusLabel = resume.completionStatus == ResumeCompletionStatus.completed
         ? '작성 완료'
         : '작성 미완료';
-    final statusColor = resume.status == ResumeCompletionStatus.completed
+    final statusColor = resume.completionStatus == ResumeCompletionStatus.completed
         ? const Color(0xFF6D5CFF)
         : AppColors.subtext;
 
@@ -294,6 +314,42 @@ class _ResumeActions extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
             child: const Text('이력서 양식 보러가기'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResumeEmptyState extends StatelessWidget {
+  const _ResumeEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 60),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1E1E5)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(
+            Icons.description_outlined,
+            color: AppColors.subtext,
+            size: 40,
+          ),
+          SizedBox(height: 16),
+          Text(
+            '아직 등록된 이력서가 없어요.',
+            style: TextStyle(
+              fontSize: 15,
+              color: AppColors.subtext,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
