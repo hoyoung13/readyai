@@ -83,6 +83,8 @@ class _JobsListState extends State<_JobsList> {
   List<String> _availableRegions = const <String>[];
   List<String> _availableCategories = const <String>[];
   List<JobPosting> _filteredItems = const <JobPosting>[];
+  bool _showCategories = false;
+
 
   @override
   void initState() {
@@ -197,6 +199,14 @@ class _JobsListState extends State<_JobsList> {
     _searchController.clear();
     _onSearchChanged('');
   }
+  void _toggleCategoryVisibility() {
+    if (_availableCategories.isEmpty) {
+      return;
+    }
+    setState(() {
+      _showCategories = !_showCategories;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +242,8 @@ class _JobsListState extends State<_JobsList> {
             categories: _availableCategories,
             selectedCategory: _selectedCategory,
             onSelected: _onCategorySelected,
+            expanded: _showCategories,
+            onToggle: _toggleCategoryVisibility,
           ),
         ],
         const SizedBox(height: 24),
@@ -632,11 +644,15 @@ class _CategorySelector extends StatelessWidget {
     required this.categories,
     required this.selectedCategory,
     required this.onSelected,
+    required this.expanded,
+    required this.onToggle,
   });
 
   final List<String> categories;
   final String? selectedCategory;
   final ValueChanged<String?> onSelected;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -644,70 +660,118 @@ class _CategorySelector extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final selectedLabel =
+        (selectedCategory == null || selectedCategory!.isEmpty)
+            ? '전체'
+            : selectedCategory!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '직업 카테고리',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 16,
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Row(
+                children: [
+                  const Text(
+                    '직업 카테고리',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F0F5),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      selectedLabel,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.subtext,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AppColors.subtext,
+                  ),
+                ],
+              ),
+              ),
           ),
         ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const minTileWidth = 140.0;
-            const tileHeight = 48.0;
-            const spacing = 12.0;
+        if (expanded) ...[
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const minTileWidth = 140.0;
+              const tileHeight = 48.0;
+              const spacing = 12.0;
 
-            final crossAxisCount = math.max(
-              1,
-              (constraints.maxWidth / minTileWidth).floor(),
-            );
-            final horizontalSpacing = spacing * (crossAxisCount - 1);
-            final widthPerTile =
-                (constraints.maxWidth - horizontalSpacing) / crossAxisCount;
-            final childAspectRatio = widthPerTile / tileHeight;
+              final crossAxisCount = math.max(
+                1,
+                (constraints.maxWidth / minTileWidth).floor(),
+              );
+              final horizontalSpacing = spacing * (crossAxisCount - 1);
+              final widthPerTile =
+                  (constraints.maxWidth - horizontalSpacing) / crossAxisCount;
+              final childAspectRatio = widthPerTile / tileHeight;
 
-            final options = <_CategoryOption>[
-              const _CategoryOption(label: '전체', value: null),
-              ...categories.map(
-                (category) => _CategoryOption(label: category, value: category),
-              ),
-         ];
+              final options = <_CategoryOption>[
+                const _CategoryOption(label: '전체', value: null),
+                ...categories.map(
+                  (category) =>
+                      _CategoryOption(label: category, value: category),
+                ),
+              ];
 
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                mainAxisSpacing: spacing,
-                crossAxisSpacing: spacing,
-                childAspectRatio: childAspectRatio,
-              ),
-              itemCount: options.length,
-              itemBuilder: (context, index) {
-                final option = options[index];
-                final isSelected = option.value == null
-                    ? selectedCategory == null
-                    : selectedCategory == option.value;
-                return _CategoryTile(
-                  label: option.label,
-                  selected: isSelected,
-                  onTap: () {
-                    if (isSelected) {
-                      onSelected(null);
-                    } else {
-                      onSelected(option.value);
-                    }
-                  },
-                );
-              },
-            );
-          },
-        ),
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: spacing,
+                  crossAxisSpacing: spacing,
+                  childAspectRatio: childAspectRatio,
+                ),
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options[index];
+                  final isSelected = option.value == null
+                      ? selectedCategory == null
+                      : selectedCategory == option.value;
+                  return _CategoryTile(
+                    label: option.label,
+                    selected: isSelected,
+                    onTap: () {
+                      if (isSelected) {
+                        onSelected(null);
+                      } else {
+                        onSelected(option.value);
+                      }
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ],
     );
   }

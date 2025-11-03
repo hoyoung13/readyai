@@ -93,10 +93,12 @@ class ProfileTab extends StatelessWidget {
                   onLogout: () => _handleLogout(context),
                 ),
                 const SizedBox(height: 24),
-                const _ProfileActionCard(
+                _ProfileActionCard(
                   title: '이력서',
                   description: '추가/수정 · 공개 설정',
                   buttonLabel: '관리',
+                  onPressed: () => context.push('/profile/resume'),
+
                 ),
                 const SizedBox(height: 14),
                 _ProfileActionCard(
