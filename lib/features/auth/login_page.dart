@@ -126,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 40),
                     // 상단 타이틀
                     const Text(
-                      '면접을 도와주는\n앱이름',
+                      '면접을 도와주는\n ReadyAI',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 20,
@@ -138,9 +138,9 @@ class _LoginPageState extends State<LoginPage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: Image.asset(
-                        'assets/logo.png',
-                        width: 64,
-                        height: 64,
+                        'assets/login.png',
+                        width: 80,
+                        height: 80,
                         fit: BoxFit.cover,
                       ),
                     ),

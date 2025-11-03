@@ -76,76 +76,293 @@ class _JobsList extends StatefulWidget {
 class _JobsListState extends State<_JobsList> {
   static const _pageSize = 20;
   int _currentPage = 1;
+  String? _selectedRegion;
+  String? _selectedCategory;
+  String _searchQuery = '';
+  late final TextEditingController _searchController;
+  List<String> _availableRegions = const <String>[];
+  List<String> _availableCategories = const <String>[];
+  List<JobPosting> _filteredItems = const <JobPosting>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _availableRegions = _collectRegions(widget.feed.items);
+    _availableCategories = _collectCategories(widget.feed.items);
+    _filteredItems = _filterJobs(widget.feed.items);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant _JobsList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.feed.items, oldWidget.feed.items) ||
         widget.feed.totalCount != oldWidget.feed.totalCount) {
-      final totalPages = _totalPages;
-      if (_currentPage > totalPages) {
-        setState(() {
-          _currentPage = totalPages;
-        });
+      final regions = _collectRegions(widget.feed.items);
+      final categories = _collectCategories(widget.feed.items);
+
+      var nextRegion = _selectedRegion;
+      if (nextRegion != null && !regions.contains(nextRegion)) {
+        nextRegion = null;
       }
-    }
-  }
 
-  int get _totalPages {
-    final count = widget.feed.items.length;
-    if (count == 0) {
-      return 1;
-    }
-    return ((count - 1) / _pageSize).floor() + 1;
-  }
+      var nextCategory = _selectedCategory;
+      if (nextCategory != null && !categories.contains(nextCategory)) {
+        nextCategory = null;
+      }
+      final filtered = _filterJobs(
+        widget.feed.items,
+        regionFilter: nextRegion,
+        categoryFilter: nextCategory,
+      );
+      final totalPages = _pageCount(filtered.length);
 
-  List<JobPosting> get _visibleJobs {
-    final startIndex = (_currentPage - 1) * _pageSize;
-    return widget.feed.items
-        .skip(startIndex)
-        .take(_pageSize)
-        .toList(growable: false);
+      setState(() {
+        _availableRegions = regions;
+        _availableCategories = categories;
+        _selectedRegion = nextRegion;
+        _selectedCategory = nextCategory;
+        _filteredItems = filtered;
+        _currentPage = math.min(_currentPage, totalPages);
+      });
+    }
   }
 
   void _onPageSelected(int page) {
-    if (page == _currentPage) {
+    final totalPages = _pageCount(_filteredItems.length);
+    final nextPage = page.clamp(1, totalPages);
+    if (nextPage == _currentPage) {
       return;
     }
-
-    final totalPages = _totalPages;
-    var nextPage = page;
-    if (nextPage < 1) {
-      nextPage = 1;
-    } else if (nextPage > totalPages) {
-      nextPage = totalPages;
-    }
-
     setState(() {
       _currentPage = nextPage;
     });
   }
 
+  void _onRegionSelected(String? region) {
+    final normalized = region?.trim();
+    final filtered = _filterJobs(
+      widget.feed.items,
+      regionFilter: normalized?.isEmpty ?? true ? null : normalized,
+    );
+    final totalPages = _pageCount(filtered.length);
+
+    setState(() {
+      _selectedRegion = normalized?.isEmpty ?? true ? null : normalized;
+      _filteredItems = filtered;
+      _currentPage = math.min(1, totalPages);
+    });
+  }
+
+  void _onCategorySelected(String? category) {
+    final normalized = category?.trim();
+    final filtered = _filterJobs(
+      widget.feed.items,
+      categoryFilter: normalized?.isEmpty ?? true ? null : normalized,
+    );
+    final totalPages = _pageCount(filtered.length);
+
+    setState(() {
+      _selectedCategory = normalized?.isEmpty ?? true ? null : normalized;
+      _filteredItems = filtered;
+      _currentPage = math.min(1, totalPages);
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    final query = value.trim();
+    final filtered = _filterJobs(
+      widget.feed.items,
+      searchFilter: query,
+    );
+    final totalPages = _pageCount(filtered.length);
+
+    setState(() {
+      _searchQuery = query;
+      _filteredItems = filtered;
+      _currentPage = math.min(1, totalPages);
+    });
+  }
+
+  void _clearSearch() {
+    if (_searchController.text.isEmpty) {
+      return;
+    }
+    _searchController.clear();
+    _onSearchChanged('');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final jobs = _visibleJobs;
-
+    final totalPages = _pageCount(_filteredItems.length);
+    final currentPage = _currentPage.clamp(1, totalPages);
+    final jobs = _visibleJobs(currentPage);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
       children: [
         _Header(totalCount: widget.feed.totalCount),
         const SizedBox(height: 24),
-        const _FilterRow(),
+        _FilterPanel(
+          regions: _availableRegions,
+          selectedRegion: _selectedRegion,
+          onRegionSelected: _onRegionSelected,
+          searchController: _searchController,
+          onSearchChanged: _onSearchChanged,
+          onSearchCleared: _clearSearch,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '총 ${_filteredItems.length}건의 공고가 검색되었습니다.',
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppColors.subtext,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (_availableCategories.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _CategorySelector(
+            categories: _availableCategories,
+            selectedCategory: _selectedCategory,
+            onSelected: _onCategorySelected,
+          ),
+        ],
         const SizedBox(height: 24),
         _JobsGrid(jobs: jobs),
         const SizedBox(height: 32),
         _PaginationControls(
-          currentPage: _currentPage,
-          totalPages: _totalPages,
+          currentPage: currentPage,
+          totalPages: totalPages,
           onPageSelected: _onPageSelected,
         ),
       ],
     );
+  }
+
+  int _pageCount(int itemCount) {
+    if (itemCount <= 0) {
+      return 1;
+    }
+    return ((itemCount - 1) / _pageSize).floor() + 1;
+  }
+
+  List<JobPosting> _visibleJobs(int page) {
+    final startIndex = (page - 1) * _pageSize;
+    return _filteredItems
+        .skip(startIndex)
+        .take(_pageSize)
+        .toList(growable: false);
+  }
+
+  List<JobPosting> _filterJobs(
+    List<JobPosting> items, {
+    String? regionFilter,
+    String? categoryFilter,
+    String? searchFilter,
+  }) {
+    final region = regionFilter ?? _selectedRegion;
+    final category = categoryFilter ?? _selectedCategory;
+    final trimmedQuery = (searchFilter ?? _searchQuery).trim().toLowerCase();
+
+    return items.where((job) {
+      if (region != null && region.isNotEmpty) {
+        final regions = _splitMultiValue(job.region);
+        if (regions.isEmpty) {
+          if (!job.region.toLowerCase().contains(region.toLowerCase())) {
+            return false;
+          }
+        } else if (!regions.contains(region)) {
+          return false;
+        }
+      }
+
+      if (category != null && category.isNotEmpty) {
+        if (job.occupations.isEmpty || !job.occupations.contains(category)) {
+          return false;
+        }
+      }
+
+      if (trimmedQuery.isNotEmpty) {
+        if (!job.title.toLowerCase().contains(trimmedQuery) &&
+            !job.company.toLowerCase().contains(trimmedQuery) &&
+            !job.region.toLowerCase().contains(trimmedQuery)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList(growable: false);
+  }
+
+  List<String> _collectRegions(List<JobPosting> items) {
+    final seen = <String>{};
+    final regions = <String>[];
+    for (final job in items) {
+      final parts = _splitMultiValue(job.region);
+      if (parts.isEmpty) {
+        final trimmed = job.region.trim();
+        if (trimmed.isNotEmpty && seen.add(trimmed)) {
+          regions.add(trimmed);
+        }
+      } else {
+        for (final part in parts) {
+          if (seen.add(part)) {
+            regions.add(part);
+          }
+        }
+      }
+    }
+    regions.sort();
+    return regions;
+  }
+
+  List<String> _collectCategories(List<JobPosting> items) {
+    final seen = <String>{};
+    final categories = <String>[];
+    for (final job in items) {
+      for (final occupation in job.occupations) {
+        final trimmed = occupation.trim();
+        if (trimmed.isEmpty) {
+          continue;
+        }
+        if (seen.add(trimmed)) {
+          categories.add(trimmed);
+        }
+      }
+    }
+    categories.sort();
+    return categories;
+  }
+
+  List<String> _splitMultiValue(String? source) {
+    if (source == null) {
+      return const <String>[];
+    }
+    final text = source.trim();
+    if (text.isEmpty) {
+      return const <String>[];
+    }
+
+    final parts = text.split(RegExp(r'[\n/,·ㆍ]'));
+    final seen = <String>{};
+    final values = <String>[];
+    for (final part in parts) {
+      final normalized = part.trim();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      if (seen.add(normalized)) {
+        values.add(normalized);
+      }
+    }
+    return values;
   }
 }
 
@@ -207,8 +424,22 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _FilterRow extends StatelessWidget {
-  const _FilterRow();
+class _FilterPanel extends StatelessWidget {
+  const _FilterPanel({
+    required this.regions,
+    required this.selectedRegion,
+    required this.onRegionSelected,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.onSearchCleared,
+  });
+
+  final List<String> regions;
+  final String? selectedRegion;
+  final ValueChanged<String?> onRegionSelected;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchCleared;
 
   @override
   Widget build(BuildContext context) {
@@ -229,107 +460,325 @@ class _FilterRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 520;
+            final isCompact = constraints.maxWidth < 560;
+            final regionTile = _buildRegionTile(context);
+            final searchTile = _buildSearchTile();
 
-            Widget buildWideLayout() {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Expanded(child: _FilterChip(label: '직업 선택')),
-                  SizedBox(width: 12),
-                  Expanded(child: _FilterChip(label: '지역 선택')),
-                  SizedBox(width: 12),
-                  Expanded(flex: 2, child: _SearchField()),
-                ],
-              );
-            }
-
-            Widget buildCompactLayout() {
+            if (isCompact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: const [
-                  _FilterChip(label: '직업 선택'),
-                  SizedBox(height: 12),
-                  _FilterChip(label: '지역 선택'),
-                  SizedBox(height: 12),
-                  _SearchField(),
+                children: [
+                  regionTile,
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFE1E1E5)),
+                  const SizedBox(height: 16),
+                  searchTile,
                 ],
               );
             }
 
-            return isCompact ? buildCompactLayout() : buildWideLayout();
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: regionTile),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Container(
+                      width: 1,
+                      color: const Color(0xFFE1E1E5),
+                    ),
+                  ),
+                  Expanded(flex: 2, child: searchTile),
+                ],
+              ),
+            );
           },
         ),
       ),
     );
   }
-}
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label});
+  Widget _buildRegionTile(BuildContext context) {
+    final displayLabel = selectedRegion ?? '전체 지역';
 
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton(
-        onPressed: () {},
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.black, width: 1.0),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          foregroundColor: AppColors.text,
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
-          alignment: Alignment.centerLeft,
-          backgroundColor: Colors.white,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: regions.isEmpty ? null : () => _showRegionSheet(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.location_on_outlined,
+                  size: 20, color: AppColors.text),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '지역 선택',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      displayLabel,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.expand_more, size: 18, color: AppColors.subtext),
-          ],
+              const SizedBox(width: 8),
+              const Icon(Icons.keyboard_arrow_down, color: AppColors.subtext),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildSearchTile() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          children: const [
+            Icon(Icons.search, size: 20, color: AppColors.text),
+            SizedBox(width: 8),
+            Text(
+              '검색어 입력',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: searchController,
+          builder: (context, value, _) {
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7F7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE1E1E5)),
+              ),
+              child: TextField(
+                controller: searchController,
+                onChanged: onSearchChanged,
+                onSubmitted: onSearchChanged,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: '검색어를 입력하세요',
+                  hintStyle: const TextStyle(color: AppColors.subtext),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  suffixIcon: value.text.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: onSearchCleared,
+                          splashRadius: 18,
+                          icon: const Icon(Icons.clear, size: 18),
+                          tooltip: '검색어 지우기',
+                        ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showRegionSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _SelectionSheet(
+        title: '지역 선택',
+        options: regions,
+        selectedValue: selectedRegion,
+      ),
+    );
+
+    if (selected == null) {
+      return;
+    }
+
+    if (selected.isEmpty) {
+      onRegionSelected(null);
+    } else {
+      onRegionSelected(selected);
+    }
+  }
 }
 
-class _SearchField extends StatelessWidget {
-  const _SearchField();
+class _CategorySelector extends StatelessWidget {
+  const _CategorySelector({
+    required this.categories,
+    required this.selectedCategory,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final String? selectedCategory;
+  final ValueChanged<String?> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black, width: 1.0),
+    if (categories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '직업 카테고리',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
         ),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(Icons.search, size: 18, color: AppColors.subtext),
-              SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '검색어 입력',
-                  style: TextStyle(color: AppColors.subtext),
-                  overflow: TextOverflow.ellipsis,
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _CategoryChip(
+              label: '전체',
+              selected: selectedCategory == null,
+              onSelected: (value) {
+                if (value) {
+                  onSelected(null);
+                }
+              },
+            ),
+            for (final category in categories)
+              _CategoryChip(
+                label: category,
+                selected: selectedCategory == category,
+                onSelected: (value) {
+                  onSelected(value ? category : null);
+                },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+      selectedColor: AppColors.mint.withOpacity(0.2),
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(
+        color: selected ? Colors.black : AppColors.text,
+        fontWeight: FontWeight.w600,
+      ),
+      side: BorderSide(
+        color: selected ? AppColors.mint : const Color(0xFFE1E1E5),
+      ),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+  }
+}
+
+class _SelectionSheet extends StatelessWidget {
+  const _SelectionSheet({
+    required this.title,
+    required this.options,
+    required this.selectedValue,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? selectedValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = math.min(
+      MediaQuery.of(context).size.height * 0.6,
+      72.0 * (options.length + 1) + 96,
+    );
+
+    return SafeArea(
+      child: SizedBox(
+        height: height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
                 ),
               ),
-            ],
-          ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.separated(
+                itemCount: options.length + 1,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    final isSelected = selectedValue == null;
+                    return ListTile(
+                      title: const Text('전체 지역'),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: AppColors.mint)
+                          : null,
+                      onTap: () => Navigator.of(context).pop(''),
+                    );
+                  }
+
+                  final option = options[index - 1];
+                  final isSelected = option == selectedValue;
+                  return ListTile(
+                    title: Text(option),
+                    trailing: isSelected
+                        ? const Icon(Icons.check, color: AppColors.mint)
+                        : null,
+                    onTap: () => Navigator.of(context).pop(option),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

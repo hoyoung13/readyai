@@ -56,6 +56,13 @@ class _HomeTabState extends State<HomeTab> {
                   child: Image.asset('assets/logo.png', width: 50, height: 50),
                 ),
                 const SizedBox(width: 8),
+                Text(
+              'ReadyAI',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
                 const Spacer(),
                 IconButton(
                   onPressed: () {},

@@ -73,6 +73,7 @@ class JobPosting {
     this.applicationEndDateText = '',
     this.applicationEndDate,
     this.tags = const <String>[],
+    this.occupations = const <String>[],
     this.summaryItems = const <JobSummaryItem>[],
     this.detailRows = const <JobDetailRow>[],
     this.description = '',
@@ -90,6 +91,7 @@ class JobPosting {
   final String applicationEndDateText;
   final DateTime? applicationEndDate;
   final List<String> tags;
+  final List<String> occupations;
   final List<JobSummaryItem> summaryItems;
   final List<JobDetailRow> detailRows;
   final String description;
@@ -169,7 +171,11 @@ class JobPosting {
             .where((element) => element.isNotEmpty)
             .toList(growable: false) ??
         const <String>[];
-
+    final occupations = _readStringList(json, const [
+      'occupations',
+      'occupationCategories',
+      'ncsCdNmLst',
+    ]);
     final summaryItems = (json['summaryItems'] as List<dynamic>?)
             ?.whereType<Map<String, dynamic>>()
             .map(JobSummaryItem.fromJson)
@@ -199,6 +205,7 @@ class JobPosting {
       applicationEndDateText: applicationEndDateText,
       applicationEndDate: _parseDate(applicationEndDateText),
       tags: tags,
+      occupations: occupations,
       summaryItems: summaryItems,
       detailRows: detailRows,
       description: description,
@@ -219,7 +226,7 @@ class JobPosting {
       return '${source.year}.$month.$day';
     }
 
-final trimmed = applicationStartDateText.isNotEmpty
+    final trimmed = applicationStartDateText.isNotEmpty
         ? applicationStartDateText.trim()
         : postedDateText.trim();
     return trimmed.isEmpty ? null : trimmed;
@@ -233,8 +240,9 @@ final trimmed = applicationStartDateText.isNotEmpty
       return '${source.year}.$month.$day';
     }
 
-    final trimmed = applicationEndDateText.trim();    return trimmed.isEmpty ? null : trimmed;
-  }
+    final trimmed = applicationEndDateText.trim();
+    return trimmed.isEmpty ? null : trimmed;
+      }
 
   String get tagsSummary {
     if (tags.isNotEmpty) {
@@ -257,6 +265,54 @@ final trimmed = applicationStartDateText.isNotEmpty
     final bytes = utf8.encode(normalized);
     return base64UrlEncode(bytes).replaceAll('=', '');
   }
+}
+List<String> _readStringList(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    if (!json.containsKey(key)) {
+      continue;
+    }
+    final list = _normalizeToStringList(json[key]);
+    if (list.isNotEmpty) {
+      return list;
+    }
+  }
+  return const <String>[];
+}
+
+List<String> _normalizeToStringList(dynamic value) {
+  if (value == null) {
+    return const <String>[];
+  }
+
+  final normalized = <String>{};
+
+  void addValue(String candidate) {
+    final trimmed = candidate.trim();
+    if (trimmed.isNotEmpty && trimmed.toLowerCase() != 'null') {
+      normalized.add(trimmed);
+    }
+  }
+
+  if (value is Iterable) {
+    for (final entry in value) {
+      addValue(entry == null ? '' : entry.toString());
+    }
+  } else {
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return const <String>[];
+    }
+    final parts = text.split(RegExp(r'[\n,]+'));
+    for (final part in parts) {
+      addValue(part);
+    }
+  }
+
+  if (normalized.isEmpty) {
+    return const <String>[];
+  }
+
+  return List.unmodifiable(normalized);
 }
 
 String _readFirst(Map<String, dynamic> json, List<String> keys) {

@@ -79,13 +79,22 @@ JobPosting? _convertGovEntry(dynamic entry) {
     if (value == null) {
       return;
     }
-    if (value is String && value.trim().isEmpty) {
+    if (value is Iterable) {
+      final normalized = value
+          .map((element) => _cleanText(element))
+          .where((element) => element.isNotEmpty)
+          .toList(growable: false);
+      if (normalized.isEmpty) {
+        return;
+      }
+      payload[key] = normalized;
       return;
     }
-    if (value is Iterable && value.isEmpty) {
+    final text = _cleanText(value);
+    if (text.isEmpty) {
       return;
     }
-    payload[key] = value;
+    payload[key] = text;
   }
 
   final title = _cleanText(listItem['recrutPbancTtl']);
@@ -134,6 +143,8 @@ JobPosting? _convertGovEntry(dynamic entry) {
   if (tags.isNotEmpty) {
     putIfNotEmpty('tags', tags);
   }
+
+  putIfNotEmpty('ncsCdNmLst', listItem['ncsCdNmLst']);
 
   return JobPosting.fromJson(payload);
 }
