@@ -106,10 +106,12 @@ class ProfileTab extends StatelessWidget {
                   onPressed: () => context.push('/profile/history'),
                 ),
                 const SizedBox(height: 14),
-                const _ProfileActionCard(
+                _ProfileActionCard(
                   title: '채용 공고',
                   description: '스크랩/지원 내역',
                   buttonLabel: '확인',
+                  onPressed: () => context.push('/profile/jobs'),
+
                 ),
                 const SizedBox(height: 28),
                 const Text(

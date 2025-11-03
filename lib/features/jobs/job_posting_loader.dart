@@ -92,6 +92,7 @@ JobPosting? _convertGovEntry(dynamic entry) {
   final company = _cleanText(listItem['instNm']);
   final region = _cleanText(listItem['workRgnNmLst']);
   final url = _cleanText(listItem['srcUrl']);
+  final openingDate = _cleanText(listItem['pbancBgngYmd']);
   final closingDate = _cleanText(listItem['pbancEndYmd']);
 
   if (title.isEmpty && company.isEmpty) {
@@ -102,6 +103,9 @@ JobPosting? _convertGovEntry(dynamic entry) {
   putIfNotEmpty('company', company);
   putIfNotEmpty('region', region);
   putIfNotEmpty('url', url);
+  if (openingDate.isNotEmpty) {
+    putIfNotEmpty('pbancBgngYmd', openingDate);
+  }
   if (closingDate.isNotEmpty) {
     putIfNotEmpty('pbancEndYmd', closingDate);
   }

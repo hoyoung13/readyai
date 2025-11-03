@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class JobFeed {
   const JobFeed({required this.items});
 
@@ -66,6 +68,10 @@ class JobPosting {
     required this.url,
     required this.postedDateText,
     this.postedDate,
+    this.applicationStartDateText = '',
+    this.applicationStartDate,
+    this.applicationEndDateText = '',
+    this.applicationEndDate,
     this.tags = const <String>[],
     this.summaryItems = const <JobSummaryItem>[],
     this.detailRows = const <JobDetailRow>[],
@@ -79,6 +85,10 @@ class JobPosting {
   final String url;
   final String postedDateText;
   final DateTime? postedDate;
+  final String applicationStartDateText;
+  final DateTime? applicationStartDate;
+  final String applicationEndDateText;
+  final DateTime? applicationEndDate;
   final List<String> tags;
   final List<JobSummaryItem> summaryItems;
   final List<JobDetailRow> detailRows;
@@ -128,19 +138,32 @@ class JobPosting {
       'homepageUrl',
       'recruitUrl',
     ]);
-    final postedDateText = _readFirst(json, const [
-      'date',
-      'posted_date',
-      'postedDate',
-      'reg_date',
+    final applicationStartDateText = _readFirst(json, const [
+      'applicationStartDate',
+      'applyStartDate',
+      'receiptBeginDt',
+      'receiptStartDt',
+      'receiptOpenDt',
+      'rcptBgngDt',
+      'pbancBgngYmd',
+    ]);
+    final applicationEndDateText = _readFirst(json, const [
+      'applicationEndDate',
+      'applyEndDate',
       'receiptCloseDt',
       'receiptEndDt',
       'rcptEdDt',
       'deadline',
-      'applyEndDate',
       'pbancEndYmd',
-      'pbancBgngYmd',
     ]);
+    final postedDateText = applicationStartDateText.isNotEmpty
+        ? applicationStartDateText
+        : _readFirst(json, const [
+            'date',
+            'posted_date',
+            'postedDate',
+            'reg_date',
+          ]);
     final tags = (json['tags'] as List<dynamic>?)
             ?.map((dynamic value) => value.toString().trim())
             .where((element) => element.isNotEmpty)
@@ -171,6 +194,10 @@ class JobPosting {
       url: url,
       postedDateText: postedDateText,
       postedDate: _parseDate(postedDateText),
+      applicationStartDateText: applicationStartDateText,
+      applicationStartDate: _parseDate(applicationStartDateText),
+      applicationEndDateText: applicationEndDateText,
+      applicationEndDate: _parseDate(applicationEndDateText),
       tags: tags,
       summaryItems: summaryItems,
       detailRows: detailRows,
@@ -185,14 +212,28 @@ class JobPosting {
 
   /// UI 노출용 날짜 문자열. 원본 문자열이 없으면 null 반환.
   String? get prettyPostedDate {
-    if (postedDate != null) {
-      final month = postedDate!.month.toString().padLeft(2, '0');
-      final day = postedDate!.day.toString().padLeft(2, '0');
-      return '${postedDate!.year}.$month.$day';
+    final source = applicationStartDate ?? postedDate;
+    if (source != null) {
+      final month = source.month.toString().padLeft(2, '0');
+      final day = source.day.toString().padLeft(2, '0');
+      return '${source.year}.$month.$day';
     }
 
-    final trimmed = postedDateText.trim();
+final trimmed = applicationStartDateText.isNotEmpty
+        ? applicationStartDateText.trim()
+        : postedDateText.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String? get prettyApplicationEndDate {
+    final source = applicationEndDate;
+    if (source != null) {
+      final month = source.month.toString().padLeft(2, '0');
+      final day = source.day.toString().padLeft(2, '0');
+      return '${source.year}.$month.$day';
+    }
+
+    final trimmed = applicationEndDateText.trim();    return trimmed.isEmpty ? null : trimmed;
   }
 
   String get tagsSummary {
@@ -209,6 +250,13 @@ class JobPosting {
   }
 
   bool get hasUrl => url.trim().isNotEmpty;
+  String get uniqueId {
+    final normalized = [title, company, url, postedDateText]
+        .map((part) => part.trim().toLowerCase())
+        .join('|');
+    final bytes = utf8.encode(normalized);
+    return base64UrlEncode(bytes).replaceAll('=', '');
+  }
 }
 
 String _readFirst(Map<String, dynamic> json, List<String> keys) {

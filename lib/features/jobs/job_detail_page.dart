@@ -3,6 +3,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../tabs/tabs_shared.dart';
 import 'job_interview_question_service.dart';
+import 'job_activity.dart';
+import 'job_activity_service.dart';
 import 'job_posting.dart';
 import '../camera/interview_flow_launcher.dart';
 import '../camera/interview_models.dart';
@@ -17,6 +19,8 @@ class JobDetailPage extends StatelessWidget {
       JobInterviewQuestionService();
   static const InterviewFlowLauncher _interviewLauncher =
       InterviewFlowLauncher();
+  static final JobActivityService _activityService = JobActivityService();
+
 
   @override
   Widget build(BuildContext context) {
@@ -50,19 +54,41 @@ class JobDetailPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _InfoTag(
-                  icon: Icons.place_outlined,
-                  label: job.regionLabel,
-                ),
-                if (job.prettyPostedDate != null)
-                  _InfoTag(
-                    icon: Icons.event_note,
-                    label: '${job.prettyPostedDate} 등록',
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _InfoTag(
+                        icon: Icons.place_outlined,
+                        label: job.regionLabel,
+                      ),
+                      if (job.prettyPostedDate != null)
+                        _InfoTag(
+                          icon: Icons.event_note,
+                          label: '${job.prettyPostedDate} 등록',
+                        ),
+                    ],
                   ),
+                  ),
+                const SizedBox(width: 8),
+                StreamBuilder<JobActivity?>(
+                  stream: _activityService.watch(job),
+                  builder: (context, snapshot) {
+                    final scrapped = snapshot.data?.scrapped ?? false;
+                    return IconButton(
+                      icon: Icon(
+                        scrapped ? Icons.star : Icons.star_outline,
+                        color: scrapped ? Colors.amber : AppColors.subtext,
+                      ),
+                      tooltip: scrapped ? '스크랩 취소' : '스크랩',
+                      onPressed: () => _handleToggleScrap(context, scrapped),
+                    );
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -244,13 +270,33 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
-  void _launchDetail(String url, BuildContext context) async {
+  Future<void> _launchDetail(String url, BuildContext context) async {
     final trimmed = url.trim();
     if (trimmed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('상세 링크가 제공되지 않았습니다.')),
       );
       return;
+    }
+    try {
+      final recorded = await _activityService.recordApplication(job);
+      if (recorded && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('지원 내역에 저장했어요.')),
+        );
+      }
+    } on JobActivityAuthException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인 후 지원 내역을 저장할 수 있어요.')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('지원 내역을 저장하지 못했습니다. 다시 시도해주세요.')),
+        );
+      }
     }
 
     final launched =
@@ -259,6 +305,42 @@ class JobDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('상세 페이지를 열 수 없습니다.')),
       );
+    }
+  }
+  Future<void> _handleToggleScrap(
+      BuildContext context, bool currentScrapState) async {
+    try {
+      final scrapped = await _activityService.toggleScrap(job);
+      if (!context.mounted) {
+        return;
+      }
+
+      final messenger = ScaffoldMessenger.of(context);
+      messenger
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content:
+                Text(scrapped ? '스크랩했어요.' : '스크랩을 취소했어요.'),
+          ),
+        );
+    } on JobActivityAuthException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..removeCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('로그인 후 이용해주세요.')),
+          );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        final message = currentScrapState
+            ? '스크랩을 취소하지 못했습니다. 다시 시도해주세요.'
+            : '스크랩을 저장하지 못했습니다. 다시 시도해주세요.';
+        ScaffoldMessenger.of(context)
+          ..removeCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
+      }
     }
   }
 }

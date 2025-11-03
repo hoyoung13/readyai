@@ -9,6 +9,7 @@ import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/interview_history_page.dart';
 import 'package:ai/features/profile/interview_folder_page.dart';
 import 'package:ai/features/profile/interview_video_page.dart';
+import 'package:ai/features/profile/job_activity_page.dart';
 
 final router = GoRouter(
   routes: [
@@ -19,6 +20,10 @@ final router = GoRouter(
     GoRoute(
       path: '/profile/history',
       builder: (_, __) => const InterviewHistoryPage(),
+    ),
+    GoRoute(
+      path: '/profile/jobs',
+      builder: (_, __) => const JobActivityPage(),
     ),
     GoRoute(
       path: '/profile/history/folder',
