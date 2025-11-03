@@ -655,62 +655,113 @@ class _CategorySelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _CategoryChip(
-              label: '전체',
-              selected: selectedCategory == null,
-              onSelected: (value) {
-                if (value) {
-                  onSelected(null);
-                }
-              },
-            ),
-            for (final category in categories)
-              _CategoryChip(
-                label: category,
-                selected: selectedCategory == category,
-                onSelected: (value) {
-                  onSelected(value ? category : null);
-                },
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const minTileWidth = 140.0;
+            const tileHeight = 48.0;
+            const spacing = 12.0;
+
+            final crossAxisCount = math.max(
+              1,
+              (constraints.maxWidth / minTileWidth).floor(),
+            );
+            final horizontalSpacing = spacing * (crossAxisCount - 1);
+            final widthPerTile =
+                (constraints.maxWidth - horizontalSpacing) / crossAxisCount;
+            final childAspectRatio = widthPerTile / tileHeight;
+
+            final options = <_CategoryOption>[
+              const _CategoryOption(label: '전체', value: null),
+              ...categories.map(
+                (category) => _CategoryOption(label: category, value: category),
               ),
-          ],
+         ];
+
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: spacing,
+                crossAxisSpacing: spacing,
+                childAspectRatio: childAspectRatio,
+              ),
+              itemCount: options.length,
+              itemBuilder: (context, index) {
+                final option = options[index];
+                final isSelected = option.value == null
+                    ? selectedCategory == null
+                    : selectedCategory == option.value;
+                return _CategoryTile(
+                  label: option.label,
+                  selected: isSelected,
+                  onTap: () {
+                    if (isSelected) {
+                      onSelected(null);
+                    } else {
+                      onSelected(option.value);
+                    }
+                  },
+                );
+              },
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
+class _CategoryOption {
+  const _CategoryOption({required this.label, required this.value});
+
+  final String label;
+  final String? value;
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
     required this.label,
     required this.selected,
-    required this.onSelected,
+    required this.onTap,
   });
 
   final String label;
   final bool selected;
-  final ValueChanged<bool> onSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: onSelected,
-      selectedColor: AppColors.mint.withOpacity(0.2),
-      backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        color: selected ? Colors.black : AppColors.text,
-        fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: selected
+                ? AppColors.mint.withOpacity(0.15)
+                : Colors.white,
+            border: Border.all(
+              color: selected ? AppColors.mint : const Color(0xFFE1E1E5),
+              width: 1.1,
+            ),
+          ),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: selected ? AppColors.text : AppColors.subtext,
+            ),
+          ),
+        ),
       ),
-      side: BorderSide(
-        color: selected ? AppColors.mint : const Color(0xFFE1E1E5),
-      ),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
   }
 }
