@@ -1,142 +1,89 @@
 [
   {
-    "title": "",
-    "company": "한국보훈복지의료공단",
-    "region": "",
-    "date": "",
-    "url": ""
+    "title": "한국전력공사 2024년 상반기 신입사원 채용",
+    "company": "한국전력공사",
+    "region": "전국",
+    "date": "2024-04-30",
+    "url": "https://www.kepco.co.kr",
+    "summaryItems": [
+      {
+        "label": "모집분야",
+        "value": "송배전 직무"
+      },
+      {
+        "label": "접수기간",
+        "value": "2024-04-01 ~ 2024-04-30"
+      }
+    ],
+    "detailRows": [
+      {
+        "title": "전형 절차",
+        "description": "서류전형 → 필기전형 → 면접전형 → 최종합격"
+      },
+      {
+        "title": "자격 요건",
+        "description": "전기기사 이상 자격증 소지 및 관련 전공 학사 이상"
+      }
+    ],
+    "description": "한국전력공사가 전력 설비 운영을 함께할 신입 인재를 모집합니다.",
+    "notice": "상세 전형 일정은 공고 내 안내를 참고하세요."
   },
   {
-    "title": "",
-    "company": "한국장애인고용공단",
-    "region": "",
-    "date": "",
-    "url": ""
+    "title": "한국수자원공사 청년인턴 공개채용",
+    "company": "한국수자원공사",
+    "region": "대전광역시",
+    "date": "2024-05-15",
+    "url": "https://www.kwater.or.kr",
+    "summaryItems": [
+      {
+        "label": "모집분야",
+        "value": "수자원 관리 지원"
+      },
+      {
+        "label": "모집구분",
+        "value": "청년인턴"
+      }
+    ],
+    "detailRows": [
+      {
+        "title": "주요 업무",
+        "description": "수자원 시설 운영 지원 및 행정 업무 보조"
+      },
+      {
+        "title": "접수 방법",
+        "description": "공사 채용 홈페이지 온라인 접수"
+      }
+    ],
+    "description": "수자원공사의 현장 경험을 통해 공공기관 업무를 체험할 수 있는 청년인턴을 모집합니다.",
+    "notice": "면접 대상자는 개별 문자로 안내됩니다."
   },
   {
-    "title": "",
-    "company": "국토연구원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "한국환경산업기술원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "한국조세재정연구원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "국토연구원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "주택관리공단(주)",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "부산대학교치과병원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "한국도로공사",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "정보통신정책연구원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "대한적십자사",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "대한적십자사",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "국립공원공단",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "경북대학교병원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "국립중앙의료원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "분당서울대학교병원",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "한국체육산업개발(주)",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "한국체육산업개발(주)",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "한국동서발전(주)",
-    "region": "",
-    "date": "",
-    "url": ""
-  },
-  {
-    "title": "",
-    "company": "국가생명윤리정책원",
-    "region": "",
-    "date": "",
-    "url": ""
+     "title": "한국관광공사 디지털 혁신 인재 모집",
+    "company": "한국관광공사",
+    "region": "강원도 원주",
+    "date": "2024-05-10",
+    "url": "https://kto.visitkorea.or.kr",
+    "summaryItems": [
+      {
+        "label": "모집분야",
+        "value": "데이터 분석"
+      },
+      {
+        "label": "연락처",
+        "value": "033-123-4567"
+      }
+    ],
+    "detailRows": [
+      {
+        "title": "근무 조건",
+        "description": "주 5일, 유연근무제 적용, 연봉 3,800만원 수준"
+      },
+      {
+        "title": "우대 사항",
+        "description": "빅데이터 분석 자격증 소지자, Python 활용 가능자 우대"
+      }
+    ],
+    "description": "한국관광공사와 함께 관광 산업의 디지털 혁신을 이끌 인재를 찾습니다.",
+    "notice": "서류 접수 후 일정은 개별 안내 예정입니다."
   }
 ]

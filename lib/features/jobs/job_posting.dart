@@ -137,7 +137,6 @@ class JobPosting {
       'deadline',
       'applyEndDate',
     ]);
-
     final tags = (json['tags'] as List<dynamic>?)
             ?.map((dynamic value) => value.toString().trim())
             .where((element) => element.isNotEmpty)

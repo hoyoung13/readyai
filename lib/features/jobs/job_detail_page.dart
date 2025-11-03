@@ -20,6 +20,8 @@ class JobDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trimmedDescription = job.description.trim();
+    final trimmedNotice = job.notice.trim();
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -103,12 +105,73 @@ class JobDetailPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
+            if (job.summaryItems.isNotEmpty)
+              _InfoBlock(
+                title: '채용 요약',
+                children: job.summaryItems
+                    .map(
+                      (item) => _InfoRow(
+                        label: item.label,
+                        value: item.value,
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            if (job.summaryItems.isNotEmpty) const SizedBox(height: 20),
+            if (trimmedDescription.isNotEmpty)
+              _InfoBlock(
+                title: '상세 설명',
+                children: [
+                  Text(
+                    trimmedDescription,
+                    style: const TextStyle(height: 1.5),
+                  ),
+                ],
+              ),
+            if (trimmedDescription.isNotEmpty) const SizedBox(height: 20),
+            if (job.detailRows.isNotEmpty)
+              _InfoBlock(
+                title: '상세 정보',
+                children: job.detailRows
+                    .map(
+                      (row) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              row.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              row.description,
+                              style: const TextStyle(height: 1.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            if (job.detailRows.isNotEmpty) const SizedBox(height: 20),
             _InfoBlock(
               title: '안내',
-              children: const [
-                Text('상세 공고 페이지에서 지원 절차를 확인한 뒤 지원해 주세요.'),
-                SizedBox(height: 8),
-                Text('본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.'),
+              children: [
+                Text(
+                  trimmedNotice.isNotEmpty
+                      ? trimmedNotice
+                      : '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
+                  style: const TextStyle(height: 1.5),
+                ),
+                if (trimmedNotice.isNotEmpty) const SizedBox(height: 8),
+                if (trimmedNotice.isNotEmpty)
+                  const Text(
+                    '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
+                  ),
               ],
             ),
           ],
