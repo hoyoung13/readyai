@@ -7,6 +7,7 @@ import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/interview_history_page.dart';
+import 'package:ai/features/profile/interview_replay_page.dart';
 import 'package:ai/features/profile/interview_folder_page.dart';
 import 'package:ai/features/profile/interview_video_page.dart';
 import 'package:ai/features/profile/job_activity_page.dart';
@@ -61,6 +62,18 @@ final router = GoRouter(
         }
         return const Scaffold(
           body: Center(child: Text('영상을 불러오지 못했습니다.')),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/profile/history/replay',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is InterviewReplayPageArgs) {
+          return InterviewReplayPage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('면접 다시보기 정보를 불러오지 못했습니다.')),
         );
       },
     ),

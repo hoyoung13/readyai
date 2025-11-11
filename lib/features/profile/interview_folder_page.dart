@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/interview_video_page.dart';
+import 'package:ai/features/profile/interview_replay_page.dart';
 import 'package:ai/features/profile/models/interview_folder.dart';
 import 'package:ai/features/profile/models/interview_record.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
@@ -34,7 +35,6 @@ class InterviewFolderPage extends StatelessWidget {
         .doc(user.uid)
         .collection('interviews')
         .where('categoryKey', isEqualTo: args.folder.id)
-        
         .snapshots();
 //.orderBy('createdAt', descending: true)
     return Scaffold(
@@ -61,7 +61,6 @@ class InterviewFolderPage extends StatelessWidget {
 //const <InterviewRecord>[]; 두줄아래
           final records =
               snapshot.data?.docs.map(InterviewRecord.fromDoc).toList() ??
-                  
                   <InterviewRecord>[];
 
           records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -75,7 +74,11 @@ class InterviewFolderPage extends StatelessWidget {
             itemCount: records.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              return _RecordTile(record: records[index]);
+              return _RecordTile(
+                record: records[index],
+                previousRecord:
+                    index < records.length - 1 ? records[index + 1] : null,
+              );
             },
           );
         },
@@ -85,9 +88,10 @@ class InterviewFolderPage extends StatelessWidget {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record});
+  const _RecordTile({required this.record, this.previousRecord});
 
   final InterviewRecord record;
+  final InterviewRecord? previousRecord;
 
   @override
   Widget build(BuildContext context) {
@@ -144,16 +148,15 @@ class _RecordTile extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () {
                     context.push(
-                      '/profile/history/video',
-                      extra: InterviewVideoPageArgs(
-                        videoUrl: record.videoUrl!,
-                        title:
-                            '${record.category.title} · ${record.mode.title}',
+                      '/profile/history/replay',
+                      extra: InterviewReplayPageArgs(
+                        record: record,
+                        previousRecord: previousRecord,
                       ),
                     );
                   },
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('영상 보기'),
+                  icon: const Icon(Icons.replay_circle_filled),
+                  label: const Text('면접 다시보기'),
                 ),
             ],
           ),

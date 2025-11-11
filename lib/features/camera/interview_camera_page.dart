@@ -50,7 +50,6 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     _initializeCamera();
     _initSttService();
     _initTts();
-
   }
 
   Future<void> _initSttService() async {
@@ -109,11 +108,12 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
     _controller?.dispose();
     super.dispose();
   }
+
   Future<void> _initTts() async {
     try {
       final tts = FlutterTts();
       await tts.setLanguage('ko-KR');
-      await tts.setSpeechRate(0.92);
+      await tts.setSpeechRate(0.5);
       await tts.setVolume(1.0);
       await tts.setPitch(1.0);
       if (!mounted) {
@@ -402,7 +402,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
       });
 
       try {
-        faceAnalysis = await _faceAnalysisService.analyzeVideo(recordedFilePath);
+        faceAnalysis =
+            await _faceAnalysisService.analyzeVideo(recordedFilePath);
       } on FaceAnalysisException catch (e) {
         faceAnalysisError = e.message;
       } catch (e, st) {
@@ -542,7 +543,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
               padding: const EdgeInsets.all(16),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
-child: Stack(
+                child: Stack(
                   fit: StackFit.expand,
                   children: [
                     _buildCameraPreview(controller),
@@ -683,7 +684,8 @@ child: Stack(
 
     return CameraPreview(controller);
   }
-   Widget _buildQuestionOverlay(BuildContext context) {
+
+  Widget _buildQuestionOverlay(BuildContext context) {
     final theme = Theme.of(context);
     final total = _questions.length;
     final question = _questions[_currentQuestionIndex];
@@ -741,6 +743,7 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
+
 class _QuestionOverlay extends StatelessWidget {
   const _QuestionOverlay({
     required this.question,
