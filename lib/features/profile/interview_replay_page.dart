@@ -5,6 +5,7 @@ import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/models/interview_record.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:ai/features/camera/interview_flow_launcher.dart';
 
 class InterviewReplayPageArgs {
   const InterviewReplayPageArgs({
@@ -31,6 +32,9 @@ class _InterviewReplayPageState extends State<InterviewReplayPage> {
   String? _errorMessage;
   late final List<String> _strengths;
   late final List<String> _focusPoints;
+  bool _isLaunchingPractice = false;
+
+  static const _flowLauncher = InterviewFlowLauncher();
 
   @override
   void initState() {
@@ -248,6 +252,59 @@ class _InterviewReplayPageState extends State<InterviewReplayPage> {
     }
   }
 
+  Future<void> _handlePracticeAgain() async {
+    if (_isLaunchingPractice) {
+      return;
+    }
+
+    final record = widget.args.record;
+    final questions = record.questions;
+
+    if (questions.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('이 기록에는 질문 정보가 없어 다시 연습을 시작할 수 없어요.'),
+          ),
+        );
+      return;
+    }
+
+    setState(() {
+      _isLaunchingPractice = true;
+    });
+
+    try {
+      await _flowLauncher.launch(
+        context: context,
+        category: record.category,
+        mode: record.mode,
+        questions: questions,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('연습을 완료하면 면접 기록에서 바로 비교할 수 있어요.'),
+          ),
+        );
+    } finally {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLaunchingPractice = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _controller?.dispose();
@@ -294,6 +351,8 @@ class _InterviewReplayPageState extends State<InterviewReplayPage> {
               errorMessage: _errorMessage,
               onRetry: _initializeVideo,
               record: record,
+              onPracticeAgain: _handlePracticeAgain,
+              isPracticeInProgress: _isLaunchingPractice,
             ),
             const SizedBox(height: 20),
             _InsightCard(
@@ -323,6 +382,8 @@ class _ReplaySection extends StatelessWidget {
     required this.errorMessage,
     required this.onRetry,
     required this.record,
+    required this.onPracticeAgain,
+    required this.isPracticeInProgress,
   });
 
   final VideoPlayerController? controller;
@@ -330,10 +391,14 @@ class _ReplaySection extends StatelessWidget {
   final String? errorMessage;
   final VoidCallback onRetry;
   final InterviewRecord record;
+  final VoidCallback onPracticeAgain;
+  final bool isPracticeInProgress;
 
   @override
   Widget build(BuildContext context) {
     final videoUrl = record.videoUrl;
+    final hasQuestions = record.questions.isNotEmpty;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -425,6 +490,36 @@ class _ReplaySection extends StatelessWidget {
             )
           else
             const _ReplayPlaceholder(),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: !hasQuestions || isPracticeInProgress
+                  ? null
+                  : onPracticeAgain,
+              icon: isPracticeInProgress
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    )
+                  : const Icon(Icons.videocam_outlined),
+              label: Text(
+                hasQuestions ? '같은 질문으로 다시 연습하기' : '질문 정보를 찾을 수 없어요',
+              ),
+            ),
+          ),
+          if (!hasQuestions)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                '이 기록에는 질문이 저장되어 있지 않아 다시 연습을 시작할 수 없어요.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.subtext,
+                ),
+              ),
+            ),
         ],
       ),
     );
