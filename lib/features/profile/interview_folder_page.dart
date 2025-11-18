@@ -35,6 +35,7 @@ class InterviewFolderPage extends StatelessWidget {
         .doc(user.uid)
         .collection('interviews')
         .where('categoryKey', isEqualTo: args.folder.id)
+        .orderBy('createdAt', descending: true)
         .snapshots();
 //.orderBy('createdAt', descending: true)
     return Scaffold(
@@ -74,10 +75,12 @@ class InterviewFolderPage extends StatelessWidget {
             itemCount: records.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
+              final record = records[index];
               return _RecordTile(
-                record: records[index],
+                record: record,
                 previousRecord:
                     index < records.length - 1 ? records[index + 1] : null,
+                canReplay: index == 0,
               );
             },
           );
@@ -88,10 +91,15 @@ class InterviewFolderPage extends StatelessWidget {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record, this.previousRecord});
+  const _RecordTile({
+    required this.record,
+    this.previousRecord,
+    required this.canReplay,
+  });
 
   final InterviewRecord record;
   final InterviewRecord? previousRecord;
+  final bool canReplay;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +152,7 @@ class _RecordTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (record.videoUrl != null)
+              if (record.videoUrl != null && canReplay)
                 FilledButton.icon(
                   onPressed: () {
                     context.push(
