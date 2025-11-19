@@ -14,9 +14,11 @@ class _SignupPageState extends State<SignupPage> {
   final _emailCtl = TextEditingController(); // 아이디(이메일)
   final _pwCtl = TextEditingController();
   final _nickCtl = TextEditingController();
+  final _companyNameCtl = TextEditingController();
+  final _businessNumberCtl = TextEditingController();
 
   DateTime? _birthDate;
-
+  bool _isCompany = false;
   bool _loading = false;
   bool? _emailOk; // true=사용가능, false=중복, null=미확인
   bool? _nickOk;
@@ -27,6 +29,8 @@ class _SignupPageState extends State<SignupPage> {
     _emailCtl.dispose();
     _pwCtl.dispose();
     _nickCtl.dispose();
+    _companyNameCtl.dispose();
+    _businessNumberCtl.dispose();
     super.dispose();
   }
 
@@ -34,19 +38,20 @@ class _SignupPageState extends State<SignupPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   InputDecoration _input(String hint) => InputDecoration(
-    hintText: hint,
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFFBABABA)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
-    ),
-  );
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFBABABA)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
+        ),
+      );
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -103,10 +108,15 @@ class _SignupPageState extends State<SignupPage> {
     final email = _emailCtl.text.trim().toLowerCase();
     final pw = _pwCtl.text;
     final nickname = _nickCtl.text.trim();
+    final companyName = _companyNameCtl.text.trim();
+    final businessNumber = _businessNumberCtl.text.trim();
 
     if ([name, email, pw, nickname].any((v) => v.isEmpty) ||
         _birthDate == null) {
       return _msg('모든 항목을 입력/선택하세요.');
+    }
+    if (_isCompany && (companyName.isEmpty || businessNumber.isEmpty)) {
+      return _msg('기업 회원은 회사명과 사업자등록번호를 입력해주세요.');
     }
     if (_emailOk == false || _nickOk == false) {
       return _msg('아이디/닉네임 중복을 확인해주세요.');
@@ -125,6 +135,9 @@ class _SignupPageState extends State<SignupPage> {
       final uid = cred.user!.uid;
 
       final db = FirebaseFirestore.instance;
+      final isCompany = _isCompany;
+      final role = isCompany ? 'company' : 'user';
+      final isApproved = !isCompany;
 
       // 2) usernames / nicknames 예약 + 3) users/{uid} 프로필 저장 (트랜잭션)
       await db.runTransaction((tx) async {
@@ -149,10 +162,14 @@ class _SignupPageState extends State<SignupPage> {
           'nickname': nickname,
           'resumePublic': false,
           'createdAt': FieldValue.serverTimestamp(),
+          'role': role,
+          'isApproved': isApproved,
+          'companyName': isCompany ? companyName : null,
+          'businessNumber': isCompany ? businessNumber : null,
         });
       });
 
-      _msg('회원가입이 완료되었습니다.');
+      _msg(isCompany ? '가입 신청이 접수되었습니다. 검수 후 승인됩니다.' : '회원가입이 완료되었습니다.');
       if (mounted) context.go('/login'); // 가입tjdrhd 로그인 화면 이동
     } on FirebaseAuthException catch (e) {
       _msg(e.message ?? '회원가입 실패');
@@ -242,9 +259,9 @@ class _SignupPageState extends State<SignupPage> {
                               _birthDate == null
                                   ? '날짜를 선택하세요'
                                   : _birthDate!
-                                        .toIso8601String()
-                                        .split('T')
-                                        .first,
+                                      .toIso8601String()
+                                      .split('T')
+                                      .first,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: _birthDate == null
@@ -286,6 +303,30 @@ class _SignupPageState extends State<SignupPage> {
                       ok: _nickOk,
                     ),
                     const SizedBox(height: 24),
+
+                    // 회원 유형 선택
+                    SwitchListTile.adaptive(
+                      value: _isCompany,
+                      onChanged: (v) => setState(() => _isCompany = v),
+                      title: const Text('기업 회원으로 가입'),
+                      subtitle: const Text('기업 계정은 승인 후 이용할 수 있습니다.'),
+                    ),
+                    if (_isCompany) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _companyNameCtl,
+                        decoration: _input('회사명'),
+                        textInputAction: TextInputAction.next,
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _businessNumberCtl,
+                        decoration: _input('사업자등록번호'),
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // 회원가입 버튼
                     SizedBox(

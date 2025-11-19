@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/auth/login_page.dart';
@@ -16,7 +17,10 @@ import 'package:ai/features/profile/resume/resume_editor_page.dart';
 import 'package:ai/features/profile/profile_edit_page.dart';
 import 'package:ai/features/community/community_board_page.dart';
 
+final ValueNotifier<String?> userRoleCache = ValueNotifier<String?>(null);
+
 final router = GoRouter(
+  refreshListenable: userRoleCache,
   routes: [
     GoRoute(path: '/', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/login', builder: (_, __) => const LoginPage()),

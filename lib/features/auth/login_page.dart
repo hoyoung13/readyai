@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // ✅ 추가
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ai/core/router/app_router.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -36,10 +38,25 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
     try {
       // ✅ Firebase Auth 이메일/비밀번호 로그인
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: pw,
       );
+      final uid = cred.user!.uid;
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final data = userDoc.data();
+      final isApproved = data?['isApproved'] == true;
+      final role = data?['role'] as String?;
+
+      if (!isApproved) {
+        await FirebaseAuth.instance.signOut();
+        userRoleCache.value = null;
+        _msg('관리자 승인 후 이용할 수 있습니다.');
+        return;
+      }
+
+      userRoleCache.value = role;
 
       // 로그인 성공 → 홈(or 탭)으로 이동
       if (mounted) context.go('/tabs');
@@ -96,19 +113,20 @@ class _LoginPageState extends State<LoginPage> {
     const borderRadius = 16.0;
 
     InputDecoration inputStyle(String hint) => InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(borderRadius),
-        borderSide: const BorderSide(color: Color(0xFFBABABA)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(borderRadius),
-        borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
-      ),
-    );
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+            borderSide: const BorderSide(color: Color(0xFFBABABA)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+            borderSide: const BorderSide(color: Color(0xFF7C7C7C), width: 1.2),
+          ),
+        );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
