@@ -60,24 +60,17 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
     super.initState();
     _result = widget.args.result;
     _practiceName = widget.args.practiceName;
-    if (widget.args.shouldPersist) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          unawaited(_persistResultIfNeeded());
-        }
-      });
-    }
   }
 
   Future<void> _persistResultIfNeeded() async {
     if (!widget.args.shouldPersist || _isPersistingResult) {
       return;
     }
-    _isPersistingResult = true;
+    _updatePersistingState(true);
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      _isPersistingResult = false;
+      _updatePersistingState(false);
 
       return;
     }
@@ -113,12 +106,14 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
 
     final userDoc = interviewsCollection.parent;
     if (userDoc == null) {
-      _isPersistingResult = false;
+      _updatePersistingState(false);
+
       return;
     }
     final selection = await _selectFolderAndName(userDoc);
     if (selection == null) {
-      _isPersistingResult = false;
+      _updatePersistingState(false);
+
       return;
     }
 
@@ -172,8 +167,18 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
           );
       }
     } finally {
-      _isPersistingResult = false;
+      _updatePersistingState(false);
     }
+  }
+
+  void _updatePersistingState(bool value) {
+    if (!mounted) {
+      _isPersistingResult = value;
+      return;
+    }
+    setState(() {
+      _isPersistingResult = value;
+    });
   }
 
   Future<_FolderSelectionResult?> _selectFolderAndName(
@@ -460,41 +465,87 @@ class _InterviewSummaryPageState extends State<InterviewSummaryPage> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.all(24),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.mint,
-                  foregroundColor: AppColors.text,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 16),
+            if (widget.args.shouldPersist) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.mint,
+                    foregroundColor: AppColors.text,
+                    disabledBackgroundColor: AppColors.mint.withOpacity(0.4),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  onPressed: (_isPersistingResult || _selectedFolder != null)
+                      ? null
+                      : () {
+                          unawaited(_persistResultIfNeeded());
+                        },
+                  child: _isPersistingResult
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        )
+                      : Text(_selectedFolder != null ? '저장 완료' : '결과 저장'),
                 ),
-                onPressed: () =>
-                    Navigator.of(context).pop(InterviewSummaryResult.retry),
-                child: const Text('다시 연습'),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: AppColors.mint, width: 1.4),
-                  foregroundColor: AppColors.text,
-                  textStyle: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 16),
+              if (_selectedFolder != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '${_selectedFolder!.displayName}에 저장됨',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                onPressed: _isSavingPdf ? null : _handleSavePdf,
-                child: _isSavingPdf
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      )
-                    : const Text('PDF 저장'),
-              ),
+              const SizedBox(height: 24),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.mint,
+                      foregroundColor: AppColors.text,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
+                    onPressed: () =>
+                        Navigator.of(context).pop(InterviewSummaryResult.retry),
+                    child: const Text('다시 연습'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: AppColors.mint, width: 1.4),
+                      foregroundColor: AppColors.text,
+                      textStyle: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
+                    onPressed: _isSavingPdf ? null : _handleSavePdf,
+                    child: _isSavingPdf
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
+                          )
+                        : const Text('PDF 저장'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
