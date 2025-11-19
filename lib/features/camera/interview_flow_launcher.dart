@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:ai/features/profile/models/interview_record.dart';
 
 import 'interview_models.dart';
 import 'interview_summary_page.dart';
@@ -13,13 +14,20 @@ class InterviewFlowLauncher {
     required JobCategory category,
     required InterviewMode mode,
     required List<String> questions,
+    InterviewRecord? comparisonRecord,
   }) async {
     final granted = await _ensureCameraPermission(context);
     if (!granted || !context.mounted) {
       return;
     }
 
-    await _startInterview(context, category, mode, questions);
+    await _startInterview(
+      context,
+      category,
+      mode,
+      questions,
+      comparisonRecord,
+    );
   }
 
   Future<void> _startInterview(
@@ -27,6 +35,7 @@ class InterviewFlowLauncher {
     JobCategory category,
     InterviewMode mode,
     List<String> questions,
+    InterviewRecord? comparisonRecord,
   ) async {
     final result = await context.push<InterviewRecordingResult>(
       '/interview/camera',
@@ -62,6 +71,7 @@ class InterviewFlowLauncher {
         category: category,
         mode: mode,
         questions: questions,
+        comparisonRecord: comparisonRecord,
       ),
     );
 
@@ -70,7 +80,13 @@ class InterviewFlowLauncher {
     }
 
     if (summaryResult == InterviewSummaryResult.retry) {
-      await _startInterview(context, category, mode, questions);
+      await _startInterview(
+        context,
+        category,
+        mode,
+        questions,
+        comparisonRecord,
+      );
     }
   }
 

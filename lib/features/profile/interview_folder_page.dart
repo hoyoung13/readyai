@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
-import 'package:ai/features/profile/interview_video_page.dart';
+import 'package:ai/features/camera/interview_flow_launcher.dart';
 import 'package:ai/features/profile/interview_replay_page.dart';
 import 'package:ai/features/profile/models/interview_folder.dart';
 import 'package:ai/features/profile/models/interview_record.dart';
@@ -16,10 +16,17 @@ class InterviewFolderPageArgs {
   final InterviewFolder folder;
 }
 
-class InterviewFolderPage extends StatelessWidget {
+class InterviewFolderPage extends StatefulWidget {
   const InterviewFolderPage({super.key, required this.args});
 
   final InterviewFolderPageArgs args;
+  @override
+  State<InterviewFolderPage> createState() => _InterviewFolderPageState();
+}
+
+class _InterviewFolderPageState extends State<InterviewFolderPage> {
+  final InterviewFlowLauncher _flowLauncher = const InterviewFlowLauncher();
+  bool _isLaunchingPractice = false;
 
   @override
   Widget build(BuildContext context) {
@@ -34,59 +41,136 @@ class InterviewFolderPage extends StatelessWidget {
         .collection('users')
         .doc(user.uid)
         .collection('interviews')
-        .where('categoryKey', isEqualTo: args.folder.id)
-        //.orderBy('createdAt', descending: true)
+        .where('folderId', isEqualTo: widget.args.folder.id)
         .snapshots();
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(args.folder.displayName),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.text,
-        elevation: 0.5,
-      ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: stream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text('면접 기록을 불러오지 못했습니다.'),
-            );
-          }
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        var records = const <InterviewRecord>[];
+        Widget body;
 
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-//const <InterviewRecord>[]; 두줄아래
-          final records =
-              snapshot.data?.docs.map(InterviewRecord.fromDoc).toList() ??
-                  <InterviewRecord>[];
+        if (snapshot.hasError) {
+          body = const Center(
+            child: Text('면접 기록을 불러오지 못했습니다.'),
+          );
+        } else if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          body = const Center(child: CircularProgressIndicator());
+        } else {
+          records = snapshot.data?.docs.map(InterviewRecord.fromDoc).toList() ??
+              <InterviewRecord>[];
 
           records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
           if (records.isEmpty) {
-            return const _EmptyFolderState();
+            body = const _EmptyFolderState();
+          } else {
+            body = ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+              itemCount: records.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final record = records[index];
+                return _RecordTile(
+                  record: record,
+                  previousRecord:
+                      index < records.length - 1 ? records[index + 1] : null,
+                );
+              },
+            );
           }
+        }
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-            itemCount: records.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final record = records[index];
-              return _RecordTile(
-                record: record,
-                previousRecord:
-                    index < records.length - 1 ? records[index + 1] : null,
-                canReplay: index == 0,
-              );
-            },
-          );
-        },
-      ),
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          appBar: AppBar(
+            title: Text(widget.args.folder.displayName),
+            backgroundColor: Colors.white,
+            foregroundColor: AppColors.text,
+            elevation: 0.5,
+          ),
+          body: body,
+          bottomNavigationBar: SafeArea(
+            minimum: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            child: ElevatedButton(
+              onPressed: records.isEmpty || _isLaunchingPractice
+                  ? null
+                  : () => _showReplayPicker(records),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color(0xFFE9E9E9),
+                foregroundColor: AppColors.text,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: _isLaunchingPractice
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    )
+                  : const Text('면접 다시보기'),
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _showReplayPicker(List<InterviewRecord> records) async {
+    if (records.isEmpty) {
+      return;
+    }
+
+    final selected = await showModalBottomSheet<InterviewRecord>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return _ReplayPickerSheet(records: records);
+      },
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    await _startPractice(selected);
+  }
+
+  Future<void> _startPractice(InterviewRecord record) async {
+    if (record.questions.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('이 기록에는 질문 정보가 없어 다시 연습을 시작할 수 없어요.'),
+          ),
+        );
+      return;
+    }
+
+    setState(() {
+      _isLaunchingPractice = true;
+    });
+
+    try {
+      await _flowLauncher.launch(
+        context: context,
+        category: record.category,
+        mode: record.mode,
+        questions: record.questions,
+        comparisonRecord: record,
+      );
+    } finally {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLaunchingPractice = false;
+      });
+    }
   }
 }
 
@@ -94,16 +178,15 @@ class _RecordTile extends StatelessWidget {
   const _RecordTile({
     required this.record,
     this.previousRecord,
-    required this.canReplay,
   });
 
   final InterviewRecord record;
   final InterviewRecord? previousRecord;
-  final bool canReplay;
 
   @override
   Widget build(BuildContext context) {
     final score = record.result.score?.overallScore;
+    final practiceName = record.practiceName;
     final hasError = record.result.hasError;
     final errorMessage = record.result.evaluationError ??
         record.result.transcriptionError ??
@@ -135,7 +218,9 @@ class _RecordTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      record.mode.title,
+                      (practiceName != null && practiceName.isNotEmpty)
+                          ? practiceName
+                          : record.mode.title,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -143,7 +228,7 @@ class _RecordTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatDate(record.createdAt),
+                      '${record.mode.title} · ${_formatDate(record.createdAt)}',
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.subtext,
@@ -152,7 +237,7 @@ class _RecordTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (record.videoUrl != null && canReplay)
+              if (record.videoUrl != null)
                 FilledButton.icon(
                   onPressed: () {
                     context.push(
@@ -164,7 +249,7 @@ class _RecordTile extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.replay_circle_filled),
-                  label: const Text('면접 다시보기'),
+                  label: const Text('영상 보기'),
                 ),
             ],
           ),
@@ -190,6 +275,7 @@ class _RecordTile extends StatelessWidget {
                       questions: record.questions,
                       recordId: record.id,
                       shouldPersist: false,
+                      practiceName: record.practiceName,
                     ),
                   );
                 },
@@ -209,6 +295,109 @@ class _RecordTile extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ReplayPickerSheet extends StatelessWidget {
+  const _ReplayPickerSheet({required this.records});
+
+  final List<InterviewRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return FractionallySizedBox(
+      heightFactor: 0.9,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: media.viewInsets.bottom + 16,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '어떤 면접을 기준으로 다시 연습할까요?',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '질문이 저장된 영상만 선택할 수 있어요.',
+                style: TextStyle(color: AppColors.subtext),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: records.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final record = records[index];
+                    final practiceName = record.practiceName;
+                    final title =
+                        (practiceName != null && practiceName.isNotEmpty)
+                            ? practiceName
+                            : record.mode.title;
+                    final subtitle =
+                        '${_formatDate(record.createdAt)} · ${record.mode.title}';
+                    final score = record.result.score?.overallScore;
+                    final scoreLabel = score != null
+                        ? '${score.toStringAsFixed(1)}점'
+                        : '평가 대기';
+                    final hasQuestions = record.questions.isNotEmpty;
+                    return ListTile(
+                      onTap: hasQuestions
+                          ? () => Navigator.of(context).pop(record)
+                          : null,
+                      title: Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(subtitle),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            scoreLabel,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          if (!hasQuestions)
+                            const Text(
+                              '질문 없음',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

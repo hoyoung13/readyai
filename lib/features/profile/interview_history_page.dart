@@ -87,7 +87,7 @@ class _InterviewHistoryPageState extends State<InterviewHistoryPage> {
               final groupedRecords = <String, List<InterviewRecord>>{};
               for (final record in records) {
                 groupedRecords
-                    .putIfAbsent(record.categoryKey, () => [])
+                    .putIfAbsent(record.folderId, () => [])
                     .add(record);
               }
 

@@ -98,16 +98,10 @@ class ProfileTab extends StatelessWidget {
                   careerType: careerType,
                   desiredRole: desiredRole,
                   desiredLocation: desiredLocation,
+                  onEdit: () => context.push('/profile/edit'),
                   onLogout: () => _handleLogout(context),
                 ),
                 const SizedBox(height: 24),
-                _ProfileActionCard(
-                  title: '프로필',
-                  description: '기본 정보 수정',
-                  buttonLabel: '수정',
-                  onPressed: () => context.push('/profile/edit'),
-                ),
-                const SizedBox(height: 14),
                 _ProfileActionCard(
                   title: '이력서',
                   description: '추가/수정 · 공개 설정',
@@ -175,6 +169,7 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.careerType,
     required this.desiredRole,
     required this.desiredLocation,
+    required this.onEdit,
     required this.onLogout,
   });
 
@@ -184,6 +179,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   final String? careerType;
   final String? desiredRole;
   final String? desiredLocation;
+  final VoidCallback onEdit;
   final VoidCallback onLogout;
   @override
   Widget build(BuildContext context) {
@@ -278,15 +274,28 @@ class _ProfileHeaderCard extends StatelessWidget {
               ],
             ),
           ),
-          TextButton(
-            onPressed: onLogout,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.subtext,
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.text,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                child: const Text('수정'),
               ),
-            ),
-            child: const Text('로그아웃'),
+              TextButton(
+                onPressed: onLogout,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.subtext,
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: const Text('로그아웃'),
+              ),
+            ],
           ),
         ],
       ),
@@ -420,7 +429,12 @@ class _InterviewPreviewTile extends StatelessWidget {
     final date = record.createdAt;
     final formattedDate =
         '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-
+    final practiceName = record.practiceName?.trim();
+    final title = (practiceName != null && practiceName.isNotEmpty)
+        ? practiceName
+        : record.category.title;
+    final subtitle =
+        '${record.category.title} · ${record.mode.title} · $formattedDate';
     return InkWell(
       onTap: () {
         context.push(
@@ -432,6 +446,7 @@ class _InterviewPreviewTile extends StatelessWidget {
             questions: record.questions,
             recordId: record.id,
             shouldPersist: false,
+            practiceName: record.practiceName,
           ),
         );
       },
@@ -453,7 +468,7 @@ class _InterviewPreviewTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              record.category.title,
+              title,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -461,7 +476,7 @@ class _InterviewPreviewTile extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '${record.mode.title} · $formattedDate',
+              subtitle,
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.subtext,

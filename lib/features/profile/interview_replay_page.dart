@@ -282,6 +282,7 @@ class _InterviewReplayPageState extends State<InterviewReplayPage> {
         category: record.category,
         mode: record.mode,
         questions: questions,
+        comparisonRecord: record,
       );
 
       if (!mounted) {
@@ -333,6 +334,7 @@ class _InterviewReplayPageState extends State<InterviewReplayPage> {
                   questions: record.questions,
                   recordId: record.id,
                   shouldPersist: false,
+                  practiceName: record.practiceName,
                 ),
               );
             },
@@ -416,17 +418,24 @@ class _ReplaySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _InfoPill(
                 label: '카테고리',
                 value: record.category.title,
               ),
-              const SizedBox(width: 8),
               _InfoPill(
                 label: '면접 유형',
                 value: record.mode.title,
               ),
+              if (record.practiceName != null &&
+                  record.practiceName!.trim().isNotEmpty)
+                _InfoPill(
+                  label: '연습 이름',
+                  value: record.practiceName!.trim(),
+                ),
             ],
           ),
           const SizedBox(height: 16),

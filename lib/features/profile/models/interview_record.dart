@@ -10,6 +10,8 @@ class InterviewRecord {
     required this.result,
     required this.createdAt,
     required this.categoryKey,
+    required this.folderId,
+    this.practiceName,
     this.videoUrl,
     this.videoStoragePath,
   });
@@ -21,6 +23,8 @@ class InterviewRecord {
   final InterviewRecordingResult result;
   final DateTime createdAt;
   final String categoryKey;
+  final String folderId;
+  final String? practiceName;
   final String? videoUrl;
   final String? videoStoragePath;
 
@@ -57,6 +61,8 @@ class InterviewRecord {
       result: result,
       createdAt: createdAt,
       categoryKey: resolvedCategoryKey,
+      folderId: data['folderId'] as String? ?? resolvedCategoryKey,
+      practiceName: (data['practiceName'] as String?)?.trim(),
       videoUrl: result.videoUrl,
       videoStoragePath: result.videoStoragePath,
     );
