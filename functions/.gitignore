@@ -1,0 +1,5 @@
+# Firebase Functions 작업물 중 버전 관리에서 제외할 항목.
+node_modules
+lib
+firebase-debug.log
+runtimeconfig.json

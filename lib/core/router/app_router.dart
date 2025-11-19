@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/auth/login_page.dart';
 import 'package:ai/features/auth/signup_page.dart';
+import 'package:ai/features/admin/admin_guard.dart';
+import 'package:ai/features/admin/corporate_approval_page.dart';
 import 'package:ai/features/tabs/tabs_page.dart';
 import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
@@ -87,6 +89,12 @@ final router = GoRouter(
           body: Center(child: Text('면접 다시보기 정보를 불러오지 못했습니다.')),
         );
       },
+    ),
+    GoRoute(
+      path: '/admin/corporate-approvals',
+      builder: (_, __) => const AdminRouteGuard(
+        child: CorporateApprovalPage(),
+      ),
     ),
     GoRoute(
       path: '/interview/camera',

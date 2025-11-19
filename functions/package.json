@@ -1,0 +1,20 @@
+{
+  "//": "관리자 승인용 Firebase Cloud Functions 패키지 매니페스트.",
+  "name": "readyai-functions",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "build": "echo 'No build step required for JS functions'",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^4.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
