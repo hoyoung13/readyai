@@ -13,6 +13,7 @@ import 'package:ai/features/profile/interview_video_page.dart';
 import 'package:ai/features/profile/job_activity_page.dart';
 import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
 import 'package:ai/features/profile/resume/resume_editor_page.dart';
+import 'package:ai/features/profile/profile_edit_page.dart';
 
 final router = GoRouter(
   routes: [
@@ -31,6 +32,10 @@ final router = GoRouter(
     GoRoute(
       path: '/profile/resume',
       builder: (_, __) => const ResumeDashboardPage(),
+    ),
+    GoRoute(
+      path: '/profile/edit',
+      builder: (_, __) => const ProfileEditPage(),
     ),
     GoRoute(
       path: '/profile/resume/new',

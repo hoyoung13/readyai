@@ -52,6 +52,10 @@ class ProfileTab extends StatelessWidget {
             user.displayName ??
             (user.email ?? '사용자');
         final resumePublic = profileData?['resumePublic'] as bool? ?? false;
+        final profileImageUrl = profileData?['profileImageUrl'] as String?;
+        final careerType = profileData?['careerType'] as String?;
+        final desiredRole = profileData?['desiredRole'] as String?;
+        final desiredLocation = profileData?['desiredLocation'] as String?;
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: interviewsStream,
@@ -90,15 +94,25 @@ class ProfileTab extends StatelessWidget {
                 _ProfileHeaderCard(
                   name: name,
                   resumePublic: resumePublic,
+                  profileImageUrl: profileImageUrl,
+                  careerType: careerType,
+                  desiredRole: desiredRole,
+                  desiredLocation: desiredLocation,
                   onLogout: () => _handleLogout(context),
                 ),
                 const SizedBox(height: 24),
+                _ProfileActionCard(
+                  title: '프로필',
+                  description: '기본 정보 수정',
+                  buttonLabel: '수정',
+                  onPressed: () => context.push('/profile/edit'),
+                ),
+                const SizedBox(height: 14),
                 _ProfileActionCard(
                   title: '이력서',
                   description: '추가/수정 · 공개 설정',
                   buttonLabel: '관리',
                   onPressed: () => context.push('/profile/resume'),
-
                 ),
                 const SizedBox(height: 14),
                 _ProfileActionCard(
@@ -157,11 +171,19 @@ class _ProfileHeaderCard extends StatelessWidget {
   const _ProfileHeaderCard({
     required this.name,
     required this.resumePublic,
+    required this.profileImageUrl,
+    required this.careerType,
+    required this.desiredRole,
+    required this.desiredLocation,
     required this.onLogout,
   });
 
   final String name;
   final bool resumePublic;
+  final String? profileImageUrl;
+  final String? careerType;
+  final String? desiredRole;
+  final String? desiredLocation;
   final VoidCallback onLogout;
   @override
   Widget build(BuildContext context) {
@@ -181,21 +203,26 @@ class _ProfileHeaderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF9B748), Color(0xFFED4C92)],
-              ),
-            ),
-            child: const Icon(
-              Icons.camera_alt_outlined,
-              color: Colors.white,
-              size: 30,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  image: profileImageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(profileImageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null),
+              child: profileImageUrl == null
+                  ? const Icon(
+                      Icons.person_outline,
+                      color: Colors.grey,
+                      size: 30,
+                    )
+                  : null,
             ),
           ),
           const SizedBox(width: 16),
@@ -218,6 +245,36 @@ class _ProfileHeaderCard extends StatelessWidget {
                     color: AppColors.subtext,
                   ),
                 ),
+                if (careerType != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '경력 구분: $careerType',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.subtext,
+                    ),
+                  ),
+                ],
+                if (desiredRole != null && desiredRole!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '희망 직무/분야: $desiredRole',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.subtext,
+                    ),
+                  ),
+                ],
+                if (desiredLocation != null && desiredLocation!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '희망 근무 지역: $desiredLocation',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.subtext,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
