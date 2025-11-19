@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +15,44 @@ const communityCategories = [
   '취업 정보',
 ];
 
+const _boardCategories = [
+  _BoardCategory(
+    name: '전체',
+    description: '모든 글을 한눈에 확인',
+    emoji: '🌐',
+  ),
+  _BoardCategory(
+    name: '공지',
+    description: '운영 소식 & 업데이트',
+    emoji: '📢',
+  ),
+  _BoardCategory(
+    name: '스터디 구인',
+    description: '함께 성장할 팀원 찾기',
+    emoji: '🤝',
+  ),
+  _BoardCategory(
+    name: '자유',
+    description: '일상 공유 & 잡담',
+    emoji: '💬',
+  ),
+  _BoardCategory(
+    name: '면접 후기',
+    description: '실전 경험 아카이브',
+    emoji: '📝',
+  ),
+  _BoardCategory(
+    name: 'Q&A',
+    description: '궁금한 건 바로 질문',
+    emoji: '❓',
+  ),
+  _BoardCategory(
+    name: '취업 정보',
+    description: '채용 소식 & 준비',
+    emoji: '💼',
+  ),
+];
+
 class CommunityBoardPage extends StatefulWidget {
   const CommunityBoardPage({super.key});
 
@@ -31,62 +67,63 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('커뮤니티 게시판'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '새로고침',
-            onPressed: () => setState(() {}),
-          ),
-        ],
-      ),
       backgroundColor: AppColors.bg,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _handleCompose,
         icon: const Icon(Icons.edit),
         label: const Text('글쓰기'),
       ),
-      body: StreamBuilder<List<CommunityPost>>(
-        stream: _service.watchPosts(category: _selectedCategory),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _ErrorView(error: snapshot.error);
-          }
+      body: SafeArea(
+        child: StreamBuilder<List<CommunityPost>>(
+          stream: _service.watchPosts(category: _selectedCategory),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _ErrorView(error: snapshot.error);
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final posts = snapshot.data ?? const <CommunityPost>[];
+            final posts = snapshot.data ?? const <CommunityPost>[];
 
-          return ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-            children: [
-              _CategorySection(
-                categories: communityCategories,
-                selectedCategory: _selectedCategory,
-                onSelected: (value) {
-                  setState(() => _selectedCategory = value);
-                },
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Header(onRefresh: () => setState(() {})),
+                  const SizedBox(height: 20),
+                  _IntroCard(
+                    onCompose: _handleCompose,
+                    onShowAll: () => setState(() => _selectedCategory = null),
+                  ),
+                  const SizedBox(height: 28),
+                  _CategorySection(
+                    categories: _boardCategories,
+                    selectedCategory: _selectedCategory,
+                    onSelected: (value) =>
+                        setState(() => _selectedCategory = value),
+                  ),
+                  const SizedBox(height: 28),
+                  _PopularSection(service: _service),
+                  if (posts.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    const _SectionTitle('최신 글'),
+                    const SizedBox(height: 12),
+                    ...posts.map((post) => _PostPreviewCard(post: post)),
+                  ] else ...[
+                    const SizedBox(height: 24),
+                    const _EmptyPostsView(),
+                  ],
+                  const SizedBox(height: 28),
+                  const _GuideCard(),
+                ],
               ),
-              const SizedBox(height: 24),
-              _PopularSection(service: _service),
-              const SizedBox(height: 24),
-              if (posts.isEmpty)
-                const _EmptyPostsView()
-              else ...[
-                const _SectionTitle('최신 글'),
-                const SizedBox(height: 12),
-                ...posts.map((post) => _PostCard(post: post)),
-              ],
-              const SizedBox(height: 32),
-              const _GuideCard(),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -127,6 +164,125 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
   }
 }
 
+class _Header extends StatelessWidget {
+  const _Header({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text(
+          '게시판',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.mint.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Text(
+            '누구나 참여',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            ),
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          tooltip: '새로고침',
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    );
+  }
+}
+
+class _IntroCard extends StatelessWidget {
+  const _IntroCard({required this.onCompose, required this.onShowAll});
+
+  final VoidCallback onCompose;
+  final VoidCallback onShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF7EE8FA), Color(0xFF80FF72)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '글쓰기로 커뮤니티 활성화',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '조회수, 좋아요/싫어요, 댓글 소통까지 한 눈에 확인하고\n맞춤 알림을 받아보세요.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onCompose,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('글쓰기'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onShowAll,
+                  icon: const Icon(Icons.search),
+                  label: const Text('전체게시판'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    side: const BorderSide(color: Colors.black54),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+}
+
 class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.categories,
@@ -134,7 +290,7 @@ class _CategorySection extends StatelessWidget {
     required this.onSelected,
   });
 
-  final List<String> categories;
+  final List<_BoardCategory> categories;
   final String? selectedCategory;
   final ValueChanged<String?> onSelected;
 
@@ -145,95 +301,82 @@ class _CategorySection extends StatelessWidget {
       children: [
         const _SectionTitle('게시판 카테고리'),
         const SizedBox(height: 12),
-        _CategoryGrid(
-          categories: categories,
-          selectedCategory: selectedCategory,
-          onSelected: onSelected,
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final category in categories)
+              _CategoryCard(
+                category: category,
+                selected: category.name == selectedCategory ||
+                    (category.name == '전체' && selectedCategory == null),
+                onTap: () => onSelected(
+                  category.name == '전체' ? null : category.name,
+                ),
+              ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({
-    required this.categories,
-    required this.selectedCategory,
-    required this.onSelected,
-  });
-
-  final List<String> categories;
-  final String? selectedCategory;
-  final ValueChanged<String?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final options = ['전체', ...categories];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const minWidth = 140.0;
-        final maxWidth = constraints.maxWidth;
-        final count = math.max(1, (maxWidth / minWidth).floor());
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: options.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: count,
-            mainAxisExtent: 48,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-          ),
-          itemBuilder: (context, index) {
-            final option = options[index];
-            final bool isAll = option == '전체';
-            final bool selected =
-                isAll ? selectedCategory == null : selectedCategory == option;
-            return _CategoryChip(
-              label: option,
-              selected: selected,
-              onTap: () => onSelected(isAll ? null : option),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.label,
+class _CategoryCard extends StatelessWidget {
+  const _CategoryCard({
+    required this.category,
     required this.selected,
     required this.onTap,
   });
 
-  final String label;
+  final _BoardCategory category;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: selected ? AppColors.mint.withOpacity(0.15) : Colors.white,
-            border: Border.all(
-              color: selected ? AppColors.mint : const Color(0xFFE1E1E5),
+    return SizedBox(
+      width: 160,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected ? AppColors.mint : const Color(0xFFE9E9EC),
+                width: selected ? 1.2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: selected ? AppColors.text : AppColors.subtext,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(category.emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(height: 8),
+                Text(
+                  category.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  category.description,
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.subtext),
+                ),
+              ],
             ),
           ),
         ),
@@ -260,9 +403,9 @@ class _PopularSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SectionTitle('실시간 인기글'),
+            const _SectionTitle('실시간 인기 글'),
             const SizedBox(height: 12),
-            ...posts.map((post) => _PopularTile(post: post)),
+            ...posts.map((post) => _PopularPostCard(post: post)),
           ],
         );
       },
@@ -270,8 +413,8 @@ class _PopularSection extends StatelessWidget {
   }
 }
 
-class _PopularTile extends StatelessWidget {
-  const _PopularTile({required this.post});
+class _PopularPostCard extends StatelessWidget {
+  const _PopularPostCard({required this.post});
 
   final CommunityPost post;
 
@@ -279,70 +422,11 @@ class _PopularTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.local_fire_department,
-              color: Colors.orange.shade400, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  post.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${post.category} · ${_formatTimestamp(post.createdAt)}',
-                  style:
-                      const TextStyle(color: AppColors.subtext, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PostCard extends StatelessWidget {
-  const _PostCard({required this.post});
-
-  final CommunityPost post;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE9E9EC)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,67 +434,168 @@ class _PostCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F4FF),
-                  borderRadius: BorderRadius.circular(999),
+                  color: AppColors.mint.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   post.category,
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.subtext,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               const Spacer(),
               Text(
-                _formatTimestamp(post.createdAt),
-                style: const TextStyle(fontSize: 12, color: AppColors.subtext),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            post.title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            post.content,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 14, color: AppColors.text),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Text(
                 post.authorName,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                   color: AppColors.subtext,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Icon(Icons.chat_bubble_outline,
-                  size: 16, color: AppColors.subtext),
-              const SizedBox(width: 4),
-              Text('${post.commentCount}',
-                  style: const TextStyle(color: AppColors.subtext)),
-              const SizedBox(width: 12),
-              const Icon(Icons.favorite_border,
-                  size: 16, color: AppColors.subtext),
-              const SizedBox(width: 4),
-              Text('${post.likeCount}',
-                  style: const TextStyle(color: AppColors.subtext)),
             ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            post.title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _StatChip(
+                icon: Icons.chat_bubble_outline,
+                label: '${post.commentCount}',
+              ),
+              const SizedBox(width: 10),
+              _StatChip(
+                icon: Icons.thumb_up_alt_outlined,
+                label: '${post.likeCount}',
+              ),
+              const SizedBox(width: 10),
+              _StatChip(
+                icon: Icons.access_time,
+                label: _formatTimestamp(post.createdAt),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PostPreviewCard extends StatelessWidget {
+  const _PostPreviewCard({required this.post});
+
+  final CommunityPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.mint.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  post.category,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                post.authorName,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.subtext,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            post.title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _StatChip(
+                icon: Icons.chat_bubble_outline,
+                label: '${post.commentCount}',
+              ),
+              const SizedBox(width: 10),
+              _StatChip(
+                icon: Icons.thumb_up_alt_outlined,
+                label: '${post.likeCount}',
+              ),
+              const SizedBox(width: 10),
+              _StatChip(
+                icon: Icons.access_time,
+                label: _formatTimestamp(post.createdAt),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F7),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: AppColors.subtext),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: AppColors.subtext),
           ),
         ],
       ),
@@ -424,56 +609,40 @@ class _GuideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            '신고 및 커뮤니티 가이드',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          SizedBox(height: 12),
-          _GuideItem('개인정보 노출, 욕설 등의 부적절한 게시물은 신고 버튼으로 알려주세요.'),
-          _GuideItem('허위 정보 및 광고는 예고 없이 삭제될 수 있습니다.'),
-          _GuideItem('서로를 존중하는 따뜻한 커뮤니티 문화를 만들어 주세요.'),
-        ],
-      ),
-    );
-  }
-}
-
-class _GuideItem extends StatelessWidget {
-  const _GuideItem(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(color: AppColors.subtext)),
+          const Icon(Icons.flag_outlined, color: Colors.white),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(color: AppColors.subtext),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  '신고 및 커뮤니티 가이드',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '게시글·댓글 신고가 접수되면 운영진이 즉시 검토해 안전한 커뮤니티를 유지합니다.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
+          ),
+          TextButton(
+            onPressed: () {},
+            child: const Text('가이드 보기'),
           ),
         ],
       ),
@@ -743,4 +912,16 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
       setState(() => _submitting = false);
     }
   }
+}
+
+class _BoardCategory {
+  const _BoardCategory({
+    required this.name,
+    required this.description,
+    required this.emoji,
+  });
+
+  final String name;
+  final String description;
+  final String emoji;
 }
