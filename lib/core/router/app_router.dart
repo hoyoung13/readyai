@@ -18,6 +18,9 @@ import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
 import 'package:ai/features/profile/resume/resume_editor_page.dart';
 import 'package:ai/features/profile/profile_edit_page.dart';
 import 'package:ai/features/community/community_board_page.dart';
+import 'package:ai/features/jobs/job_post_form_page.dart';
+import 'package:ai/features/jobs/job_post_management_page.dart';
+import 'package:ai/features/jobs/job_posting_service.dart';
 
 final ValueNotifier<String?> userRoleCache = ValueNotifier<String?>(null);
 
@@ -44,6 +47,10 @@ final router = GoRouter(
     GoRoute(
       path: '/profile/edit',
       builder: (_, __) => const ProfileEditPage(),
+    ),
+    GoRoute(
+      path: '/profile/company-jobs',
+      builder: (_, __) => const JobPostManagementPage(),
     ),
     GoRoute(
       path: '/profile/resume/new',
@@ -95,6 +102,15 @@ final router = GoRouter(
       builder: (_, __) => const AdminRouteGuard(
         child: CorporateApprovalPage(),
       ),
+    ),
+    GoRoute(
+      path: '/jobs/post',
+      builder: (_, state) {
+        final existing = state.extra;
+        return JobPostFormPage(
+          existing: existing is JobPostRecord ? existing : null,
+        );
+      },
     ),
     GoRoute(
       path: '/interview/camera',

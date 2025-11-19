@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
 import 'package:ai/features/profile/models/interview_record.dart';
+import '../../core/router/app_router.dart';
 import 'tabs_shared.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -56,6 +57,8 @@ class ProfileTab extends StatelessWidget {
         final careerType = profileData?['careerType'] as String?;
         final desiredRole = profileData?['desiredRole'] as String?;
         final desiredLocation = profileData?['desiredLocation'] as String?;
+        final role = profileData?['role'] as String? ?? userRoleCache.value;
+        final isCompany = role == 'company' || role == 'corporate';
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: interviewsStream,
@@ -122,6 +125,15 @@ class ProfileTab extends StatelessWidget {
                   buttonLabel: '확인',
                   onPressed: () => context.push('/profile/jobs'),
                 ),
+                if (isCompany) ...[
+                  const SizedBox(height: 14),
+                  _ProfileActionCard(
+                    title: '내 채용공고/지원자 현황',
+                    description: '기업 전용 공고 관리',
+                    buttonLabel: '관리',
+                    onPressed: () => context.push('/profile/company-jobs'),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 const Text(
                   '통계',

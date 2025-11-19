@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../jobs/job_detail_page.dart';
 import '../jobs/job_posting.dart';
 import '../jobs/job_posting_loader.dart';
+import '../jobs/job_posting_service.dart';
 import 'tabs_shared.dart';
 
 class JobsTab extends StatefulWidget {
@@ -14,6 +15,7 @@ class JobsTab extends StatefulWidget {
 class _JobsTabState extends State<JobsTab> {
   late Future<JobFeed> _future;
   final JobPostingLoader _loader = const JobPostingLoader();
+  final JobPostingService _postingService = JobPostingService();
 
   @override
   void initState() {
@@ -21,7 +23,19 @@ class _JobsTabState extends State<JobsTab> {
     _future = _fetch();
   }
 
-  Future<JobFeed> _fetch() => _loader.load();
+  Future<JobFeed> _fetch() async {
+    final feed = await _loader.load();
+    try {
+      final companyPosts = await _postingService.fetchPublicPosts();
+      final combined = <JobPosting>[
+        ...companyPosts.map((post) => post.toJobPosting()),
+        ...feed.items,
+      ];
+      return JobFeed(items: combined);
+    } catch (_) {
+      return feed;
+    }
+  }
 
   Future<void> _handleRefresh() {
     final future = _fetch();
@@ -84,7 +98,6 @@ class _JobsListState extends State<_JobsList> {
   List<String> _availableCategories = const <String>[];
   List<JobPosting> _filteredItems = const <JobPosting>[];
   bool _showCategories = false;
-
 
   @override
   void initState() {
@@ -199,6 +212,7 @@ class _JobsListState extends State<_JobsList> {
     _searchController.clear();
     _onSearchChanged('');
   }
+
   void _toggleCategoryVisibility() {
     if (_availableCategories.isEmpty) {
       return;
@@ -712,7 +726,7 @@ class _CategorySelector extends StatelessWidget {
                   ),
                 ],
               ),
-              ),
+            ),
           ),
         ),
         if (expanded) ...[
@@ -805,9 +819,7 @@ class _CategoryTile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            color: selected
-                ? AppColors.mint.withOpacity(0.15)
-                : Colors.white,
+            color: selected ? AppColors.mint.withOpacity(0.15) : Colors.white,
             border: Border.all(
               color: selected ? AppColors.mint : const Color(0xFFE1E1E5),
               width: 1.1,
