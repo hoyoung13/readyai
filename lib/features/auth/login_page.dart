@@ -46,8 +46,10 @@ class _LoginPageState extends State<LoginPage> {
       final userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final data = userDoc.data();
-      final isApproved = data?['isApproved'] == true;
-      final role = data?['role'] as String?;
+      final role = (data?['role'] as String?) ?? 'user';
+
+      final bool isApproved =
+          role == 'company' ? (data?['isApproved'] == true) : true;
 
       if (!isApproved) {
         await FirebaseAuth.instance.signOut();
