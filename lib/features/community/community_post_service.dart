@@ -13,8 +13,10 @@ class CommunityPostService {
       _firestore.collection('communityPosts');
 
   Stream<List<CommunityPost>> watchPosts({String? category, int limit = 50}) {
-    Query<Map<String, dynamic>> query =
-        _collection.orderBy('createdAt', descending: true).limit(limit);
+    Query<Map<String, dynamic>> query = _collection
+        .where('visible', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
     if (category != null && category.isNotEmpty) {
       query = query.where('category', isEqualTo: category);
     }
@@ -23,8 +25,28 @@ class CommunityPostService {
         );
   }
 
+  Stream<List<CommunityPost>> watchHiddenPosts(String authorId) {
+    return _collection
+        .where('authorId', isEqualTo: authorId)
+        .where('visible', isEqualTo: false)
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map(CommunityPost.fromDoc).toList(growable: false));
+  }
+
+  Stream<List<CommunityPost>> watchAllPosts({int limit = 50}) {
+    return _collection
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map(CommunityPost.fromDoc).toList(growable: false));
+  }
+
   Stream<List<CommunityPost>> watchPopularPosts({int limit = 5}) {
     return _collection
+        .where('visible', isEqualTo: true)
         .orderBy('likeCount', descending: true)
         .limit(limit)
         .snapshots()
@@ -64,10 +86,24 @@ class CommunityPostService {
       'authorEmail': author.email,
       'likeCount': 0,
       'commentCount': 0,
+      'visible': true,
+      'blockedReason': '',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
     await _collection.add(payload);
+  }
+
+  Future<void> setVisibility({
+    required String postId,
+    required bool visible,
+    String blockedReason = '',
+  }) async {
+    await _collection.doc(postId).update({
+      'visible': visible,
+      'blockedReason': blockedReason,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 }

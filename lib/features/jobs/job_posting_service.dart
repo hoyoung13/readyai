@@ -27,6 +27,8 @@ class JobPostingService {
       ...draft.toFirestore(ownerUid: ownerUid),
       'createdAt': now,
       'updatedAt': now,
+      'visible': draft.visible,
+      'blockedReason': draft.blockedReason,
     });
     return doc.id;
   }
@@ -42,6 +44,8 @@ class JobPostingService {
     await doc.update({
       ...draft.toFirestore(ownerUid: ownerUid),
       'updatedAt': Timestamp.now(),
+      'visible': draft.visible,
+      'blockedReason': draft.blockedReason,
     });
   }
 
@@ -60,10 +64,23 @@ class JobPostingService {
             .toList(growable: false));
   }
 
+  Stream<List<JobPostRecord>> streamAllPosts({int limit = 50}) {
+    return _firestore
+        .collection('jobPosts')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map(JobPostRecord.fromDoc)
+            .whereType<JobPostRecord>()
+            .toList(growable: false));
+  }
+
   Future<List<JobPostRecord>> fetchPublicPosts() async {
     final snapshot = await _firestore
         .collection('jobPosts')
         .where('isPublished', isEqualTo: true)
+        .where('visible', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .get();
 
@@ -122,6 +139,18 @@ class JobPostingService {
       'statusUpdatedAt': Timestamp.now(),
     });
   }
+
+  Future<void> setVisibility({
+    required String jobPostId,
+    required bool visible,
+    String blockedReason = '',
+  }) async {
+    await _firestore.collection('jobPosts').doc(jobPostId).update({
+      'visible': visible,
+      'blockedReason': blockedReason,
+      'updatedAt': Timestamp.now(),
+    });
+  }
 }
 
 class JobPostDraft {
@@ -138,6 +167,8 @@ class JobPostDraft {
     this.description = '',
     this.notice = '',
     this.isPublished = true,
+    this.visible = true,
+    this.blockedReason = '',
   });
 
   final String ownerUid;
@@ -152,6 +183,8 @@ class JobPostDraft {
   final String description;
   final String notice;
   final bool isPublished;
+  final bool visible;
+  final String blockedReason;
 
   Map<String, dynamic> toFirestore({required String ownerUid}) {
     return {
@@ -167,6 +200,8 @@ class JobPostDraft {
       'description': description,
       'notice': notice,
       'isPublished': isPublished,
+      'visible': visible,
+      'blockedReason': blockedReason,
     };
   }
 }
@@ -188,6 +223,8 @@ class JobPostRecord {
     this.description = '',
     this.notice = '',
     this.isPublished = true,
+    this.visible = true,
+    this.blockedReason = '',
   });
 
   final String id;
@@ -205,6 +242,8 @@ class JobPostRecord {
   final String description;
   final String notice;
   final bool isPublished;
+  final bool visible;
+  final String blockedReason;
 
   static JobPostRecord? fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
@@ -240,6 +279,8 @@ class JobPostRecord {
         description: (data['description'] ?? '').toString(),
         notice: (data['notice'] ?? '').toString(),
         isPublished: data['isPublished'] != false,
+        visible: data['visible'] != false,
+        blockedReason: (data['blockedReason'] ?? '').toString(),
       );
     } catch (_) {
       return null;
@@ -262,6 +303,8 @@ class JobPostRecord {
       occupations: occupations,
       description: description,
       notice: notice,
+      visible: visible,
+      blockedReason: blockedReason,
       summaryItems: [
         JobSummaryItem(
             label: '접수 시작', value: _formatDate(applicationStartDate)),

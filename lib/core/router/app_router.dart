@@ -5,6 +5,7 @@ import 'package:ai/features/auth/login_page.dart';
 import 'package:ai/features/auth/signup_page.dart';
 import 'package:ai/features/admin/admin_guard.dart';
 import 'package:ai/features/admin/corporate_approval_page.dart';
+import 'package:ai/features/admin/content_moderation_page.dart';
 import 'package:ai/features/tabs/tabs_page.dart';
 import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
@@ -51,6 +52,12 @@ final router = GoRouter(
     GoRoute(
       path: '/profile/company-jobs',
       builder: (_, __) => const JobPostManagementPage(),
+    ),
+    GoRoute(
+      path: '/admin/content',
+      builder: (_, __) => const AdminRouteGuard(
+        child: ContentModerationPage(),
+      ),
     ),
     GoRoute(
       path: '/profile/resume/new',

@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../tabs/tabs_shared.dart';
 import 'company_route_guard.dart';
 import 'job_post_form_page.dart';
@@ -19,6 +19,9 @@ class _JobPostManagementPageState extends State<JobPostManagementPage>
   final JobPostingService _service = JobPostingService();
   String? _statusFilter;
   String? _selectedJobId;
+  StreamSubscription<List<JobPostRecord>>? _hiddenJobSub;
+  String? _currentOwnerUid;
+  bool _notifiedHidden = false;
 
   @override
   void initState() {
@@ -30,6 +33,7 @@ class _JobPostManagementPageState extends State<JobPostManagementPage>
   @override
   void dispose() {
     _tabController.dispose();
+    _hiddenJobSub?.cancel();
     super.dispose();
   }
 
@@ -40,6 +44,9 @@ class _JobPostManagementPageState extends State<JobPostManagementPage>
       return const Scaffold(
         body: Center(child: Text('로그인 후 이용해 주세요.')),
       );
+    }
+    if (_currentOwnerUid != user.uid) {
+      _listenHiddenPosts(user.uid);
     }
 
     return CompanyRouteGuard(
@@ -90,6 +97,25 @@ class _JobPostManagementPageState extends State<JobPostManagementPage>
         ),
       ),
     );
+  }
+
+  void _listenHiddenPosts(String ownerUid) {
+    _currentOwnerUid = ownerUid;
+    _hiddenJobSub?.cancel();
+    _notifiedHidden = false;
+    _hiddenJobSub = _service.streamOwnerPosts(ownerUid).listen((posts) {
+      final hidden = posts.where((p) => !p.visible).toList(growable: false);
+      if (hidden.isEmpty || _notifiedHidden || !mounted) {
+        return;
+      }
+      _notifiedHidden = true;
+      final reason = hidden.first.blockedReason.trim().isEmpty
+          ? '공고가 운영 정책 위반으로 숨겨졌습니다.'
+          : hidden.first.blockedReason;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(reason)),
+      );
+    });
   }
 }
 

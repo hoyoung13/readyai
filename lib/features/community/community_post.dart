@@ -9,6 +9,8 @@ class CommunityPost {
     required this.authorId,
     required this.authorName,
     required this.authorEmail,
+    required this.visible,
+    required this.blockedReason,
     required this.createdAt,
     required this.likeCount,
     required this.commentCount,
@@ -21,6 +23,8 @@ class CommunityPost {
   final String authorId;
   final String authorName;
   final String? authorEmail;
+  final bool visible;
+  final String blockedReason;
   final DateTime? createdAt;
   final int likeCount;
   final int commentCount;
@@ -37,6 +41,8 @@ class CommunityPost {
       authorId: data['authorId'] as String? ?? '',
       authorName: data['authorName'] as String? ?? '익명',
       authorEmail: data['authorEmail'] as String?,
+      visible: data['visible'] != false,
+      blockedReason: data['blockedReason'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       likeCount: data['likeCount'] as int? ?? 0,
       commentCount: data['commentCount'] as int? ?? 0,

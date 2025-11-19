@@ -78,6 +78,8 @@ class JobPosting {
     this.detailRows = const <JobDetailRow>[],
     this.description = '',
     this.notice = '',
+    this.visible = true,
+    this.blockedReason = '',
   });
 
   final String title;
@@ -96,6 +98,8 @@ class JobPosting {
   final List<JobDetailRow> detailRows;
   final String description;
   final String notice;
+  final bool visible;
+  final String blockedReason;
 
   factory JobPosting.fromJson(Map<String, dynamic> json) {
     final title = _readFirst(json, const [
@@ -210,6 +214,8 @@ class JobPosting {
       detailRows: detailRows,
       description: description,
       notice: notice,
+      visible: json['visible'] != false,
+      blockedReason: (json['blockedReason'] ?? '').toString(),
     );
   }
 
@@ -242,7 +248,7 @@ class JobPosting {
 
     final trimmed = applicationEndDateText.trim();
     return trimmed.isEmpty ? null : trimmed;
-      }
+  }
 
   String get tagsSummary {
     if (tags.isNotEmpty) {
@@ -266,6 +272,7 @@ class JobPosting {
     return base64UrlEncode(bytes).replaceAll('=', '');
   }
 }
+
 List<String> _readStringList(Map<String, dynamic> json, List<String> keys) {
   for (final key in keys) {
     if (!json.containsKey(key)) {

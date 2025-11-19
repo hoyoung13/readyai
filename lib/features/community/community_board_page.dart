@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-
 import '../tabs/tabs_shared.dart';
 import 'community_post.dart';
 import 'community_post_service.dart';
@@ -63,6 +63,8 @@ class CommunityBoardPage extends StatefulWidget {
 class _CommunityBoardPageState extends State<CommunityBoardPage> {
   final CommunityPostService _service = CommunityPostService();
   String? _selectedCategory;
+  StreamSubscription<User?>? _authSub;
+  StreamSubscription<List<CommunityPost>>? _hiddenSub;
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +163,34 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
         const SnackBar(content: Text('게시글을 등록했어요.')),
       );
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      _hiddenSub?.cancel();
+      if (user == null) {
+        return;
+      }
+      _hiddenSub = _service.watchHiddenPosts(user.uid).listen((posts) {
+        if (posts.isEmpty || !mounted) return;
+        final latest = posts.first;
+        final reason = latest.blockedReason.trim().isEmpty
+            ? '관리자에 의해 블라인드되었습니다.'
+            : latest.blockedReason;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(reason)),
+        );
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _hiddenSub?.cancel();
+    super.dispose();
   }
 }
 
