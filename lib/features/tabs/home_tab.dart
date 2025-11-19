@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tabs_shared.dart';
+import 'package:go_router/go_router.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -57,12 +58,12 @@ class _HomeTabState extends State<HomeTab> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-              'ReadyAI',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+                  'ReadyAI',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const Spacer(),
                 IconButton(
                   onPressed: () {},
@@ -83,6 +84,8 @@ class _HomeTabState extends State<HomeTab> {
             ],
           ),
 
+          const SizedBox(height: 24),
+          const _CommunityPreviewCard(),
           const SizedBox(height: 24),
         ],
       ),
@@ -192,6 +195,59 @@ class _SlideCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(data.emoji, style: const TextStyle(fontSize: 40)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityPreviewCard extends StatelessWidget {
+  const _CommunityPreviewCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    '커뮤니티 게시판',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    '다른 취준생들과 정보를 나누고 최신 글을 확인해 보세요.',
+                    style: TextStyle(color: AppColors.subtext),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton.tonal(
+              onPressed: () => context.push('/community'),
+              child: const Text('바로가기'),
+            ),
           ],
         ),
       ),

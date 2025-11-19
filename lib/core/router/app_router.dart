@@ -14,6 +14,7 @@ import 'package:ai/features/profile/job_activity_page.dart';
 import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
 import 'package:ai/features/profile/resume/resume_editor_page.dart';
 import 'package:ai/features/profile/profile_edit_page.dart';
+import 'package:ai/features/community/community_board_page.dart';
 
 final router = GoRouter(
   routes: [
@@ -21,6 +22,7 @@ final router = GoRouter(
     GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/signup', builder: (_, __) => const SignupPage()),
     GoRoute(path: '/tabs', builder: (_, __) => const TabsPage()),
+    GoRoute(path: '/community', builder: (_, __) => const CommunityBoardPage()),
     GoRoute(
       path: '/profile/history',
       builder: (_, __) => const InterviewHistoryPage(),

@@ -4,6 +4,7 @@ import 'home_tab.dart';
 import 'jobs_tab.dart';
 import 'profile_tab.dart';
 import 'tabs_shared.dart';
+import 'board_tab.dart';
 
 class TabsPage extends StatefulWidget {
   const TabsPage({super.key});
@@ -18,6 +19,7 @@ class _TabsPageState extends State<TabsPage> {
     HomeTab(),
     JobsTab(),
     CameraTab(),
+    BoardTab(),
     ProfileTab(),
   ];
 
@@ -54,6 +56,11 @@ class _TabsPageState extends State<TabsPage> {
               icon: Icon(Icons.photo_camera_outlined),
               selectedIcon: Icon(Icons.photo_camera),
               label: '카메라',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.forum_outlined),
+              selectedIcon: Icon(Icons.forum),
+              label: '게시판',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline),
