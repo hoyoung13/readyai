@@ -12,6 +12,7 @@ class CommunityPost {
     required this.visible,
     required this.blockedReason,
     required this.createdAt,
+    required this.updatedAt,
     required this.likeCount,
     required this.commentCount,
   });
@@ -26,6 +27,7 @@ class CommunityPost {
   final bool visible;
   final String blockedReason;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
   final int likeCount;
   final int commentCount;
 
@@ -44,6 +46,7 @@ class CommunityPost {
       visible: data['visible'] != false,
       blockedReason: data['blockedReason'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       likeCount: data['likeCount'] as int? ?? 0,
       commentCount: data['commentCount'] as int? ?? 0,
     );

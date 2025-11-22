@@ -13,26 +13,36 @@ class CommunityPostService {
       _firestore.collection('communityPosts');
 
   Stream<List<CommunityPost>> watchPosts({String? category, int limit = 50}) {
-    Query<Map<String, dynamic>> query = _collection
-        .where('visible', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
+    Query<Map<String, dynamic>> query =
+        _collection.where('visible', isEqualTo: true).limit(limit);
     if (category != null && category.isNotEmpty) {
       query = query.where('category', isEqualTo: category);
     }
-    return query.snapshots().map(
-          (snapshot) => snapshot.docs.map(CommunityPost.fromDoc).toList(),
-        );
+    return query.snapshots().map((snapshot) {
+      final posts = snapshot.docs.map(CommunityPost.fromDoc).toList();
+      posts.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+      return posts.take(limit).toList(growable: false);
+    });
   }
 
   Stream<List<CommunityPost>> watchHiddenPosts(String authorId) {
     return _collection
         .where('authorId', isEqualTo: authorId)
         .where('visible', isEqualTo: false)
-        .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map(CommunityPost.fromDoc).toList(growable: false));
+        .map((snapshot) {
+      final posts = snapshot.docs.map(CommunityPost.fromDoc).toList();
+      posts.sort((a, b) {
+        final aDate = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+      return posts;
+    });
   }
 
   Stream<List<CommunityPost>> watchAllPosts({int limit = 50}) {
@@ -47,8 +57,7 @@ class CommunityPostService {
   Stream<List<CommunityPost>> watchPopularPosts({int limit = 5}) {
     return _collection
         .where('visible', isEqualTo: true)
-        .orderBy('likeCount', descending: true)
-        .limit(limit)
+        .limit(limit * 3)
         .snapshots()
         .map(
       (snapshot) {
@@ -64,7 +73,7 @@ class CommunityPostService {
             return bDate.compareTo(aDate);
           },
         );
-        return posts;
+        return posts.take(limit).toList(growable: false);
       },
     );
   }

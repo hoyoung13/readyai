@@ -4,7 +4,7 @@ import 'home_tab.dart';
 import 'jobs_tab.dart';
 import 'profile_tab.dart';
 import 'tabs_shared.dart';
-import 'board_tab.dart';
+import 'package:ai/features/community/community_board_page.dart';
 
 class TabsPage extends StatefulWidget {
   const TabsPage({super.key});
@@ -19,7 +19,7 @@ class _TabsPageState extends State<TabsPage> {
     HomeTab(),
     JobsTab(),
     CameraTab(),
-    BoardTab(),
+    CommunityBoardPage(),
     ProfileTab(),
   ];
 
