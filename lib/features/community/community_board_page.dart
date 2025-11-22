@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:ai/features/notifications/notification_service.dart';
+import 'package:go_router/go_router.dart';
 import '../tabs/tabs_shared.dart';
 import 'community_post.dart';
 import 'community_post_service.dart';
@@ -64,7 +64,6 @@ class CommunityBoardPage extends StatefulWidget {
 
 class _CommunityBoardPageState extends State<CommunityBoardPage> {
   final CommunityPostService _service = CommunityPostService();
-  final NotificationService _notificationService = NotificationService();
   String? _selectedCategory;
   bool _isAdmin = false;
   String? _currentUserId;
@@ -104,14 +103,16 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
                   const SizedBox(height: 20),
                   _IntroCard(
                     onCompose: _handleCompose,
-                    onShowAll: () => setState(() => _selectedCategory = null),
+                    onShowAll: () => _openListPage(),
                   ),
                   const SizedBox(height: 28),
                   _CategorySection(
                     categories: _boardCategories,
                     selectedCategory: _selectedCategory,
-                    onSelected: (value) =>
-                        setState(() => _selectedCategory = value),
+                    onSelected: (value) {
+                      setState(() => _selectedCategory = value);
+                      _openListPage(category: value);
+                    },
                   ),
                   const SizedBox(height: 28),
                   _PopularSection(
@@ -121,6 +122,7 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
                     onEdit: _handleEdit,
                     onDelete: (post) =>
                         _handleDelete(post, _currentUserId == post.authorId),
+                    onOpen: _openPostDetail,
                   ),
                   if (posts.isNotEmpty) ...[
                     const SizedBox(height: 28),
@@ -136,6 +138,7 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
                         canDelete: canDelete,
                         onEdit: () => _handleEdit(post),
                         onDelete: () => _handleDelete(post, isAuthor),
+                        onTap: () => _openPostDetail(post),
                       );
                     }),
                   ] else ...[
@@ -249,15 +252,8 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
         postId: post.id,
         visible: false,
         blockedReason: blockedReason,
+        deletedByAdmin: requiresReason,
       );
-
-      if (requiresReason) {
-        await _notificationService.sendNotification(
-          userId: post.authorId,
-          title: '게시글이 삭제되었습니다',
-          message: blockedReason,
-        );
-      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -341,6 +337,14 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
         const SnackBar(content: Text('게시글을 등록했어요.')),
       );
     }
+  }
+
+  void _openListPage({String? category}) {
+    context.push('/community/list', extra: category);
+  }
+
+  void _openPostDetail(CommunityPost post) {
+    context.push('/community/posts/${post.id}', extra: post);
   }
 
   @override
@@ -605,6 +609,7 @@ class _PopularSection extends StatelessWidget {
     this.isAdmin = false,
     this.onEdit,
     this.onDelete,
+    this.onOpen,
   });
 
   final CommunityPostService service;
@@ -612,6 +617,7 @@ class _PopularSection extends StatelessWidget {
   final bool isAdmin;
   final ValueChanged<CommunityPost>? onEdit;
   final ValueChanged<CommunityPost>? onDelete;
+  final ValueChanged<CommunityPost>? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -638,6 +644,7 @@ class _PopularSection extends StatelessWidget {
                 canDelete: canDelete,
                 onEdit: onEdit == null ? null : () => onEdit!(post),
                 onDelete: onDelete == null ? null : () => onDelete!(post),
+                onTap: onOpen == null ? null : () => onOpen!(post),
               );
             }),
           ],
@@ -654,6 +661,7 @@ class _PopularPostCard extends StatelessWidget {
     this.canDelete = false,
     this.onEdit,
     this.onDelete,
+    this.onTap,
   });
 
   final CommunityPost post;
@@ -661,106 +669,112 @@ class _PopularPostCard extends StatelessWidget {
   final bool canDelete;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE9E9EC)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.mint.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  post.category,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE9E9EC)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.mint.withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    post.category,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                post.authorName,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.subtext,
+                const Spacer(),
+                Text(
+                  post.authorName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.subtext,
+                  ),
                 ),
+                if (canEdit || canDelete) ...[
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    tooltip: '게시글 옵션',
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'edit':
+                          onEdit?.call();
+                          break;
+                        case 'delete':
+                          onDelete?.call();
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) {
+                      return [
+                        if (canEdit)
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('수정'),
+                          ),
+                        if (canDelete)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('삭제'),
+                          ),
+                      ];
+                    },
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              post.title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
-              if (canEdit || canDelete) ...[
-                const SizedBox(width: 4),
-                PopupMenuButton<String>(
-                  tooltip: '게시글 옵션',
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        onEdit?.call();
-                        break;
-                      case 'delete':
-                        onDelete?.call();
-                        break;
-                    }
-                  },
-                  itemBuilder: (context) {
-                    return [
-                      if (canEdit)
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Text('수정'),
-                        ),
-                      if (canDelete)
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('삭제'),
-                        ),
-                    ];
-                  },
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _StatChip(
+                  icon: Icons.chat_bubble_outline,
+                  label: '${post.commentCount}',
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon: Icons.thumb_up_alt_outlined,
+                  label: '${post.likeCount}',
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon: Icons.access_time,
+                  label: _formatTimestamp(post.createdAt),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            post.title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _StatChip(
-                icon: Icons.chat_bubble_outline,
-                label: '${post.commentCount}',
-              ),
-              const SizedBox(width: 10),
-              _StatChip(
-                icon: Icons.thumb_up_alt_outlined,
-                label: '${post.likeCount}',
-              ),
-              const SizedBox(width: 10),
-              _StatChip(
-                icon: Icons.access_time,
-                label: _formatTimestamp(post.createdAt),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -773,6 +787,7 @@ class _PostPreviewCard extends StatelessWidget {
     this.canDelete = false,
     this.onEdit,
     this.onDelete,
+    this.onTap,
   });
 
   final CommunityPost post;
@@ -780,80 +795,114 @@ class _PostPreviewCard extends StatelessWidget {
   final bool canDelete;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.mint.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  post.category,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.mint.withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    post.category,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                post.authorName,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.subtext,
+                const Spacer(),
+                Text(
+                  post.authorName,
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.subtext),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            post.title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+                if (canEdit || canDelete) ...[
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    tooltip: '게시글 옵션',
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'edit':
+                          onEdit?.call();
+                          break;
+                        case 'delete':
+                          onDelete?.call();
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) {
+                      return [
+                        if (canEdit)
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('수정'),
+                          ),
+                        if (canDelete)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('삭제'),
+                          ),
+                      ];
+                    },
+                  ),
+                ],
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _StatChip(
-                icon: Icons.chat_bubble_outline,
-                label: '${post.commentCount}',
+            const SizedBox(height: 10),
+            Text(
+              post.title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(width: 10),
-              _StatChip(
-                icon: Icons.thumb_up_alt_outlined,
-                label: '${post.likeCount}',
-              ),
-              const SizedBox(width: 10),
-              _StatChip(
-                icon: Icons.access_time,
-                label: _formatTimestamp(post.createdAt),
-              ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _StatChip(
+                  icon: Icons.chat_bubble_outline,
+                  label: '${post.commentCount}',
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon: Icons.thumb_up_alt_outlined,
+                  label: '${post.likeCount}',
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon: Icons.access_time,
+                  label: _formatTimestamp(post.createdAt),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -20,6 +20,8 @@ import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
 import 'package:ai/features/profile/resume/resume_editor_page.dart';
 import 'package:ai/features/profile/profile_edit_page.dart';
 import 'package:ai/features/community/community_board_page.dart';
+import 'package:ai/features/community/community_list_page.dart';
+import 'package:ai/features/community/community_post_detail_page.dart';
 import 'package:ai/features/jobs/job_post_form_page.dart';
 import 'package:ai/features/jobs/job_post_management_page.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
@@ -40,6 +42,26 @@ final router = GoRouter(
       ),
     ),
     GoRoute(path: '/community', builder: (_, __) => const CommunityBoardPage()),
+    GoRoute(
+      path: '/community/list',
+      builder: (_, state) {
+        final extra = state.extra;
+        final category = extra is String && extra.isNotEmpty ? extra : null;
+        return CommunityListPage(initialCategory: category);
+      },
+    ),
+    GoRoute(
+      path: '/community/posts/:id',
+      builder: (_, state) {
+        final postId = state.pathParameters['id'];
+        if (postId == null || postId.isEmpty) {
+          return const Scaffold(
+            body: Center(child: Text('게시글 정보를 불러오지 못했습니다.')),
+          );
+        }
+        return CommunityPostDetailPage(postId: postId);
+      },
+    ),
     GoRoute(
       path: '/profile/history',
       builder: (_, __) => const InterviewHistoryPage(),

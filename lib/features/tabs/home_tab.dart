@@ -68,10 +68,7 @@ class _HomeTabState extends State<HomeTab> {
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: _openNotifications,
-                  icon: const Icon(Icons.notifications_none),
-                ),
+                _buildNotificationButton(),
               ],
             ),
           ),
@@ -92,6 +89,45 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  Widget _buildNotificationButton() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return IconButton(
+        onPressed: _openNotifications,
+        icon: const Icon(Icons.notifications_none),
+      );
+    }
+
+    return StreamBuilder<int>(
+      stream: _notificationService.watchUnreadCount(user.uid),
+      builder: (context, snapshot) {
+        final hasUnread = (snapshot.data ?? 0) > 0;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: _openNotifications,
+              icon: const Icon(Icons.notifications_none),
+            ),
+            if (hasUnread)
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

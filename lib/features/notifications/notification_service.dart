@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class AppNotification {
   const AppNotification({
     required this.id,
+    required this.type,
     required this.title,
     required this.message,
     required this.createdAt,
@@ -10,6 +11,7 @@ class AppNotification {
   });
 
   final String id;
+  final String type;
   final String title;
   final String message;
   final DateTime? createdAt;
@@ -21,6 +23,7 @@ class AppNotification {
     final data = doc.data();
     return AppNotification(
       id: doc.id,
+      type: data['type'] as String? ?? 'info',
       title: data['title'] as String? ?? '알림',
       message: data['message'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
@@ -66,14 +69,23 @@ class NotificationService {
 
   Future<void> sendNotification({
     required String userId,
+    required String type,
     required String title,
     required String message,
   }) async {
     await _userCollection(userId).add({
+      'type': type,
       'title': title,
       'message': message,
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Stream<int> watchUnreadCount(String userId) {
+    return _userCollection(userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
   }
 }
