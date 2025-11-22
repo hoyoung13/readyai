@@ -104,6 +104,28 @@ class CommunityPostService {
     await _collection.add(payload);
   }
 
+  Future<void> updatePost({
+    required CommunityPost post,
+    required User editor,
+    required String category,
+    required String title,
+    required String content,
+  }) async {
+    if (post.authorId != editor.uid) {
+      throw FirebaseException(
+        plugin: 'communityPosts',
+        message: '본인이 작성한 게시글만 수정할 수 있습니다.',
+      );
+    }
+
+    await _collection.doc(post.id).update({
+      'category': category,
+      'title': title,
+      'content': content,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> setVisibility({
     required String postId,
     required bool visible,

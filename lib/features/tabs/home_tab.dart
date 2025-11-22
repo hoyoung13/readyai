@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'tabs_shared.dart';
+import 'package:ai/features/notifications/notification_service.dart';
 import 'package:go_router/go_router.dart';
+import 'tabs_shared.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -10,6 +12,7 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
+  final NotificationService _notificationService = NotificationService();
   final _slides = const [
     _SlideData(
       title: '지금 채용 중인\n공고를 골라보세요',
@@ -59,14 +62,14 @@ class _HomeTabState extends State<HomeTab> {
                 const SizedBox(width: 8),
                 Text(
                   'ReadyAI',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: _openNotifications,
                   icon: const Icon(Icons.notifications_none),
                 ),
               ],
@@ -91,6 +94,177 @@ class _HomeTabState extends State<HomeTab> {
       ),
     );
   }
+
+  Future<void> _openNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 알림을 볼 수 있어요.')),
+      );
+      return;
+    }
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '알림',
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: FractionallySizedBox(
+            widthFactor: 0.88,
+            child: _NotificationPanel(
+              userId: user.uid,
+              service: _notificationService,
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+        return SlideTransition(position: offsetAnimation, child: child);
+      },
+    );
+  }
+}
+
+class _NotificationPanel extends StatefulWidget {
+  const _NotificationPanel({required this.userId, required this.service});
+
+  final String userId;
+  final NotificationService service;
+
+  @override
+  State<_NotificationPanel> createState() => _NotificationPanelState();
+}
+
+class _NotificationPanelState extends State<_NotificationPanel> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.service.markAllRead(widget.userId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 12,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Text(
+                    '알림',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: StreamBuilder<List<AppNotification>>(
+                stream: widget.service.watchNotifications(widget.userId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final notifications =
+                      snapshot.data ?? const <AppNotification>[];
+                  if (notifications.isEmpty) {
+                    return const Center(
+                      child: Text('새로운 알림이 없습니다.'),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: notifications.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = notifications[index];
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: item.isRead
+                              ? Colors.grey.shade100
+                              : AppColors.mint.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  _formatNotificationTime(item.createdAt),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.subtext,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              item.message,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatNotificationTime(DateTime? time) {
+  if (time == null) {
+    return '방금 전';
+  }
+  final now = DateTime.now();
+  final diff = now.difference(time);
+  if (diff.inMinutes < 1) return '방금 전';
+  if (diff.inHours < 1) return '${diff.inMinutes}분 전';
+  if (diff.inDays < 1) return '${diff.inHours}시간 전';
+  if (diff.inDays < 7) return '${diff.inDays}일 전';
+  final month = time.month.toString().padLeft(2, '0');
+  final day = time.day.toString().padLeft(2, '0');
+  return '${time.year}.$month.$day';
 }
 
 class _SlideData {
@@ -245,7 +419,14 @@ class _CommunityPreviewCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             FilledButton.tonal(
-              onPressed: () => context.push('/community'),
+              onPressed: () {
+                final navigation = TabsNavigation.of(context);
+                if (navigation != null) {
+                  navigation.goTo(3);
+                  return;
+                }
+                context.push('/community');
+              },
               child: const Text('바로가기'),
             ),
           ],

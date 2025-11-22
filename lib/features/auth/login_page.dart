@@ -61,7 +61,13 @@ class _LoginPageState extends State<LoginPage> {
       userRoleCache.value = role;
 
       // 로그인 성공 → 홈(or 탭)으로 이동
-      if (mounted) context.go('/tabs');
+      if (mounted) {
+        if (role == 'admin') {
+          context.go('/admin'); // ✅ 관리자 전용 탭 페이지로 이동
+        } else {
+          context.go('/tabs'); // 일반 사용자 탭
+        }
+      }
     } on FirebaseAuthException catch (e) {
       // 흔한 에러 메시지 매핑
       String human = '로그인에 실패했어요.';

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:ai/features/notifications/notification_service.dart';
 import '../tabs/tabs_shared.dart';
 import 'community_post.dart';
 import 'community_post_service.dart';
@@ -62,7 +64,10 @@ class CommunityBoardPage extends StatefulWidget {
 
 class _CommunityBoardPageState extends State<CommunityBoardPage> {
   final CommunityPostService _service = CommunityPostService();
+  final NotificationService _notificationService = NotificationService();
   String? _selectedCategory;
+  bool _isAdmin = false;
+  String? _currentUserId;
   StreamSubscription<User?>? _authSub;
   StreamSubscription<List<CommunityPost>>? _hiddenSub;
 
@@ -109,12 +114,30 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
                         setState(() => _selectedCategory = value),
                   ),
                   const SizedBox(height: 28),
-                  _PopularSection(service: _service),
+                  _PopularSection(
+                    service: _service,
+                    currentUserId: _currentUserId,
+                    isAdmin: _isAdmin,
+                    onEdit: _handleEdit,
+                    onDelete: (post) =>
+                        _handleDelete(post, _currentUserId == post.authorId),
+                  ),
                   if (posts.isNotEmpty) ...[
                     const SizedBox(height: 28),
                     const _SectionTitle('최신 글'),
                     const SizedBox(height: 12),
-                    ...posts.map((post) => _PostPreviewCard(post: post)),
+                    ...posts.map((post) {
+                      final isAuthor = _currentUserId != null &&
+                          _currentUserId == post.authorId;
+                      final canDelete = _isAdmin || isAuthor;
+                      return _PostPreviewCard(
+                        post: post,
+                        canEdit: isAuthor,
+                        canDelete: canDelete,
+                        onEdit: () => _handleEdit(post),
+                        onDelete: () => _handleDelete(post, isAuthor),
+                      );
+                    }),
                   ] else ...[
                     const SizedBox(height: 24),
                     const _EmptyPostsView(),
@@ -128,6 +151,161 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadUserRole(User user) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final role = snapshot.data()?['role'] as String?;
+      if (!mounted) return;
+      setState(() => _isAdmin = role == 'admin');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isAdmin = false);
+    }
+  }
+
+  Future<void> _handleEdit(CommunityPost post) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 이용해 주세요.')),
+      );
+      return;
+    }
+
+    if (user.uid != post.authorId) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('본인이 작성한 글만 수정할 수 있어요.')),
+      );
+      return;
+    }
+
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: CommunityPostComposer(
+          initialCategory: post.category,
+          initialTitle: post.title,
+          initialContent: post.content,
+          submitLabel: '수정하기',
+          onSubmit: (category, title, content) => _service.updatePost(
+            post: post,
+            editor: user,
+            category: category,
+            title: title,
+            content: content,
+          ),
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('게시글을 수정했어요.')),
+      );
+    }
+  }
+
+  Future<void> _handleDelete(CommunityPost post, bool isAuthor) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 이용해 주세요.')),
+      );
+      return;
+    }
+
+    if (!isAuthor && !_isAdmin) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제 권한이 없습니다.')),
+      );
+      return;
+    }
+
+    final requiresReason = _isAdmin && user.uid != post.authorId;
+    String blockedReason = '작성자에 의해 삭제되었습니다.';
+
+    if (requiresReason) {
+      final reason = await _showDeleteReasonDialog();
+      if (reason == null) return;
+      blockedReason =
+          reason.trim().isNotEmpty ? reason.trim() : '관리자에 의해 삭제되었습니다.';
+    }
+
+    try {
+      await _service.setVisibility(
+        postId: post.id,
+        visible: false,
+        blockedReason: blockedReason,
+      );
+
+      if (requiresReason) {
+        await _notificationService.sendNotification(
+          userId: post.authorId,
+          title: '게시글이 삭제되었습니다',
+          message: blockedReason,
+        );
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('게시글을 삭제했어요.')),
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('삭제에 실패했습니다: ${error.message}')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('삭제에 실패했습니다: $error')),
+      );
+    }
+  }
+
+  Future<String?> _showDeleteReasonDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('삭제 사유 입력'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: '삭제 사유를 입력해 주세요.',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   Future<void> _handleCompose() async {
@@ -170,9 +348,14 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
     super.initState();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       _hiddenSub?.cancel();
+      setState(() {
+        _currentUserId = user?.uid;
+        _isAdmin = false;
+      });
       if (user == null) {
         return;
       }
+      _loadUserRole(user);
       _hiddenSub = _service.watchHiddenPosts(user.uid).listen((posts) {
         if (posts.isEmpty || !mounted) return;
         final latest = posts.first;
@@ -416,9 +599,19 @@ class _CategoryCard extends StatelessWidget {
 }
 
 class _PopularSection extends StatelessWidget {
-  const _PopularSection({required this.service});
+  const _PopularSection({
+    required this.service,
+    this.currentUserId,
+    this.isAdmin = false,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final CommunityPostService service;
+  final String? currentUserId;
+  final bool isAdmin;
+  final ValueChanged<CommunityPost>? onEdit;
+  final ValueChanged<CommunityPost>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +628,18 @@ class _PopularSection extends StatelessWidget {
           children: [
             const _SectionTitle('실시간 인기 글'),
             const SizedBox(height: 12),
-            ...posts.map((post) => _PopularPostCard(post: post)),
+            ...posts.map((post) {
+              final isAuthor =
+                  currentUserId != null && currentUserId == post.authorId;
+              final canDelete = isAdmin || isAuthor;
+              return _PopularPostCard(
+                post: post,
+                canEdit: isAuthor,
+                canDelete: canDelete,
+                onEdit: onEdit == null ? null : () => onEdit!(post),
+                onDelete: onDelete == null ? null : () => onDelete!(post),
+              );
+            }),
           ],
         );
       },
@@ -444,9 +648,19 @@ class _PopularSection extends StatelessWidget {
 }
 
 class _PopularPostCard extends StatelessWidget {
-  const _PopularPostCard({required this.post});
+  const _PopularPostCard({
+    required this.post,
+    this.canEdit = false,
+    this.canDelete = false,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final CommunityPost post;
+  final bool canEdit;
+  final bool canDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -485,6 +699,36 @@ class _PopularPostCard extends StatelessWidget {
                   color: AppColors.subtext,
                 ),
               ),
+              if (canEdit || canDelete) ...[
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  tooltip: '게시글 옵션',
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        onEdit?.call();
+                        break;
+                      case 'delete':
+                        onDelete?.call();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) {
+                    return [
+                      if (canEdit)
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('수정'),
+                        ),
+                      if (canDelete)
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('삭제'),
+                        ),
+                    ];
+                  },
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 10),
@@ -523,9 +767,19 @@ class _PopularPostCard extends StatelessWidget {
 }
 
 class _PostPreviewCard extends StatelessWidget {
-  const _PostPreviewCard({required this.post});
+  const _PostPreviewCard({
+    required this.post,
+    this.canEdit = false,
+    this.canDelete = false,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final CommunityPost post;
+  final bool canEdit;
+  final bool canDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -789,10 +1043,21 @@ String _formatTimestamp(DateTime? time) {
 }
 
 class CommunityPostComposer extends StatefulWidget {
-  const CommunityPostComposer({required this.onSubmit, super.key});
+  const CommunityPostComposer({
+    required this.onSubmit,
+    this.initialCategory,
+    this.initialTitle,
+    this.initialContent,
+    this.submitLabel,
+    super.key,
+  });
 
   final Future<void> Function(String category, String title, String content)
       onSubmit;
+  final String? initialCategory;
+  final String? initialTitle;
+  final String? initialContent;
+  final String? submitLabel;
 
   @override
   State<CommunityPostComposer> createState() => _CommunityPostComposerState();
@@ -809,6 +1074,16 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
   void initState() {
     super.initState();
     _category = communityCategories.first;
+    if (widget.initialCategory != null &&
+        communityCategories.contains(widget.initialCategory)) {
+      _category = widget.initialCategory!;
+    }
+    if (widget.initialTitle != null) {
+      _titleController.text = widget.initialTitle!;
+    }
+    if (widget.initialContent != null) {
+      _contentController.text = widget.initialContent!;
+    }
   }
 
   @override
@@ -820,6 +1095,9 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing =
+        widget.initialTitle != null || widget.initialContent != null;
+    final submitLabel = widget.submitLabel ?? (isEditing ? '수정하기' : '등록하기');
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Form(
@@ -830,9 +1108,12 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
           children: [
             Row(
               children: [
-                const Text(
-                  '새 글 작성',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                Text(
+                  isEditing ? '게시글 수정' : '새 글 작성',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
@@ -905,7 +1186,7 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('등록하기'),
+                    : Text(submitLabel),
               ),
             ),
           ],
