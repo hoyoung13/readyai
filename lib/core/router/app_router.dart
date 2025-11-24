@@ -22,6 +22,7 @@ import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
 import 'package:ai/features/profile/resume/resume_editor_page.dart';
 import 'package:ai/features/profile/profile_edit_page.dart';
 import 'package:ai/features/community/community_board_page.dart';
+import 'package:ai/features/community/community_post_compose_page.dart';
 import 'package:ai/features/community/community_list_page.dart';
 import 'package:ai/features/community/community_post_detail_page.dart';
 import 'package:ai/features/jobs/job_post_form_page.dart';
@@ -50,6 +51,18 @@ final router = GoRouter(
       ),
     ),
     GoRoute(path: '/community', builder: (_, __) => const CommunityBoardPage()),
+    GoRoute(
+      path: '/community/compose',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is CommunityPostComposeArgs) {
+          return CommunityPostComposePage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('게시글 작성 정보를 불러오지 못했습니다.')),
+        );
+      },
+    ),
     GoRoute(
       path: '/community/list',
       builder: (_, state) {
