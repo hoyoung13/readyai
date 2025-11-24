@@ -1,6 +1,7 @@
 /// 대기 중인 기업 계정을 검토해 승인·거절하는 관리자 UI.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:ai/features/tabs/tabs_shared.dart';
 
 import 'corporate_approval_service.dart';
 
@@ -13,14 +14,20 @@ class CorporateApprovalPage extends StatefulWidget {
 
 class _CorporateApprovalPageState extends State<CorporateApprovalPage> {
   final _service = CorporateApprovalService();
-  CorporateApplicant? _selected;
   bool _submitting = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('기업 회원 승인 관리'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.text,
+        title: const Text(
+          '기업 계정 승인',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
       body: StreamBuilder<List<CorporateApplicant>>(
         stream: _service.watchPendingApplicants(),
@@ -44,163 +51,265 @@ class _CorporateApprovalPageState extends State<CorporateApprovalPage> {
             return const Center(child: Text('승인 대기 중인 기업 회원이 없습니다.'));
           }
 
-          final hasSelection = _selected != null &&
-              applicants.any((applicant) => applicant.uid == _selected!.uid);
-          if (!hasSelection) {
-            _selected = applicants.first;
-          }
-
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 720;
-              return isWide
-                  ? Row(
-                      children: [
-                        Expanded(child: _buildList(applicants)),
-                        const VerticalDivider(width: 1),
-                        Expanded(child: _buildDetail(_selected!)),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        Expanded(child: _buildList(applicants)),
-                        const Divider(height: 1),
-                        if (_selected != null)
-                          SizedBox(
-                            height: 360,
-                            child: _buildDetail(_selected!),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.check_circle_outline,
+                          color: AppColors.primary),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '승인 대기 목록',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text,
                           ),
-                      ],
-                    );
-            },
+                        ),
+                      ),
+                      Text(
+                        '기업 계정 승인',
+                        style: TextStyle(color: AppColors.subtext),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(child: _buildTable(applicants)),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildList(List<CorporateApplicant> applicants) {
-    return ListView.separated(
-      itemCount: applicants.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final applicant = applicants[index];
-        final selected = _selected?.uid == applicant.uid;
-        return ListTile(
-          title: Text(applicant.companyName.isNotEmpty
-              ? applicant.companyName
-              : applicant.name),
-          subtitle: Text(applicant.email),
-          trailing: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(applicant.businessNumber.isEmpty
-                  ? '미승인'
-                  : applicant.businessNumber),
-              const SizedBox(height: 4),
-              Text(
-                applicant.source == CorporateApplicantSource.corporateSignups
-                    ? '신청서'
-                    : '프로필',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
+  Widget _buildTable(List<CorporateApplicant> applicants) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
           ),
-          selected: selected,
-          onTap: () => setState(() => _selected = applicant),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetail(CorporateApplicant applicant) {
-    String formatDate(Timestamp? ts) {
-      if (ts == null) return '기록 없음';
-      final d = ts.toDate();
-      return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      applicant.companyName.isNotEmpty
-                          ? applicant.companyName
-                          : applicant.name,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Chip(
-                    label: Text(
-                      applicant.source ==
-                              CorporateApplicantSource.corporateSignups
-                          ? '신청서 기반'
-                          : '프로필 기반',
-                    ),
-                  ),
-                ],
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: DataTable(
+              headingRowColor:
+                  MaterialStateProperty.all<Color>(AppColors.primarySoft),
+              headingTextStyle: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(height: 12),
-              _infoRow('이메일', applicant.email),
-              _infoRow('대표자명', applicant.name),
-              _infoRow(
-                  '사업자등록번호',
-                  applicant.businessNumber.isEmpty
-                      ? '-'
-                      : applicant.businessNumber),
-              _infoRow('신청일', formatDate(applicant.createdAt)),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade400,
-                      ),
-                      onPressed: _submitting
-                          ? null
-                          : () => _updateApproval(applicant, false),
-                      icon: const Icon(Icons.close),
-                      label: const Text('거절'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                      ),
-                      onPressed: _submitting
-                          ? null
-                          : () => _updateApproval(applicant, true),
-                      icon: const Icon(Icons.check),
-                      label: const Text('승인'),
-                    ),
-                  ),
-                ],
+              dataTextStyle: const TextStyle(
+                fontSize: 13,
+                color: AppColors.text,
+                fontWeight: FontWeight.w600,
               ),
-            ],
+              columns: const [
+                DataColumn(label: Text('담당자')),
+                DataColumn(label: Text('기업명')),
+                DataColumn(label: Text('사업자 등록번호')),
+                DataColumn(label: Text('요청일자')),
+                DataColumn(label: Text('승인')),
+              ],
+              rows: applicants
+                  .map(
+                    (applicant) => DataRow(
+                      cells: [
+                        DataCell(Text(
+                            applicant.name.isEmpty ? '정보 없음' : applicant.name)),
+                        DataCell(Text(applicant.companyName.isEmpty
+                            ? '-'
+                            : applicant.companyName)),
+                        DataCell(Text(applicant.businessNumber.isEmpty
+                            ? '미등록'
+                            : applicant.businessNumber)),
+                        DataCell(Text(_formatDate(applicant.createdAt))),
+                        DataCell(
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: _submitting
+                                ? null
+                                : () => _updateApproval(applicant, true),
+                            child: const Text('승인'),
+                          ),
+                        ),
+                      ],
+                      onSelectChanged: (_) => _showApplicantSheet(applicant),
+                    ),
+                  )
+                  .toList(),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _infoRow(String title, String value) {
+  String _formatDate(Timestamp? ts) {
+    if (ts == null) return '기록 없음';
+    final d = ts.toDate();
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  void _showApplicantSheet(CorporateApplicant applicant) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              top: 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        applicant.companyName.isNotEmpty
+                            ? applicant.companyName
+                            : applicant.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Chip(
+                      backgroundColor: AppColors.primarySoft,
+                      label: Text(
+                        applicant.source ==
+                                CorporateApplicantSource.corporateSignups
+                            ? '신청서'
+                            : '프로필',
+                        style: const TextStyle(color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _detailRow('이메일', applicant.email),
+                _detailRow('담당자', applicant.name),
+                _detailRow(
+                    '사업자등록번호',
+                    applicant.businessNumber.isEmpty
+                        ? '-'
+                        : applicant.businessNumber),
+                _detailRow('신청일', _formatDate(applicant.createdAt)),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade500,
+                          side: BorderSide(color: Colors.red.shade200),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _submitting
+                            ? null
+                            : () async {
+                                await _updateApproval(applicant, false);
+                                if (mounted) Navigator.of(context).pop();
+                              },
+                        icon: const Icon(Icons.close),
+                        label: const Text('거절'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: _submitting
+                            ? null
+                            : () async {
+                                await _updateApproval(applicant, true);
+                                if (mounted) Navigator.of(context).pop();
+                              },
+                        icon: const Icon(Icons.check),
+                        label: const Text('승인'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '행을 탭하면 상세 정보와 승인/거절을 바로 처리할 수 있어요.',
+                  style: TextStyle(color: AppColors.subtext),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -208,12 +317,18 @@ class _CorporateApprovalPageState extends State<CorporateApprovalPage> {
           SizedBox(
             width: 120,
             child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              label,
+              style: const TextStyle(
+                color: AppColors.subtext,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
-            child: Text(value.isEmpty ? '-' : value),
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),

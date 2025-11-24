@@ -25,6 +25,8 @@ class TabsNavigation extends InheritedWidget {
 class AppColors {
   static const bg = Color(0xFFF7F7F7);
   static const mint = Color(0xFF2EE8A5);
+  static const primary = Color(0xFF705CF6);
+  static const primarySoft = Color(0xFFE8E2FF);
   static const text = Color(0xFF191919);
   static const subtext = Color(0xFF7C7C7C);
 }

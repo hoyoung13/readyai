@@ -14,13 +14,14 @@ class AdminTabsPage extends StatefulWidget {
 }
 
 class _AdminTabsPageState extends State<AdminTabsPage> {
-  int _index = 0;
+  int _index = 2;
 
-  static const _pages = <Widget>[
-    _AdminHomeTab(),
-    CommunityBoardPage(),
-    JobsTab(),
-    _AdminManageTab(),
+  static final _pages = <Widget>[
+    const CorporateApprovalPage(),
+    const CommunityBoardPage(),
+    const _AdminHomeTab(),
+    const SafeArea(child: JobsTab()),
+    const ContentModerationPage(),
   ];
 
   @override
@@ -34,16 +35,20 @@ class _AdminTabsPageState extends State<AdminTabsPage> {
       },
       child: Scaffold(
         backgroundColor: AppColors.bg,
-        body: SafeArea(child: _pages[_index]),
+        body: _pages[_index],
         bottomNavigationBar: NavigationBar(
+          height: 72,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
           selectedIndex: _index,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: (i) => setState(() => _index = i),
-          indicatorColor: AppColors.mint.withOpacity(0.18),
+          indicatorColor: AppColors.primary.withOpacity(0.18),
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: '홈',
+              icon: Icon(Icons.verified_user_outlined),
+              selectedIcon: Icon(Icons.verified_user),
+              label: '계정승인',
             ),
             NavigationDestination(
               icon: Icon(Icons.forum_outlined),
@@ -51,14 +56,19 @@ class _AdminTabsPageState extends State<AdminTabsPage> {
               label: '게시판',
             ),
             NavigationDestination(
-              icon: Icon(Icons.work_outline),
-              selectedIcon: Icon(Icons.work),
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: '홈',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.campaign_outlined),
+              selectedIcon: Icon(Icons.campaign),
               label: '공고',
             ),
             NavigationDestination(
-              icon: Icon(Icons.admin_panel_settings_outlined),
-              selectedIcon: Icon(Icons.admin_panel_settings),
-              label: '관리',
+              icon: Icon(Icons.report_gmailerrorred_outlined),
+              selectedIcon: Icon(Icons.report_gmailerrorred),
+              label: '신고관리',
             ),
           ],
         ),
@@ -72,104 +82,148 @@ class _AdminHomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Text(
-                '관리자 홈',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-              ),
-              SizedBox(width: 8),
-              Chip(label: Text('운영 전용')),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '게시판 검수와 기업 인증 등 운영 도구에 빠르게 접근하세요.',
-            style: TextStyle(color: AppColors.subtext),
-          ),
-          const SizedBox(height: 24),
-          _AdminShortcutCard(
-            title: '커뮤니티 관리',
-            description: '게시글/댓글을 검수하고 커뮤니티 품질을 유지하세요.',
-            icon: Icons.shield_outlined,
-            onTap: () => context.push('/admin/content'),
-          ),
-          const SizedBox(height: 12),
-          _AdminShortcutCard(
-            title: '기업 회원 승인',
-            description: '기업 인증 요청을 확인하고 승인/거절하세요.',
-            icon: Icons.approval_outlined,
-            onTap: () => context.push('/admin/corporate-approvals'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminManageTab extends StatelessWidget {
-  const _AdminManageTab();
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-          children: [
-            const Text(
-              '운영 도구',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            _AdminShortcutCard(
-              title: '커뮤니티 모더레이션',
-              description: '신고된 게시글/댓글을 검토하고 조치합니다.',
-              icon: Icons.policy_outlined,
-              onTap: () => context.push('/admin/content'),
-            ),
-            const SizedBox(height: 12),
-            _AdminShortcutCard(
-              title: '기업 인증 관리',
-              description: '기업 회원 신청 내역을 확인하고 승인/거절합니다.',
-              icon: Icons.business_center_outlined,
-              onTap: () => context.push('/admin/corporate-approvals'),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.camera_outlined,
+                        color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('ReadyAi',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.text)),
+                      SizedBox(height: 4),
+                      Text('관리자센터', style: TextStyle(color: AppColors.subtext)),
+                    ],
+                  ),
+                  const Spacer(),
+                  const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.primarySoft,
+                    child: Icon(Icons.notifications_none,
+                        color: AppColors.primary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                '안녕하세요, 관리자님',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '오늘도 ReadyAi를 믿고 맡겨주세요.',
+                style: TextStyle(color: AppColors.subtext, fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              _AdminActionCard(
+                title: '계정 승인',
+                subtitle: '기업 계정 승인',
+                icon: Icons.workspace_premium_outlined,
+                onTap: () => context.push('/admin/corporate-approvals'),
+              ),
+              const SizedBox(height: 14),
+              _AdminActionCard(
+                title: '신고 관리',
+                subtitle: '신고',
+                icon: Icons.policy_outlined,
+                onTap: () => context.push('/admin/content'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _AdminShortcutCard extends StatelessWidget {
-  const _AdminShortcutCard({
+class _AdminActionCard extends StatelessWidget {
+  const _AdminActionCard({
     required this.title,
-    required this.description,
+    required this.subtitle,
     required this.icon,
     required this.onTap,
   });
 
   final String title;
-  final String description;
+  final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.text),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(description),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white),
+          ],
+        ),
       ),
     );
   }

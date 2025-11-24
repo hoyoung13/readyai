@@ -9,6 +9,7 @@ import 'package:ai/features/admin/content_moderation_page.dart';
 import 'package:ai/features/admin/admin_tabs_page.dart';
 import 'package:ai/features/tabs/tabs_page.dart';
 import 'package:ai/features/tabs/company_home_tab.dart';
+import 'package:ai/features/jobs/company_route_guard.dart';
 import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_summary_page.dart';
@@ -36,7 +37,12 @@ final router = GoRouter(
     GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/signup', builder: (_, __) => const SignupPage()),
     GoRoute(path: '/tabs', builder: (_, __) => const TabsPage()),
-    GoRoute(path: '/company', builder: (_, __) => const CompanyHomeTab()),
+    GoRoute(
+      path: '/company',
+      builder: (_, __) => const CompanyRouteGuard(
+        child: CompanyHomeTab(),
+      ),
+    ),
     GoRoute(
       path: '/admin',
       builder: (_, __) => const AdminRouteGuard(
