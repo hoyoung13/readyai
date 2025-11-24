@@ -8,6 +8,8 @@ class AppNotification {
     required this.message,
     required this.createdAt,
     required this.isRead,
+    this.data,
+
   });
 
   final String id;
@@ -16,6 +18,9 @@ class AppNotification {
   final String message;
   final DateTime? createdAt;
   final bool isRead;
+  final Map<String, dynamic>? data;
+
+
 
   factory AppNotification.fromDoc(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
@@ -28,6 +33,7 @@ class AppNotification {
       message: data['message'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       isRead: data['isRead'] as bool? ?? false,
+      data: data['data'] as Map<String, dynamic>?,
     );
   }
 }
@@ -72,13 +78,46 @@ class NotificationService {
     required String type,
     required String title,
     required String message,
+    Map<String, dynamic>? data,
+
   }) async {
     await _userCollection(userId).add({
       'type': type,
       'title': title,
       'message': message,
       'isRead': false,
+      if (data != null) 'data': data,
       'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+  Future<void> upsertNotification({
+    required String userId,
+    required String notificationId,
+    required String type,
+    required String title,
+    required String message,
+    Map<String, dynamic>? data,
+  }) async {
+    final ref = _userCollection(userId).doc(notificationId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(ref);
+      final existing = snapshot.data();
+
+      transaction.set(
+        ref,
+        {
+          'type': type,
+          'title': title,
+          'message': message,
+          'isRead': false,
+          if (data != null) 'data': data,
+          'createdAt': existing != null
+              ? existing['createdAt']
+              : FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     });
   }
 

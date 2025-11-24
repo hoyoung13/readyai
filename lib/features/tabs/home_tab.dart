@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:ai/features/notifications/notification_service.dart';
+import 'package:ai/features/community/community_post.dart';
+import 'package:ai/features/community/community_post_service.dart';
 import 'package:go_router/go_router.dart';
 import 'tabs_shared.dart';
 
@@ -13,6 +16,11 @@ class HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<HomeTab> {
   final NotificationService _notificationService = NotificationService();
+  final CommunityPostService _postService = CommunityPostService();
+  final Set<String> _notifiedHiddenPostIds = {};
+  StreamSubscription<User?>? _authSub;
+  StreamSubscription<List<CommunityPost>>? _hiddenSub;
+  bool _hasShownInitialHiddenBanner = false;
   final _slides = const [
     _SlideData(
       title: '지금 채용 중인\n공고를 골라보세요',
@@ -90,6 +98,77 @@ class _HomeTabState extends State<HomeTab> {
         ],
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen(_handleAuth);
+  }
+
+  void _handleAuth(User? user) {
+    _hiddenSub?.cancel();
+    _notifiedHiddenPostIds.clear();
+    _hasShownInitialHiddenBanner = false;
+
+    if (user == null) {
+      return;
+    }
+
+    _hiddenSub = _postService.watchHiddenPosts(user.uid).listen((posts) async {
+      if (!mounted || posts.isEmpty) return;
+
+      final newHiddenPosts = posts
+          .where((post) =>
+              post.deletedByAdmin && !_notifiedHiddenPostIds.contains(post.id))
+          .toList();
+
+      if (newHiddenPosts.isEmpty) return;
+
+      for (final post in newHiddenPosts) {
+        _notifiedHiddenPostIds.add(post.id);
+        final reason = post.blockedReason.trim().isEmpty
+            ? '관리자에 의해 블라인드되었습니다.'
+            : post.blockedReason;
+        await _notificationService.upsertNotification(
+          userId: user.uid,
+          notificationId: 'post_hidden_${post.id}',
+          type: 'post_hidden',
+          title: '게시글이 삭제되었습니다.',
+          message: '게시글이 삭제되었습니다.',
+          data: {
+            'postId': post.id,
+            'title': post.title,
+            'reason': reason,
+          },
+        );
+      }
+
+      if (!_hasShownInitialHiddenBanner && mounted) {
+        _hasShownInitialHiddenBanner = true;
+        _showTransientHiddenBanner();
+      }
+    });
+  }
+
+  void _showTransientHiddenBanner() {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('게시글이 삭제되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(left: 16, right: 16, top: 32),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _hiddenSub?.cancel();
+    super.dispose();
   }
 
   Widget _buildNotificationButton() {
@@ -189,6 +268,68 @@ class _NotificationPanelState extends State<_NotificationPanel> {
     });
   }
 
+  void _openNotificationDetail(AppNotification notification) {
+    if (notification.type != 'post_hidden') {
+      return;
+    }
+
+    final data = notification.data ?? const {};
+    final title = (data['title'] as String?)?.trim();
+    final reason = (data['reason'] as String?)?.trim();
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '게시글 삭제 안내',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              if (title != null && title.isNotEmpty) ...[
+                const Text(
+                  '삭제된 게시글',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.subtext,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(title, style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 12),
+              ],
+              const Text(
+                '사유',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.subtext,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                (reason?.isNotEmpty ?? false) ? reason! : '관리자에 의해 삭제된 게시글입니다.',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _formatNotificationTime(notification.createdAt),
+                style: const TextStyle(fontSize: 12, color: AppColors.subtext),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -237,43 +378,47 @@ class _NotificationPanelState extends State<_NotificationPanel> {
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final item = notifications[index];
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: item.isRead
-                              ? Colors.grey.shade100
-                              : AppColors.mint.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                      return InkWell(
+                        onTap: () => _openNotificationDetail(item),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: item.isRead
+                                ? Colors.grey.shade100
+                                : AppColors.mint.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Text(
-                                  _formatNotificationTime(item.createdAt),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.subtext,
+                                  Text(
+                                    _formatNotificationTime(item.createdAt),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.subtext,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              item.message,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ],
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                item.message,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },

@@ -17,20 +17,32 @@ class CommunityPostService {
     bool onlyNotices = false,
     int limit = 50,
   }) {
-    Query<Map<String, dynamic>> query =
-        _collection.where('visible', isEqualTo: true);
-    if (category != null && category.isNotEmpty) {
-      query = query.where('category', isEqualTo: category);
-    }
-    if (onlyNotices) {
-      query = query.where('isNotice', isEqualTo: true);
-    }
-    return query
-        .orderBy('createdAt', descending: true)
+    final normalizedCategory =
+        category != null && category.isNotEmpty && category != '전체'
+            ? category
+            : null;
+
+    return _collection
+        .where('visible', isEqualTo: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map(CommunityPost.fromDoc).toList(growable: false));
+        .map((snapshot) {
+      final posts = snapshot.docs.map(CommunityPost.fromDoc).where((post) {
+        if (onlyNotices && !post.isNotice) return false;
+        if (normalizedCategory != null && post.category != normalizedCategory) {
+          return false;
+        }
+        return true;
+      }).toList(growable: false);
+
+      posts.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+      return posts.take(limit).toList(growable: false);
+    });
   }
 
   Stream<List<CommunityPost>> watchHiddenPosts(String authorId) {
