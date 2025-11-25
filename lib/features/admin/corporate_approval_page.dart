@@ -92,7 +92,7 @@ class _CorporateApprovalPageState extends State<CorporateApprovalPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Expanded(child: _buildTable(applicants)),
+                Expanded(child: _buildList(applicants)),
               ],
             ),
           );
@@ -101,7 +101,7 @@ class _CorporateApprovalPageState extends State<CorporateApprovalPage> {
     );
   }
 
-  Widget _buildTable(List<CorporateApplicant> applicants) {
+  Widget _buildList(List<CorporateApplicant> applicants) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -114,67 +114,37 @@ class _CorporateApprovalPageState extends State<CorporateApprovalPage> {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: DataTable(
-              headingRowColor:
-                  MaterialStateProperty.all<Color>(AppColors.primarySoft),
-              headingTextStyle: const TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w800,
-              ),
-              dataTextStyle: const TextStyle(
-                fontSize: 13,
-                color: AppColors.text,
-                fontWeight: FontWeight.w600,
-              ),
-              columns: const [
-                DataColumn(label: Text('담당자')),
-                DataColumn(label: Text('기업명')),
-                DataColumn(label: Text('사업자 등록번호')),
-                DataColumn(label: Text('요청일자')),
-                DataColumn(label: Text('승인')),
-              ],
-              rows: applicants
-                  .map(
-                    (applicant) => DataRow(
-                      cells: [
-                        DataCell(Text(
-                            applicant.name.isEmpty ? '정보 없음' : applicant.name)),
-                        DataCell(Text(applicant.companyName.isEmpty
-                            ? '-'
-                            : applicant.companyName)),
-                        DataCell(Text(applicant.businessNumber.isEmpty
-                            ? '미등록'
-                            : applicant.businessNumber)),
-                        DataCell(Text(_formatDate(applicant.createdAt))),
-                        DataCell(
-                          FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _submitting
-                                ? null
-                                : () => _updateApproval(applicant, true),
-                            child: const Text('승인'),
-                          ),
-                        ),
-                      ],
-                      onSelectChanged: (_) => _showApplicantSheet(applicant),
-                    ),
-                  )
-                  .toList(),
-            ),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columns: const [
+              DataColumn(label: Text('담당자')),
+              DataColumn(label: Text('기업명')),
+              DataColumn(label: Text('사업자 등록번호')),
+              DataColumn(label: Text('요청일자')),
+            ],
+            rows: applicants.map((applicant) {
+              final managerLabel =
+                  applicant.name.isEmpty ? '정보 없음' : applicant.name;
+              final companyLabel = applicant.companyName.isNotEmpty
+                  ? applicant.companyName
+                  : applicant.name;
+              final bizNumberLabel = applicant.businessNumber.isEmpty
+                  ? '미등록'
+                  : applicant.businessNumber;
+
+              return DataRow(
+                onSelectChanged: (_) => _showApplicantSheet(applicant),
+                cells: [
+                  DataCell(Text(managerLabel)),
+                  DataCell(Text(companyLabel)),
+                  DataCell(Text(bizNumberLabel)),
+                  DataCell(Text(_formatDate(applicant.createdAt))),
+                ],
+              );
+            }).toList(),
           ),
         ),
       ),
