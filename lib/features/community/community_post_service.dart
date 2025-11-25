@@ -109,14 +109,13 @@ class CommunityPostService {
     required String content,
     required User author,
   }) async {
+    final authorName = await _resolveAuthorName(author);
     final payload = <String, dynamic>{
       'category': category,
       'title': title,
       'content': content,
       'authorId': author.uid,
-      'authorName': author.displayName?.trim().isNotEmpty == true
-          ? author.displayName!.trim()
-          : (author.email ?? '익명'),
+      'authorName': authorName,
       'authorEmail': author.email,
       'likeCount': 0,
       'commentCount': 0,
@@ -183,14 +182,13 @@ class CommunityPostService {
     required User author,
     required String content,
   }) async {
+    final authorName = await _resolveAuthorName(author);
     final postRef = _collection.doc(postId);
     await _firestore.runTransaction((transaction) async {
       final commentRef = postRef.collection('comments').doc();
       transaction.set(commentRef, {
         'authorId': author.uid,
-        'authorName': author.displayName?.trim().isNotEmpty == true
-            ? author.displayName!.trim()
-            : (author.email ?? '익명'),
+        'authorName': authorName,
         'authorEmail': author.email,
         'content': content,
         'createdAt': FieldValue.serverTimestamp(),
@@ -202,6 +200,25 @@ class CommunityPostService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+  }
+
+  Future<String> _resolveAuthorName(User author) async {
+    try {
+      final userDoc =
+          await _firestore.collection('users').doc(author.uid).get();
+      final nickname = userDoc.data()?['nickname'] as String?;
+      if (nickname != null && nickname.trim().isNotEmpty) {
+        return nickname.trim();
+      }
+    } catch (_) {
+      // Firestore 조회 실패 시 auth 정보로 fallback
+    }
+
+    final displayName = author.displayName;
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      return displayName.trim();
+    }
+    return author.email ?? '익명';
   }
 
   Future<bool> togglePostLike({
