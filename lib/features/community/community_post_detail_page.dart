@@ -8,6 +8,17 @@ import 'community_comment.dart';
 import 'community_post.dart';
 import 'community_post_service.dart';
 
+const _reportReasons = [
+  '1. 스팸/홍보성 게시글',
+  '2. 욕설/비하/혐오 발언',
+  '3. 음란/불건전한 내용',
+  '4. 허위 정보 / 루머 유포',
+  '5. 개인정보 노출 (전화번호 등)',
+  '6. 정치/종교/논쟁 유도',
+  '7. 도배/중복 게시물',
+  '8. 기타 부적절한 내용',
+];
+
 class CommunityPostDetailPage extends StatefulWidget {
   const CommunityPostDetailPage({super.key, required this.postId});
 
@@ -77,7 +88,11 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
                     child: ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        _PostHeader(post: post),
+                        _PostHeader(
+                          post: post,
+                          showReport: user?.uid != post.authorId,
+                          onReport: () => _handleReport(user, post),
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           post.title,
@@ -180,12 +195,98 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
       );
     }
   }
+
+  Future<void> _handleReport(User? user, CommunityPost post) async {
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 신고할 수 있어요.')),
+      );
+      return;
+    }
+
+    if (user.uid == post.authorId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('내가 작성한 글은 신고할 수 없어요.')),
+      );
+      return;
+    }
+
+    final reason = await _showReportReasonDialog();
+    if (reason == null) return;
+
+    try {
+      await _service.reportPost(post: post, reporter: user, reason: reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('신고가 접수되었어요.')),
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('신고에 실패했습니다: ${error.message}')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('신고에 실패했습니다: $error')),
+      );
+    }
+  }
+
+  Future<String?> _showReportReasonDialog() async {
+    String? selectedReason = _reportReasons.first;
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('신고 사유 선택'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final reason in _reportReasons)
+                    RadioListTile<String>(
+                      title: Text(reason),
+                      value: reason,
+                      groupValue: selectedReason,
+                      onChanged: (value) => setState(() {
+                        selectedReason = value;
+                      }),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(null),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: selectedReason == null
+                    ? null
+                    : () => Navigator.of(context).pop(selectedReason),
+                child: const Text('신고하기'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
 }
 
 class _PostHeader extends StatelessWidget {
-  const _PostHeader({required this.post});
+  const _PostHeader({
+    required this.post,
+    this.showReport = false,
+    this.onReport,
+  });
 
   final CommunityPost post;
+  final bool showReport;
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -235,15 +336,16 @@ class _PostHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              post.authorEmail ?? '익명',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.subtext,
-              ),
-            ),
           ],
         ),
+        if (showReport) ...[
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: onReport,
+            icon: const Icon(Icons.flag_outlined, color: AppColors.subtext),
+            tooltip: '신고하기',
+          ),
+        ],
       ],
     );
   }
@@ -337,13 +439,6 @@ class _CommentTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      comment.authorEmail ?? '익명',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.subtext,
-                      ),
-                    ),
                   ],
                 ),
               ),

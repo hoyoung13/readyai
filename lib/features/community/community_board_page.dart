@@ -184,6 +184,7 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
     final updated = await context.push<bool>(
       '/community/compose',
       extra: CommunityPostComposeArgs(
+        isAdmin: _isAdmin,
         title: '게시글 수정',
         initialCategory: post.category,
         initialTitle: post.title,
@@ -195,6 +196,7 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
           category: category,
           title: title,
           content: content,
+          isAdmin: _isAdmin,
         ),
       ),
     );
@@ -304,11 +306,13 @@ class _CommunityBoardPageState extends State<CommunityBoardPage> {
     final created = await context.push<bool>(
       '/community/compose',
       extra: CommunityPostComposeArgs(
+        isAdmin: _isAdmin,
         onSubmit: (category, title, content) => _service.createPost(
           category: category,
           title: title,
           content: content,
           author: user,
+          isAdmin: _isAdmin,
         ),
       ),
     );

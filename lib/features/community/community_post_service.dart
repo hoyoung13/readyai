@@ -108,7 +108,16 @@ class CommunityPostService {
     required String title,
     required String content,
     required User author,
+    bool isAdmin = false,
   }) async {
+    if (category == '공지' && !isAdmin) {
+      throw FirebaseException(
+        plugin: 'communityPosts',
+        message: '공지 글은 관리자만 작성할 수 있습니다.',
+      );
+    }
+
+    final isNotice = category == '공지';
     final authorName = await _resolveAuthorName(author);
     final payload = <String, dynamic>{
       'category': category,
@@ -119,7 +128,7 @@ class CommunityPostService {
       'authorEmail': author.email,
       'likeCount': 0,
       'commentCount': 0,
-      'isNotice': false,
+      'isNotice': isNotice,
       'deletedByAdmin': false,
       'visible': true,
       'blockedReason': '',
@@ -136,6 +145,7 @@ class CommunityPostService {
     required String category,
     required String title,
     required String content,
+    bool isAdmin = false,
   }) async {
     if (post.authorId != editor.uid) {
       throw FirebaseException(
@@ -144,10 +154,20 @@ class CommunityPostService {
       );
     }
 
+    if (category == '공지' && !isAdmin) {
+      throw FirebaseException(
+        plugin: 'communityPosts',
+        message: '공지 글은 관리자만 작성할 수 있습니다.',
+      );
+    }
+
+    final isNotice = category == '공지';
+
     await _collection.doc(post.id).update({
       'category': category,
       'title': title,
       'content': content,
+      'isNotice': isNotice,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -248,6 +268,25 @@ class CommunityPostService {
       });
       return true;
     });
+  }
+
+  Future<void> reportPost({
+    required CommunityPost post,
+    required User reporter,
+    required String reason,
+  }) async {
+    final reportRef =
+        _collection.doc(post.id).collection('reports').doc(reporter.uid);
+
+    await reportRef.set({
+      'postId': post.id,
+      'postAuthorId': post.authorId,
+      'reporterId': reporter.uid,
+      'reporterEmail': reporter.email,
+      'reason': reason,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<bool> toggleCommentLike({

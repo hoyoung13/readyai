@@ -14,6 +14,7 @@ const communityCategories = [
 class CommunityPostComposer extends StatefulWidget {
   const CommunityPostComposer({
     required this.onSubmit,
+    this.allowNotice = false,
     this.initialCategory,
     this.initialTitle,
     this.initialContent,
@@ -23,6 +24,7 @@ class CommunityPostComposer extends StatefulWidget {
 
   final Future<void> Function(String category, String title, String content)
       onSubmit;
+  final bool allowNotice;
   final String? initialCategory;
   final String? initialTitle;
   final String? initialContent;
@@ -35,6 +37,7 @@ class CommunityPostComposer extends StatefulWidget {
 class _CommunityPostComposerState extends State<CommunityPostComposer> {
   final _formKey = GlobalKey<FormState>();
   late String _category;
+  late List<String> _availableCategories;
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   bool _submitting = false;
@@ -42,9 +45,12 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
   @override
   void initState() {
     super.initState();
-    _category = communityCategories.first;
+    _availableCategories = widget.allowNotice
+        ? communityCategories
+        : communityCategories.where((category) => category != '공지').toList();
+    _category = _availableCategories.first;
     if (widget.initialCategory != null &&
-        communityCategories.contains(widget.initialCategory)) {
+        _availableCategories.contains(widget.initialCategory)) {
       _category = widget.initialCategory!;
     }
     if (widget.initialTitle != null) {
@@ -97,7 +103,7 @@ class _CommunityPostComposerState extends State<CommunityPostComposer> {
             DropdownButtonFormField<String>(
               value: _category,
               items: [
-                for (final item in communityCategories)
+                for (final item in _availableCategories)
                   DropdownMenuItem(value: item, child: Text(item)),
               ],
               onChanged: _submitting

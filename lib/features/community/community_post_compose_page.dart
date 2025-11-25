@@ -7,6 +7,7 @@ import 'community_post_composer.dart';
 class CommunityPostComposeArgs {
   CommunityPostComposeArgs({
     required this.onSubmit,
+    this.isAdmin = false,
     this.title,
     this.initialCategory,
     this.initialTitle,
@@ -16,6 +17,7 @@ class CommunityPostComposeArgs {
 
   final Future<void> Function(String category, String title, String content)
       onSubmit;
+  final bool isAdmin;
   final String? title;
   final String? initialCategory;
   final String? initialTitle;
@@ -63,6 +65,7 @@ class CommunityPostComposePage extends StatelessWidget {
                 ),
                 child: CommunityPostComposer(
                   onSubmit: args.onSubmit,
+                  allowNotice: args.isAdmin,
                   initialCategory: args.initialCategory,
                   initialTitle: args.initialTitle,
                   initialContent: args.initialContent,
