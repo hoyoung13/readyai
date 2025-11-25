@@ -56,25 +56,26 @@ class _ContentModerationPageState extends State<ContentModerationPage>
   }
 
   Widget _buildCommunityTab() {
-    return StreamBuilder<List<CommunityPost>>(
-      stream: _communityService.watchAllPosts(limit: 100),
+    return StreamBuilder<List<ReportedCommunityPost>>(
+      stream: _communityService.watchReportedPosts(limit: 100),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final posts = snapshot.data ?? const <CommunityPost>[];
-        if (posts.isEmpty) {
-          return const Center(child: Text('등록된 게시글이 없습니다.'));
+        final reportedPosts = snapshot.data ?? const <ReportedCommunityPost>[];
+        if (reportedPosts.isEmpty) {
+          return const Center(child: Text('신고된 게시글이 없습니다.'));
         }
 
         return ListView.separated(
           padding: const EdgeInsets.all(16),
-          itemCount: posts.length,
+          itemCount: reportedPosts.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final post = posts[index];
+            final reported = reportedPosts[index];
+            final post = reported.post;
             return Card(
               elevation: 1,
               child: Padding(
@@ -89,6 +90,17 @@ class _ContentModerationPageState extends State<ContentModerationPage>
                             post.title,
                             style: const TextStyle(
                               fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Chip(
+                          backgroundColor: Colors.red.shade50,
+                          label: Text(
+                            '신고 ${reported.reportCount}',
+                            style: TextStyle(
+                              color: Colors.red.shade700,
                               fontWeight: FontWeight.w700,
                             ),
                           ),

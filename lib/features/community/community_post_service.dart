@@ -70,6 +70,52 @@ class CommunityPostService {
             snapshot.docs.map(CommunityPost.fromDoc).toList(growable: false));
   }
 
+  Stream<List<ReportedCommunityPost>> watchReportedPosts({int limit = 50}) {
+    return _firestore
+        .collectionGroup('reports')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      if (snapshot.docs.isEmpty) {
+        return const <ReportedCommunityPost>[];
+      }
+
+      final Map<String, int> reportCounts = {};
+      for (final doc in snapshot.docs) {
+        final postId = doc.data()['postId'] as String?;
+        if (postId == null || postId.isEmpty) continue;
+        reportCounts.update(postId, (value) => value + 1, ifAbsent: () => 1);
+      }
+
+      final postsById = await _fetchPostsByIds(reportCounts.keys);
+      final reportedPosts = <ReportedCommunityPost>[];
+      for (final entry in postsById.entries) {
+        reportedPosts.add(
+          ReportedCommunityPost(
+            post: entry.value,
+            reportCount: reportCounts[entry.key] ?? 0,
+          ),
+        );
+      }
+
+      reportedPosts.sort((a, b) {
+        final countDiff = b.reportCount.compareTo(a.reportCount);
+        if (countDiff != 0) return countDiff;
+
+        final aDate = a.post.updatedAt ??
+            a.post.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.post.updatedAt ??
+            b.post.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+      return reportedPosts;
+    });
+  }
+
   Stream<CommunityPost?> watchPost(String postId) {
     return _collection.doc(postId).snapshots().map((snapshot) {
       if (!snapshot.exists) {
@@ -342,4 +388,47 @@ class CommunityPostService {
         .snapshots()
         .map((snapshot) => snapshot.exists);
   }
+
+  Future<Map<String, CommunityPost>> _fetchPostsByIds(
+    Iterable<String> postIds,
+  ) async {
+    final ids = postIds.where((id) => id.isNotEmpty).toSet();
+    if (ids.isEmpty) {
+      return {};
+    }
+
+    final Map<String, CommunityPost> posts = {};
+    final chunks = <List<String>>[];
+    var current = <String>[];
+    for (final id in ids) {
+      current.add(id);
+      if (current.length == 10) {
+        chunks.add(current);
+        current = <String>[];
+      }
+    }
+    if (current.isNotEmpty) {
+      chunks.add(current);
+    }
+
+    for (final chunk in chunks) {
+      final snapshot =
+          await _collection.where(FieldPath.documentId, whereIn: chunk).get();
+      for (final doc in snapshot.docs) {
+        posts[doc.id] = CommunityPost.fromDoc(doc);
+      }
+    }
+
+    return posts;
+  }
+}
+
+class ReportedCommunityPost {
+  const ReportedCommunityPost({
+    required this.post,
+    required this.reportCount,
+  });
+
+  final CommunityPost post;
+  final int reportCount;
 }

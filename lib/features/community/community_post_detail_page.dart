@@ -42,130 +42,150 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, authSnapshot) {
-        final user = authSnapshot.data;
-        return Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.black),
-            title: const Text(
-              '게시글 상세',
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          body: StreamBuilder<CommunityPost?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, authSnapshot) {
+          final user = authSnapshot.data;
+          return StreamBuilder<CommunityPost?>(
             stream: _service.watchPost(widget.postId),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
               final post = snapshot.data;
-              if (post == null) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('게시글을 찾을 수 없습니다.'),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => context.pop(),
-                        child: const Text('뒤로가기'),
-                      ),
-                    ],
+              return Scaffold(
+                appBar: AppBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  iconTheme: const IconThemeData(color: Colors.black),
+                  title: const Text(
+                    '게시글 상세',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                );
-              }
+                  actions: [
+                    if (post != null && user?.uid != post.authorId)
+                      IconButton(
+                        onPressed: () => _handleReport(user, post),
+                        icon: Image.asset(
+                          'assets/report.png',
+                          width: 30,
+                          height: 30,
+                        ),
+                        tooltip: '신고하기',
+                      ),
+                  ],
+                ),
+                body: Builder(
+                  builder: (context) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-              return Column(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _PostHeader(
-                          post: post,
-                          showReport: user?.uid != post.authorId,
-                          onReport: () => _handleReport(user, post),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          post.title,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          post.content,
-                          style: const TextStyle(fontSize: 15, height: 1.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
+                    if (post == null) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            _LikeButton(
-                              service: _service,
-                              post: post,
-                              userId: user?.uid,
-                            ),
-                            const SizedBox(width: 12),
-                            Row(
-                              children: [
-                                const Icon(Icons.chat_bubble_outline,
-                                    size: 16, color: AppColors.subtext),
-                                const SizedBox(width: 4),
-                                Text('${post.commentCount}',
-                                    style: const TextStyle(
-                                        color: AppColors.subtext)),
-                              ],
-                            ),
-                            const Spacer(),
-                            Text(
-                              _formatTime(post.createdAt),
-                              style: const TextStyle(
-                                color: AppColors.subtext,
-                                fontSize: 12,
-                              ),
+                            const Text('게시글을 찾을 수 없습니다.'),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: () => context.pop(),
+                              child: const Text('뒤로가기'),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '댓글',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              _PostHeader(
+                                post: post,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                post.title,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                post.content,
+                                style:
+                                    const TextStyle(fontSize: 15, height: 1.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  _LikeButton(
+                                    service: _service,
+                                    post: post,
+                                    userId: user?.uid,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.chat_bubble_outline,
+                                        size: 16,
+                                        color: AppColors.subtext,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${post.commentCount}',
+                                        style: const TextStyle(
+                                          color: AppColors.subtext,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    _formatTime(post.createdAt),
+                                    style: const TextStyle(
+                                      color: AppColors.subtext,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              const Divider(),
+                              const SizedBox(height: 12),
+                              const Text(
+                                '댓글',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _CommentList(
+                                service: _service,
+                                postId: post.id,
+                                currentUserId: user?.uid,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _CommentList(
-                          service: _service,
-                          postId: post.id,
-                          currentUserId: user?.uid,
+                        _CommentComposer(
+                          controller: _commentController,
+                          enabled: user != null,
+                          onSubmit: (value) => _submitComment(user, value),
                         ),
                       ],
-                    ),
-                  ),
-                  _CommentComposer(
-                    controller: _commentController,
-                    enabled: user != null,
-                    onSubmit: (value) => _submitComment(user, value),
-                  ),
-                ],
+                    );
+                  },
+                ),
               );
             },
-          ),
-        );
-      },
-    );
+          );
+        });
   }
 
   Future<void> _submitComment(User? user, String value) async {
@@ -280,13 +300,9 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
 class _PostHeader extends StatelessWidget {
   const _PostHeader({
     required this.post,
-    this.showReport = false,
-    this.onReport,
   });
 
   final CommunityPost post;
-  final bool showReport;
-  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -338,14 +354,6 @@ class _PostHeader extends StatelessWidget {
             const SizedBox(height: 2),
           ],
         ),
-        if (showReport) ...[
-          const SizedBox(width: 4),
-          IconButton(
-            onPressed: onReport,
-            icon: const Icon(Icons.flag_outlined, color: AppColors.subtext),
-            tooltip: '신고하기',
-          ),
-        ],
       ],
     );
   }

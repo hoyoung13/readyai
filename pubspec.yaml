@@ -90,6 +90,7 @@ flutter:
     - assets/login.png
     - assets/keys/service-account.json
     - assets/jobs.json
+    - assets/report.png
     - scripts/results.json
   # To add assets to your application, add an assets section, like this:
   # assets:
