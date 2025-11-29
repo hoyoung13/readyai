@@ -21,11 +21,13 @@ class JobDetailPage extends StatelessWidget {
       InterviewFlowLauncher();
   static final JobActivityService _activityService = JobActivityService();
 
-
   @override
   Widget build(BuildContext context) {
     final trimmedDescription = job.description.trim();
     final trimmedNotice = job.notice.trim();
+    final hasApplicationPeriod =
+        job.applicationStartDateText.trim().isNotEmpty ||
+            job.applicationEndDateText.trim().isNotEmpty;
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -36,87 +38,50 @@ class JobDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              job.companyLabel,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.subtext,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              job.title,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-              ),
+            _HeaderCard(
+              job: job,
+              activityService: _activityService,
+              onToggleScrap: (scrapped) =>
+                  _handleToggleScrap(context, scrapped),
             ),
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _InfoTag(
-                        icon: Icons.place_outlined,
-                        label: job.regionLabel,
-                      ),
-                      if (job.prettyPostedDate != null)
-                        _InfoTag(
-                          icon: Icons.event_note,
-                          label: '${job.prettyPostedDate} 등록',
-                        ),
-                    ],
-                  ),
-                  ),
-                const SizedBox(width: 8),
-                StreamBuilder<JobActivity?>(
-                  stream: _activityService.watch(job),
-                  builder: (context, snapshot) {
-                    final scrapped = snapshot.data?.scrapped ?? false;
-                    return IconButton(
-                      icon: Icon(
-                        scrapped ? Icons.star : Icons.star_outline,
-                        color: scrapped ? Colors.amber : AppColors.subtext,
-                      ),
-                      tooltip: scrapped ? '스크랩 취소' : '스크랩',
-                      onPressed: () => _handleToggleScrap(context, scrapped),
-                    );
-                  },
-                ),
-              ],
+            _PrimaryActions(
+              onApply: () => _launchDetail(job.url, context),
+              onPractice: () => _handleStartInterview(context),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _launchDetail(job.url, context),
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('입사지원'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _handleStartInterview(context),
-                    icon: const Icon(Icons.smart_toy_outlined),
-                    label: const Text('면접 연습'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+            const SizedBox(height: 24),
+            if (job.summaryItems.isNotEmpty)
+              _InfoBlock(
+                title: '공고 요약',
+                separated: true,
+                children: job.summaryItems
+                    .map(
+                      (item) => _InfoRow(
+                        label: item.label,
+                        value: item.value,
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            if (job.summaryItems.isNotEmpty) const SizedBox(height: 16),
+            if (hasApplicationPeriod)
+              _InfoBlock(
+                title: '접수 기간',
+                separated: true,
+                children: [
+                  _InfoRow(
+                    label: '기간',
+                    value: _formatApplicationPeriod(
+                      job.applicationStartDateText,
+                      job.applicationEndDateText,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
+                ],
+              ),
+            if (hasApplicationPeriod) const SizedBox(height: 16),
             _InfoBlock(
               title: '기본 정보',
+              separated: true,
               children: [
                 _InfoRow(label: '기업명', value: job.companyLabel),
                 _InfoRow(label: '근무지', value: job.regionLabel),
@@ -130,20 +95,7 @@ class JobDetailPage extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            if (job.summaryItems.isNotEmpty)
-              _InfoBlock(
-                title: '채용 요약',
-                children: job.summaryItems
-                    .map(
-                      (item) => _InfoRow(
-                        label: item.label,
-                        value: item.value,
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            if (job.summaryItems.isNotEmpty) const SizedBox(height: 20),
+            const SizedBox(height: 16),
             if (trimmedDescription.isNotEmpty)
               _InfoBlock(
                 title: '상세 설명',
@@ -154,10 +106,11 @@ class JobDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
-            if (trimmedDescription.isNotEmpty) const SizedBox(height: 20),
+            if (trimmedDescription.isNotEmpty) const SizedBox(height: 16),
             if (job.detailRows.isNotEmpty)
               _InfoBlock(
                 title: '상세 정보',
+                separated: true,
                 children: job.detailRows
                     .map(
                       (row) => Padding(
@@ -183,7 +136,21 @@ class JobDetailPage extends StatelessWidget {
                     )
                     .toList(growable: false),
               ),
-            if (job.detailRows.isNotEmpty) const SizedBox(height: 20),
+            if (job.detailRows.isNotEmpty) const SizedBox(height: 16),
+            if (job.tags.isNotEmpty)
+              _InfoBlock(
+                title: '복리후생 / 태그',
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: job.tags
+                        .map((tag) => _BenefitChip(label: tag))
+                        .toList(growable: false),
+                  ),
+                ],
+              ),
+            if (job.tags.isNotEmpty) const SizedBox(height: 16),
             _InfoBlock(
               title: '안내',
               children: [
@@ -307,6 +274,7 @@ class JobDetailPage extends StatelessWidget {
       );
     }
   }
+
   Future<void> _handleToggleScrap(
       BuildContext context, bool currentScrapState) async {
     try {
@@ -320,8 +288,7 @@ class JobDetailPage extends StatelessWidget {
         ..removeCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content:
-                Text(scrapped ? '스크랩했어요.' : '스크랩을 취소했어요.'),
+            content: Text(scrapped ? '스크랩했어요.' : '스크랩을 취소했어요.'),
           ),
         );
     } on JobActivityAuthException {
@@ -345,47 +312,16 @@ class JobDetailPage extends StatelessWidget {
   }
 }
 
-class _InfoTag extends StatelessWidget {
-  const _InfoTag({required this.icon, required this.label});
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({
+    required this.job,
+    required this.activityService,
+    required this.onToggleScrap,
+  });
 
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.subtext),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoBlock extends StatelessWidget {
-  const _InfoBlock({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
+  final JobPosting job;
+  final JobActivityService activityService;
+  final ValueChanged<bool> onToggleScrap;
 
   @override
   Widget build(BuildContext context) {
@@ -406,15 +342,272 @@ class _InfoBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.business_center_outlined,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      job.companyLabel,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.subtext,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      job.title,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              StreamBuilder<JobActivity?>(
+                stream: activityService.watch(job),
+                builder: (context, snapshot) {
+                  final scrapped = snapshot.data?.scrapped ?? false;
+                  return IconButton(
+                    onPressed: () => onToggleScrap(scrapped),
+                    icon: Icon(
+                      scrapped ? Icons.star : Icons.star_outline,
+                      color: scrapped ? Colors.amber : AppColors.subtext,
+                    ),
+                    tooltip: scrapped ? '스크랩 취소' : '스크랩',
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoTag(
+                icon: Icons.place_outlined,
+                label: job.regionLabel,
+              ),
+              if (job.prettyPostedDate != null)
+                _InfoTag(
+                  icon: Icons.event_note,
+                  label: '${job.prettyPostedDate} 등록',
+                ),
+              if (job.occupations.isNotEmpty)
+                _InfoTag(
+                  icon: Icons.work_outline,
+                  label: job.occupations.join(', '),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryActions extends StatelessWidget {
+  const _PrimaryActions({
+    required this.onApply,
+    required this.onPractice,
+  });
+
+  final VoidCallback onApply;
+  final VoidCallback onPractice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primarySoft),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '지원 및 준비',
+            style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 12),
-          ...children,
+          FilledButton.icon(
+            onPressed: onApply,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(54),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('외부 링크로 입사지원'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onPractice,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              minimumSize: const Size.fromHeight(52),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.smart_toy_outlined),
+            label: const Text('AI 면접 연습 시작'),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '지원 버튼은 외부 채용 사이트를 새 창에서 열어요.',
+            style: TextStyle(
+              color: AppColors.subtext,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoTag extends StatelessWidget {
+  const _InfoTag({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoBlock extends StatelessWidget {
+  const _InfoBlock({
+    required this.title,
+    required this.children,
+    this.separated = false,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final bool separated;
+
+  List<Widget> get _spacedChildren {
+    if (!separated || children.length <= 1) {
+      return children;
+    }
+
+    final widgets = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      widgets.add(children[i]);
+      if (i != children.length - 1) {
+        widgets.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: Color(0xFFE7E7E7),
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._spacedChildren,
         ],
       ),
     );
@@ -430,16 +623,18 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 72,
+            width: 82,
             child: Text(
               label,
               style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppColors.subtext,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+                fontSize: 14,
               ),
             ),
           ),
@@ -447,10 +642,48 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+String _formatApplicationPeriod(String start, String end) {
+  final hasStart = start.trim().isNotEmpty;
+  final hasEnd = end.trim().isNotEmpty;
+
+  if (hasStart && hasEnd) return '$start ~ $end';
+  if (hasStart) return '$start ~ 마감일 미정';
+  if (hasEnd) return '시작일 미정 ~ $end';
+  return '기간 미정';
+}
+
+class _BenefitChip extends StatelessWidget {
+  const _BenefitChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: AppColors.text,
+        ),
       ),
     );
   }

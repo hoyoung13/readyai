@@ -227,7 +227,10 @@ class _ContentModerationPageState extends State<ContentModerationPage>
                             ),
                           ),
                         ),
-                        _StatusChip(visible: post.visible),
+                        _JobStatusChip(
+                          isApproved: post.isApproved,
+                          isActive: post.isActive,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -249,6 +252,31 @@ class _ContentModerationPageState extends State<ContentModerationPage>
                     Wrap(
                       spacing: 8,
                       children: [
+                        if (!post.isApproved) ...[
+                          FilledButton.icon(
+                            onPressed: _busy
+                                ? null
+                                : () => _updateJobApproval(
+                                      post.id,
+                                      true,
+                                    ),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('수락'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _busy
+                                ? null
+                                : () => _promptBlindReason(
+                                      onSubmit: (reason) => _updateJobApproval(
+                                        post.id,
+                                        false,
+                                        reason: reason,
+                                      ),
+                                    ),
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('거절'),
+                          ),
+                        ],
                         OutlinedButton.icon(
                           onPressed: _busy
                               ? null
@@ -370,6 +398,34 @@ class _ContentModerationPageState extends State<ContentModerationPage>
     }
   }
 
+  Future<void> _updateJobApproval(
+    String postId,
+    bool approved, {
+    String reason = '관리자 거절',
+  }) async {
+    setState(() => _busy = true);
+    try {
+      await _jobPostingService.setApproval(
+        jobPostId: postId,
+        approved: approved,
+        blockedReason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(approved ? '공고를 승인했습니다.' : '공고를 거절했습니다.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('처리 중 오류가 발생했습니다. $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _promptBlindReason({
     required ValueChanged<String> onSubmit,
   }) async {
@@ -419,6 +475,43 @@ class _StatusChip extends StatelessWidget {
         visible ? '노출 중' : '차단됨',
         style: TextStyle(
           color: visible ? Colors.green.shade800 : Colors.red.shade800,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _JobStatusChip extends StatelessWidget {
+  const _JobStatusChip({
+    required this.isApproved,
+    required this.isActive,
+  });
+
+  final bool isApproved;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isApproved) {
+      return Chip(
+        backgroundColor: Colors.orange.shade100,
+        label: Text(
+          '승인 대기',
+          style: TextStyle(
+            color: Colors.orange.shade800,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    return Chip(
+      backgroundColor: isActive ? Colors.green.shade100 : Colors.red.shade100,
+      label: Text(
+        isActive ? '노출 중' : '차단됨',
+        style: TextStyle(
+          color: isActive ? Colors.green.shade800 : Colors.red.shade800,
           fontWeight: FontWeight.w700,
         ),
       ),

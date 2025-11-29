@@ -147,6 +147,19 @@ class JobPostingService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  Future<void> setApproval({
+    required String jobPostId,
+    required bool approved,
+    String blockedReason = '',
+  }) async {
+    await _firestore.collection('jobPosts').doc(jobPostId).update({
+      'isApproved': approved,
+      'isActive': approved,
+      'blockedReason': approved ? '' : blockedReason,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
 
 class JobPostDraft {
