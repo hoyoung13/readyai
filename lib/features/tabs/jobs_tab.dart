@@ -14,7 +14,6 @@ class JobsTab extends StatefulWidget {
 
 class _JobsTabState extends State<JobsTab> {
   late Future<JobFeed> _future;
-  final JobPostingLoader _loader = const JobPostingLoader();
   final JobPostingService _postingService = JobPostingService();
 
   @override
@@ -24,16 +23,15 @@ class _JobsTabState extends State<JobsTab> {
   }
 
   Future<JobFeed> _fetch() async {
-    final feed = await _loader.load();
     try {
       final companyPosts = await _postingService.fetchPublicPosts();
-      final combined = <JobPosting>[
-        ...companyPosts.map((post) => post.toJobPosting()),
-        ...feed.items,
-      ];
-      return JobFeed(items: combined);
+      final approved = companyPosts
+          .map((post) => post.toJobPosting())
+          .where((job) => job.visible)
+          .toList(growable: false);
+      return JobFeed(items: approved);
     } catch (_) {
-      return feed;
+      return const JobFeed(items: <JobPosting>[]);
     }
   }
 
@@ -298,6 +296,9 @@ class _JobsListState extends State<_JobsList> {
     final trimmedQuery = (searchFilter ?? _searchQuery).trim().toLowerCase();
 
     return items.where((job) {
+      if (!job.visible) {
+        return false;
+      }
       if (region != null && region.isNotEmpty) {
         final regions = _splitMultiValue(job.region);
         if (regions.isEmpty) {
