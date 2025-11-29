@@ -41,7 +41,7 @@ class CompanyHomePage extends StatelessWidget {
         icon: Icons.forum_outlined,
         tag: '게시판',
         colors: [Color(0xFFFFD3A5), Color(0xFFFFAAA6)],
-        route: '/community',
+        route: '/company/community',
       ),
     ];
 

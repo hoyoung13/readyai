@@ -39,7 +39,7 @@ class _CompanyTabsPageState extends State<CompanyTabsPage> {
         context.go('/company/jobs');
         break;
       case 2:
-        context.go('/community');
+        context.go('/company/community');
         break;
       case 3:
         context.go('/company/mypage');

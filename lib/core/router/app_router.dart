@@ -57,12 +57,30 @@ final router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/company/community',
+      builder: (_, __) => const CompanyRouteGuard(
+        child: CompanyTabsPage(initialIndex: 2),
+      ),
+    ),
+    GoRoute(
       path: '/admin',
       builder: (_, __) => const AdminRouteGuard(
         child: AdminTabsPage(),
       ),
     ),
     GoRoute(path: '/community', builder: (_, __) => const CommunityBoardPage()),
+    GoRoute(
+      path: '/company/mypage',
+      builder: (_, __) => const CompanyRouteGuard(
+        child: CompanyTabsPage(initialIndex: 3),
+      ),
+    ),
+    GoRoute(
+      path: '/company/applicants',
+      builder: (_, __) => const CompanyRouteGuard(
+        child: CompanyTabsPage(initialIndex: 4),
+      ),
+    ),
     GoRoute(
       path: '/community/compose',
       builder: (_, state) {
