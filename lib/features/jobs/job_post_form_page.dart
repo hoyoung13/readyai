@@ -16,16 +16,30 @@ class JobPostFormPage extends StatefulWidget {
 
 class _JobPostFormPageState extends State<JobPostFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _companyCtl = TextEditingController();
   final _titleCtl = TextEditingController();
-  final _regionCtl = TextEditingController();
-  final _urlCtl = TextEditingController();
-  final _tagsCtl = TextEditingController();
-  final _occupationsCtl = TextEditingController();
+  final _categoryCtl = TextEditingController();
+  final _subCategoryCtl = TextEditingController();
+  final _employmentTypeCtl = TextEditingController();
+  final _experienceCtl = TextEditingController();
+  final _educationCtl = TextEditingController();
   final _descriptionCtl = TextEditingController();
-  final _noticeCtl = TextEditingController();
+  final _qualificationCtl = TextEditingController();
+  final _preferredCtl = TextEditingController();
+  final _processCtl = TextEditingController();
+  final _locationCtl = TextEditingController();
+  final _workHoursCtl = TextEditingController();
+  final _salaryCtl = TextEditingController();
+  final _benefitsCtl = TextEditingController();
+  final _companyCtl = TextEditingController();
+  final _websiteCtl = TextEditingController();
+  final _contactNameCtl = TextEditingController();
+  final _contactEmailCtl = TextEditingController();
+  final _contactPhoneCtl = TextEditingController();
+  final _applyMethodCtl = TextEditingController();
+  final _attachmentsCtl = TextEditingController();
+  final _additionalNotesCtl = TextEditingController();
   DateTime? _startDate;
-  DateTime? _endDate;
+  DateTime? _deadline;
   bool _submitting = false;
 
   final JobPostingService _service = JobPostingService();
@@ -35,34 +49,62 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     super.initState();
     final existing = widget.existing;
     if (existing != null) {
-      _companyCtl.text = existing.company;
       _titleCtl.text = existing.title;
-      _regionCtl.text = existing.region;
-      _urlCtl.text = existing.url;
-      _startDate = existing.applicationStartDate;
-      _endDate = existing.applicationEndDate;
-      _tagsCtl.text = existing.tags.join(', ');
-      _occupationsCtl.text = existing.occupations.join(', ');
+      _categoryCtl.text = existing.category;
+      _subCategoryCtl.text = existing.subCategory;
+      _employmentTypeCtl.text = existing.employmentType;
+      _experienceCtl.text = existing.experienceLevel;
+      _educationCtl.text = existing.education;
       _descriptionCtl.text = existing.description;
-      _noticeCtl.text = existing.notice;
+      _qualificationCtl.text = existing.qualification;
+      _preferredCtl.text = existing.preferred;
+      _processCtl.text = existing.process;
+      _locationCtl.text = existing.location;
+      _workHoursCtl.text = existing.workHours;
+      _salaryCtl.text = existing.salary;
+      _benefitsCtl.text = existing.benefits;
+      _companyCtl.text = existing.companyName;
+      _websiteCtl.text = existing.companyWebsite ?? '';
+      _contactNameCtl.text = existing.contactName;
+      _contactEmailCtl.text = existing.contactEmail;
+      _contactPhoneCtl.text = existing.contactPhone;
+      _applyMethodCtl.text = existing.applyMethod;
+      _attachmentsCtl.text = existing.attachments.join(', ');
+      _additionalNotesCtl.text = existing.additionalNotes;
+      _startDate = existing.startDate ?? existing.createdAt;
+      _deadline = existing.deadline;
     }
   }
 
   @override
   void dispose() {
-    _companyCtl.dispose();
     _titleCtl.dispose();
-    _regionCtl.dispose();
-    _urlCtl.dispose();
-    _tagsCtl.dispose();
-    _occupationsCtl.dispose();
+    _categoryCtl.dispose();
+    _subCategoryCtl.dispose();
+    _employmentTypeCtl.dispose();
+    _experienceCtl.dispose();
+    _educationCtl.dispose();
     _descriptionCtl.dispose();
-    _noticeCtl.dispose();
+    _qualificationCtl.dispose();
+    _preferredCtl.dispose();
+    _processCtl.dispose();
+    _locationCtl.dispose();
+    _workHoursCtl.dispose();
+    _salaryCtl.dispose();
+    _benefitsCtl.dispose();
+    _companyCtl.dispose();
+    _websiteCtl.dispose();
+    _contactNameCtl.dispose();
+    _contactEmailCtl.dispose();
+    _contactPhoneCtl.dispose();
+    _applyMethodCtl.dispose();
+    _attachmentsCtl.dispose();
+    _additionalNotesCtl.dispose();
     super.dispose();
   }
 
   Future<void> _pickDate({required bool isStart}) async {
-    final initialDate = (isStart ? _startDate : _endDate) ?? DateTime.now();
+    final initialDate = (isStart ? _startDate : _deadline) ?? DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -74,7 +116,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
         if (isStart) {
           _startDate = picked;
         } else {
-          _endDate = picked;
+          _deadline = picked;
         }
       });
     }
@@ -84,13 +126,11 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    final start = _startDate;
-    final end = _endDate;
-    if (start == null || end == null) {
-      _showSnack('모집 시작/마감 날짜를 모두 선택해 주세요.');
+    if (_startDate == null || _deadline == null) {
+      _showSnack('모집 시작일과 마감일을 모두 선택해 주세요.');
       return;
     }
-    if (start.isAfter(end)) {
+    if (_startDate!.isAfter(_deadline!)) {
       _showSnack('모집 시작일이 마감일보다 늦을 수 없습니다.');
       return;
     }
@@ -104,26 +144,45 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     setState(() => _submitting = true);
 
     final draft = JobPostDraft(
-      ownerUid: user.uid,
-      company: _companyCtl.text.trim(),
       title: _titleCtl.text.trim(),
-      region: _regionCtl.text.trim(),
-      recruitUrl: _urlCtl.text.trim(),
-      applicationStartDate: start,
-      applicationEndDate: end,
-      tags: _splitInput(_tagsCtl.text),
-      occupations: _splitInput(_occupationsCtl.text),
+      category: _categoryCtl.text.trim(),
+      subCategory: _subCategoryCtl.text.trim(),
+      employmentType: _employmentTypeCtl.text.trim(),
+      experienceLevel: _experienceCtl.text.trim(),
+      education: _educationCtl.text.trim(),
       description: _descriptionCtl.text.trim(),
-      notice: _noticeCtl.text.trim(),
+      qualification: _qualificationCtl.text.trim(),
+      preferred: _preferredCtl.text.trim(),
+      process: _processCtl.text.trim(),
+      location: _locationCtl.text.trim(),
+      workHours: _workHoursCtl.text.trim(),
+      salary: _salaryCtl.text.trim(),
+      benefits: _benefitsCtl.text.trim(),
+      companyName: _companyCtl.text.trim(),
+      companyWebsite:
+          _websiteCtl.text.trim().isEmpty ? null : _websiteCtl.text.trim(),
+      contactName: _contactNameCtl.text.trim(),
+      contactEmail: _contactEmailCtl.text.trim(),
+      contactPhone: _contactPhoneCtl.text.trim(),
+      applyMethod: _applyMethodCtl.text.trim(),
+      attachments: _splitInput(_attachmentsCtl.text),
+      additionalNotes: _additionalNotesCtl.text.trim(),
+      startDate: _startDate!,
+      deadline: _deadline!,
+      authorId: user.uid,
+      isApproved: widget.existing?.isApproved ?? false,
+      isActive: true,
+      viewCount: widget.existing?.viewCount ?? 0,
+      applicantCount: widget.existing?.applicantCount ?? 0,
     );
 
     try {
       if (widget.existing == null) {
         await _service.create(draft);
-        _showSnack('채용 공고를 등록했습니다.');
+        _showSnack('공고가 등록되었습니다');
       } else {
         await _service.update(widget.existing!.id, draft);
-        _showSnack('채용 공고를 수정했습니다.');
+        _showSnack('공고가 수정되었습니다');
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -143,7 +202,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     return CompanyRouteGuard(
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.existing == null ? '채용 공고 등록' : '채용 공고 수정'),
+          title: const Text('채용 공고 등록'),
         ),
         backgroundColor: AppColors.bg,
         body: SingleChildScrollView(
@@ -153,7 +212,107 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SectionTitle('기본 정보'),
+                const _SectionTitle('기본 정보'),
+                _Gap(),
+                _LabeledField(
+                  label: '공고 제목',
+                  controller: _titleCtl,
+                  validator: (v) => _required(v, '공고 제목을 입력해 주세요'),
+                ),
+                _Gap(),
+                _DropdownField(
+                  label: '직무 대분류',
+                  controller: _categoryCtl,
+                  options: _majorCategories,
+                  validator: (v) => _required(v, '직무 대분류를 선택해 주세요'),
+                ),
+                _Gap(),
+                _DropdownField(
+                  label: '직무 소분류',
+                  controller: _subCategoryCtl,
+                  options: _subCategories,
+                  validator: (v) => _required(v, '직무 소분류를 선택해 주세요'),
+                ),
+                _Gap(),
+                _DropdownField(
+                  label: '고용 형태',
+                  controller: _employmentTypeCtl,
+                  options: _employmentTypes,
+                  validator: (v) => _required(v, '고용 형태를 선택해 주세요'),
+                ),
+                _Gap(),
+                _DropdownField(
+                  label: '경력 구분',
+                  controller: _experienceCtl,
+                  options: _experienceLevels,
+                  validator: (v) => _required(v, '경력 구분을 선택해 주세요'),
+                ),
+                _Gap(),
+                _DropdownField(
+                  label: '학력 요건',
+                  controller: _educationCtl,
+                  options: _educationLevels,
+                  validator: (v) => _required(v, '학력을 선택해 주세요'),
+                ),
+                const SizedBox(height: 24),
+                const _SectionTitle('주요 내용'),
+                _Gap(),
+                _LabeledField(
+                  label: '담당 업무',
+                  controller: _descriptionCtl,
+                  maxLines: 4,
+                  validator: (v) => _required(v, '담당 업무를 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '자격 요건',
+                  controller: _qualificationCtl,
+                  maxLines: 4,
+                  validator: (v) => _required(v, '자격 요건을 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '우대 사항',
+                  controller: _preferredCtl,
+                  maxLines: 3,
+                  validator: null,
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '전형 절차',
+                  controller: _processCtl,
+                  maxLines: 3,
+                  validator: null,
+                ),
+                const SizedBox(height: 24),
+                const _SectionTitle('근무 조건'),
+                _Gap(),
+                _LabeledField(
+                  label: '근무지',
+                  controller: _locationCtl,
+                  validator: (v) => _required(v, '근무지를 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '근무 요일/시간',
+                  controller: _workHoursCtl,
+                  validator: (v) => _required(v, '근무 요일/시간을 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '급여 조건',
+                  controller: _salaryCtl,
+                  validator: (v) => _required(v, '급여 조건을 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '복리후생',
+                  controller: _benefitsCtl,
+                  maxLines: 3,
+                  validator: null,
+                ),
+                const SizedBox(height: 24),
+                const _SectionTitle('기업 정보'),
                 _Gap(),
                 _LabeledField(
                   label: '회사명',
@@ -162,24 +321,51 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
                 ),
                 _Gap(),
                 _LabeledField(
-                  label: '공고 제목',
-                  controller: _titleCtl,
-                  validator: (v) => _required(v, '공고 제목을 입력해 주세요'),
+                  label: '회사 홈페이지 (선택)',
+                  controller: _websiteCtl,
+                  validator: null,
                 ),
                 _Gap(),
                 _LabeledField(
-                  label: '근무 지역',
-                  controller: _regionCtl,
-                  validator: (v) => _required(v, '근무 지역을 입력해 주세요'),
+                  label: '담당자명',
+                  controller: _contactNameCtl,
+                  validator: (v) => _required(v, '담당자명을 입력해 주세요'),
                 ),
                 _Gap(),
                 _LabeledField(
-                  label: '지원 링크',
-                  controller: _urlCtl,
-                  validator: (v) => _required(v, '지원 링크를 입력해 주세요'),
+                  label: '담당자 이메일',
+                  controller: _contactEmailCtl,
+                  validator: (v) => _required(v, '담당자 이메일을 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '담당자 전화번호',
+                  controller: _contactPhoneCtl,
+                  validator: (v) => _required(v, '담당자 전화번호를 입력해 주세요'),
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle('모집 기간'),
+                const _SectionTitle('지원 정보'),
+                _Gap(),
+                _LabeledField(
+                  label: '지원 방법',
+                  controller: _applyMethodCtl,
+                  validator: (v) => _required(v, '지원 방법을 입력해 주세요'),
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '제출 서류 (쉼표로 구분)',
+                  controller: _attachmentsCtl,
+                  validator: null,
+                ),
+                _Gap(),
+                _LabeledField(
+                  label: '기타 안내',
+                  controller: _additionalNotesCtl,
+                  maxLines: 3,
+                  validator: null,
+                ),
+                const SizedBox(height: 24),
+                const _SectionTitle('모집 기간'),
                 _Gap(),
                 Row(
                   children: [
@@ -194,46 +380,18 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
                     Expanded(
                       child: _DatePickerField(
                         label: '마감일',
-                        date: _endDate,
+                        date: _deadline,
                         onTap: () => _pickDate(isStart: false),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 24),
-                _SectionTitle('추가 정보'),
-                _Gap(),
-                _LabeledField(
-                  label: '태그 (쉼표 구분)',
-                  controller: _tagsCtl,
-                  validator: null,
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '직무 분류 (쉼표 구분)',
-                  controller: _occupationsCtl,
-                  validator: null,
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '상세 설명',
-                  controller: _descriptionCtl,
-                  maxLines: 4,
-                  validator: null,
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '지원 시 유의사항',
-                  controller: _noticeCtl,
-                  maxLines: 3,
-                  validator: null,
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _submitting ? null : _submit,
-                    child: Text(_submitting ? '저장 중...' : '저장하기'),
+                    child: Text(_submitting ? '저장 중...' : '등록하기'),
                   ),
                 ),
               ],
@@ -289,6 +447,47 @@ class _LabeledField extends StatelessWidget {
             fillColor: Colors.white,
             border: OutlineInputBorder(borderSide: BorderSide.none),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DropdownField extends StatelessWidget {
+  const _DropdownField({
+    required this.label,
+    required this.controller,
+    required this.options,
+    this.validator,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final List<String> options;
+  final String? Function(String?)? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: controller.text.isNotEmpty ? controller.text : null,
+          decoration: const InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderSide: BorderSide.none),
+          ),
+          items: options
+              .map((opt) => DropdownMenuItem<String>(
+                    value: opt,
+                    child: Text(opt),
+                  ))
+              .toList(),
+          onChanged: (value) => controller.text = value ?? '',
+          validator: validator,
         ),
       ],
     );
@@ -366,3 +565,48 @@ class _Gap extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const SizedBox(height: 12);
 }
+
+const _majorCategories = [
+  '개발',
+  '디자인',
+  '기획',
+  '마케팅',
+  '영업',
+  '기타',
+];
+
+const _subCategories = [
+  '백엔드',
+  '프론트엔드',
+  '모바일',
+  '데이터',
+  'AI/ML',
+  '서비스 기획',
+  'UI/UX',
+  '브랜드/콘텐츠',
+  'HR/경영지원',
+  '기타',
+];
+
+const _employmentTypes = [
+  '정규직',
+  '계약직',
+  '인턴',
+  '프리랜서',
+  '파트타임',
+];
+
+const _experienceLevels = [
+  '신입',
+  '경력',
+  '무관',
+];
+
+const _educationLevels = [
+  '학력 무관',
+  '고졸 이상',
+  '초대졸 이상',
+  '대졸 이상',
+  '석사 이상',
+  '박사 이상',
+];

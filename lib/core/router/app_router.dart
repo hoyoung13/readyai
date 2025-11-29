@@ -161,7 +161,7 @@ final router = GoRouter(
       ),
     ),
     GoRoute(
-      path: '/jobs/post',
+      path: '/company/post-job',
       builder: (_, state) {
         final existing = state.extra;
         return JobPostFormPage(

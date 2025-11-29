@@ -19,16 +19,13 @@ class JobPostingService {
       throw const JobPostingServiceAuthException();
     }
 
-    final ownerUid = draft.ownerUid.isNotEmpty ? draft.ownerUid : user.uid;
+    final ownerUid = draft.authorId.isNotEmpty ? draft.authorId : user.uid;
 
-    final now = Timestamp.now();
     final doc = _firestore.collection('jobPosts').doc();
     await doc.set({
-      ...draft.toFirestore(ownerUid: ownerUid),
-      'createdAt': now,
-      'updatedAt': now,
-      'visible': draft.visible,
-      'blockedReason': draft.blockedReason,
+      ...draft.toFirestore(authorId: ownerUid),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
     return doc.id;
   }
@@ -39,13 +36,11 @@ class JobPostingService {
       throw const JobPostingServiceAuthException();
     }
 
-    final ownerUid = draft.ownerUid.isNotEmpty ? draft.ownerUid : user.uid;
+    final ownerUid = draft.authorId.isNotEmpty ? draft.authorId : user.uid;
     final doc = _firestore.collection('jobPosts').doc(id);
     await doc.update({
-      ...draft.toFirestore(ownerUid: ownerUid),
-      'updatedAt': Timestamp.now(),
-      'visible': draft.visible,
-      'blockedReason': draft.blockedReason,
+      ...draft.toFirestore(authorId: ownerUid),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -55,7 +50,7 @@ class JobPostingService {
   Stream<List<JobPostRecord>> streamOwnerPosts(String ownerUid) {
     return _firestore
         .collection('jobPosts')
-        .where('ownerUid', isEqualTo: ownerUid)
+        .where('authorId', isEqualTo: ownerUid)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -79,8 +74,8 @@ class JobPostingService {
   Future<List<JobPostRecord>> fetchPublicPosts() async {
     final snapshot = await _firestore
         .collection('jobPosts')
-        .where('isPublished', isEqualTo: true)
-        .where('visible', isEqualTo: true)
+        .where('isApproved', isEqualTo: true)
+        .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .get();
 
@@ -146,104 +141,198 @@ class JobPostingService {
     String blockedReason = '',
   }) async {
     await _firestore.collection('jobPosts').doc(jobPostId).update({
-      'visible': visible,
+      'isApproved': visible,
+      'isActive': visible,
       'blockedReason': blockedReason,
-      'updatedAt': Timestamp.now(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 }
 
 class JobPostDraft {
   const JobPostDraft({
-    required this.ownerUid,
-    required this.company,
     required this.title,
-    required this.region,
-    required this.recruitUrl,
-    required this.applicationStartDate,
-    required this.applicationEndDate,
-    this.tags = const <String>[],
-    this.occupations = const <String>[],
-    this.description = '',
-    this.notice = '',
-    this.isPublished = true,
-    this.visible = true,
-    this.blockedReason = '',
+    required this.category,
+    required this.subCategory,
+    required this.employmentType,
+    required this.experienceLevel,
+    required this.education,
+    required this.description,
+    required this.qualification,
+    required this.preferred,
+    required this.process,
+    required this.location,
+    required this.workHours,
+    required this.salary,
+    required this.benefits,
+    required this.companyName,
+    required this.contactName,
+    required this.contactEmail,
+    required this.contactPhone,
+    required this.applyMethod,
+    required this.additionalNotes,
+    required this.deadline,
+    required this.authorId,
+    this.companyWebsite,
+    this.attachments = const <String>[],
+    this.startDate,
+    this.isApproved = false,
+    this.isActive = true,
+    this.viewCount = 0,
+    this.applicantCount = 0,
+    this.blockReason = '',
   });
 
-  final String ownerUid;
-  final String company;
   final String title;
-  final String region;
-  final String recruitUrl;
-  final DateTime applicationStartDate;
-  final DateTime applicationEndDate;
-  final List<String> tags;
-  final List<String> occupations;
+  final String category;
+  final String subCategory;
+  final String employmentType;
+  final String experienceLevel;
+  final String education;
   final String description;
-  final String notice;
-  final bool isPublished;
-  final bool visible;
-  final String blockedReason;
+  final String qualification;
+  final String preferred;
+  final String process;
+  final String location;
+  final String workHours;
+  final String salary;
+  final String benefits;
+  final String companyName;
+  final String? companyWebsite;
+  final String contactName;
+  final String contactEmail;
+  final String contactPhone;
+  final String applyMethod;
+  final List<String> attachments;
+  final String additionalNotes;
+  final DateTime? startDate;
+  final DateTime deadline;
+  final String authorId;
+  final bool isApproved;
+  final bool isActive;
+  final int viewCount;
+  final int applicantCount;
+  final String blockReason;
 
-  Map<String, dynamic> toFirestore({required String ownerUid}) {
+  Map<String, dynamic> toFirestore({required String authorId}) {
+    final active = deadline.isAfter(DateTime.now());
     return {
-      'ownerUid': ownerUid,
-      'company': company,
       'title': title,
-      'region': region,
-      'url': recruitUrl,
-      'applicationStartDate': Timestamp.fromDate(applicationStartDate),
-      'applicationEndDate': Timestamp.fromDate(applicationEndDate),
-      'tags': tags,
-      'occupations': occupations,
+      'category': category,
+      'subCategory': subCategory,
+      'employmentType': employmentType,
+      'experienceLevel': experienceLevel,
+      'education': education,
       'description': description,
-      'notice': notice,
-      'isPublished': isPublished,
-      'visible': visible,
-      'blockedReason': blockedReason,
-    };
+      'qualification': qualification,
+      'preferred': preferred,
+      'process': process,
+      'location': location,
+      'workHours': workHours,
+      'salary': salary,
+      'benefits': benefits,
+      'companyName': companyName,
+      'companyWebsite': companyWebsite,
+      'contactName': contactName,
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
+      'applyMethod': applyMethod,
+      'attachments': attachments,
+      'additionalNotes': additionalNotes,
+      'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
+      'deadline': Timestamp.fromDate(deadline),
+      'authorId': authorId,
+      'isApproved': isApproved,
+      'isActive': isActive && active,
+      'viewCount': viewCount,
+      'applicantCount': applicantCount,
+      'blockedReason': blockReason,
+    }..removeWhere((key, value) => value == null);
   }
 }
 
 class JobPostRecord {
   const JobPostRecord({
     required this.id,
-    required this.ownerUid,
-    required this.company,
+    required this.authorId,
+    required this.companyName,
     required this.title,
-    required this.region,
-    required this.url,
-    required this.applicationStartDate,
-    required this.applicationEndDate,
+    required this.category,
+    required this.subCategory,
+    required this.employmentType,
+    required this.experienceLevel,
+    required this.education,
+    required this.description,
+    required this.qualification,
+    required this.preferred,
+    required this.process,
+    required this.location,
+    required this.workHours,
+    required this.salary,
+    required this.benefits,
+    required this.contactName,
+    required this.contactEmail,
+    required this.contactPhone,
+    required this.applyMethod,
+    required this.attachments,
+    required this.additionalNotes,
+    required this.deadline,
     required this.createdAt,
     required this.updatedAt,
-    this.tags = const <String>[],
-    this.occupations = const <String>[],
-    this.description = '',
-    this.notice = '',
-    this.isPublished = true,
-    this.visible = true,
-    this.blockedReason = '',
+    required this.isApproved,
+    required this.isActive,
+    required this.viewCount,
+    required this.applicantCount,
+    this.companyWebsite,
+    this.startDate,
+    this.blockReason = '',
   });
 
   final String id;
-  final String ownerUid;
-  final String company;
+  final String authorId;
+  final String companyName;
   final String title;
-  final String region;
-  final String url;
-  final DateTime applicationStartDate;
-  final DateTime applicationEndDate;
+  final String category;
+  final String subCategory;
+  final String employmentType;
+  final String experienceLevel;
+  final String education;
+  final String description;
+  final String qualification;
+  final String preferred;
+  final String process;
+  final String location;
+  final String workHours;
+  final String salary;
+  final String benefits;
+  final String contactName;
+  final String contactEmail;
+  final String contactPhone;
+  final String applyMethod;
+  final List<String> attachments;
+  final String additionalNotes;
+  final DateTime? startDate;
+  final DateTime deadline;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final List<String> tags;
-  final List<String> occupations;
-  final String description;
-  final String notice;
-  final bool isPublished;
-  final bool visible;
-  final String blockedReason;
+  final bool isApproved;
+  final bool isActive;
+  final int viewCount;
+  final int applicantCount;
+  final String? companyWebsite;
+  final String blockReason;
+
+  String get company => companyName;
+  String get region => location;
+  DateTime get applicationStartDate => startDate ?? createdAt;
+  DateTime get applicationEndDate => deadline;
+  String get url => applyMethod;
+  List<String> get tags => attachments;
+  List<String> get occupations => const [];
+  String get notice => additionalNotes;
+  bool get visible => isApproved && isActive;
+  String get blockedReason =>
+      blockReason.isNotEmpty ? blockReason : (isApproved ? '' : '관리자 검토 전 비공개');
 
   static JobPostRecord? fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
@@ -252,35 +341,50 @@ class JobPostRecord {
     }
 
     try {
-      final applicationStart =
-          (data['applicationStartDate'] as Timestamp?)?.toDate();
-      final applicationEnd =
-          (data['applicationEndDate'] as Timestamp?)?.toDate();
-      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      final createdAt =
+          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
       final updatedAt = (data['updatedAt'] as Timestamp?)?.toDate();
+      final startDate = (data['startDate'] as Timestamp?)?.toDate();
+      final deadline = (data['deadline'] as Timestamp?)?.toDate();
 
-      if (applicationStart == null || applicationEnd == null) {
+      if (deadline == null) {
         return null;
       }
 
       return JobPostRecord(
         id: doc.id,
-        ownerUid: (data['ownerUid'] ?? '').toString(),
-        company: (data['company'] ?? '').toString(),
+        authorId: (data['authorId'] ?? data['ownerUid'] ?? '').toString(),
+        companyName: (data['companyName'] ?? data['company'] ?? '').toString(),
         title: (data['title'] ?? '').toString(),
-        region: (data['region'] ?? '').toString(),
-        url: (data['url'] ?? '').toString(),
-        applicationStartDate: applicationStart,
-        applicationEndDate: applicationEnd,
-        createdAt: createdAt ?? DateTime.now(),
-        updatedAt: updatedAt ?? DateTime.now(),
-        tags: _normalizeList(data['tags']),
-        occupations: _normalizeList(data['occupations']),
+        category: (data['category'] ?? '').toString(),
+        subCategory: (data['subCategory'] ?? '').toString(),
+        employmentType: (data['employmentType'] ?? '').toString(),
+        experienceLevel: (data['experienceLevel'] ?? '').toString(),
+        education: (data['education'] ?? '').toString(),
         description: (data['description'] ?? '').toString(),
-        notice: (data['notice'] ?? '').toString(),
-        isPublished: data['isPublished'] != false,
-        visible: data['visible'] != false,
-        blockedReason: (data['blockedReason'] ?? '').toString(),
+        qualification: (data['qualification'] ?? '').toString(),
+        preferred: (data['preferred'] ?? '').toString(),
+        process: (data['process'] ?? '').toString(),
+        location: (data['location'] ?? data['region'] ?? '').toString(),
+        workHours: (data['workHours'] ?? '').toString(),
+        salary: (data['salary'] ?? '').toString(),
+        benefits: (data['benefits'] ?? '').toString(),
+        contactName: (data['contactName'] ?? '').toString(),
+        contactEmail: (data['contactEmail'] ?? '').toString(),
+        contactPhone: (data['contactPhone'] ?? '').toString(),
+        applyMethod: (data['applyMethod'] ?? data['url'] ?? '').toString(),
+        attachments: _normalizeList(data['attachments']),
+        additionalNotes: (data['additionalNotes'] ?? '').toString(),
+        startDate: startDate,
+        deadline: deadline,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? DateTime.now(),
+        isApproved: data['isApproved'] == true,
+        isActive: data['isActive'] != false,
+        viewCount: int.tryParse('${data['viewCount'] ?? 0}') ?? 0,
+        applicantCount: int.tryParse('${data['applicantCount'] ?? 0}') ?? 0,
+        companyWebsite: (data['companyWebsite'] ?? '') as String?,
+        blockReason: (data['blockedReason'] ?? '').toString(),
       );
     } catch (_) {
       return null;
@@ -290,25 +394,25 @@ class JobPostRecord {
   JobPosting toJobPosting() {
     return JobPosting(
       title: title,
-      company: company,
-      region: region,
-      url: url,
+      company: companyName,
+      region: location,
+      url: applyMethod,
       postedDateText: _formatDate(createdAt),
       postedDate: createdAt,
-      applicationStartDateText: _formatDate(applicationStartDate),
-      applicationStartDate: applicationStartDate,
-      applicationEndDateText: _formatDate(applicationEndDate),
-      applicationEndDate: applicationEndDate,
-      tags: tags,
-      occupations: occupations,
+      applicationStartDateText: _formatDate(startDate ?? createdAt),
+      applicationStartDate: startDate ?? createdAt,
+      applicationEndDateText: _formatDate(deadline),
+      applicationEndDate: deadline,
+      tags: attachments,
+      occupations: const [],
       description: description,
-      notice: notice,
-      visible: visible,
+      notice: additionalNotes,
+      visible: isApproved && isActive,
       blockedReason: blockedReason,
       summaryItems: [
         JobSummaryItem(
-            label: '접수 시작', value: _formatDate(applicationStartDate)),
-        JobSummaryItem(label: '접수 마감', value: _formatDate(applicationEndDate)),
+            label: '접수 시작', value: _formatDate(startDate ?? createdAt)),
+        JobSummaryItem(label: '접수 마감', value: _formatDate(deadline)),
       ],
     );
   }
