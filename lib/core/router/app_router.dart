@@ -8,7 +8,7 @@ import 'package:ai/features/admin/corporate_approval_page.dart';
 import 'package:ai/features/admin/content_moderation_page.dart';
 import 'package:ai/features/admin/admin_tabs_page.dart';
 import 'package:ai/features/tabs/tabs_page.dart';
-import 'package:ai/features/tabs/company_home_tab.dart';
+import 'package:ai/features/company/company_tabs_page.dart';
 import 'package:ai/features/jobs/company_route_guard.dart';
 import 'package:ai/features/camera/interview_camera_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
@@ -41,7 +41,19 @@ final router = GoRouter(
     GoRoute(
       path: '/company',
       builder: (_, __) => const CompanyRouteGuard(
-        child: CompanyHomeTab(),
+        child: CompanyTabsPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/company/home',
+      builder: (_, __) => const CompanyRouteGuard(
+        child: CompanyTabsPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/company/jobs',
+      builder: (_, __) => const CompanyRouteGuard(
+        child: CompanyTabsPage(initialIndex: 1),
       ),
     ),
     GoRoute(
