@@ -19,13 +19,14 @@ class CompanyTabsPage extends StatefulWidget {
 class _CompanyTabsPageState extends State<CompanyTabsPage> {
   late int _index = widget.initialIndex;
 
-  final _pages = const <Widget>[
-    CompanyHomePage(),
+  final _pages = <Widget>[
+    const CompanyHomePage(),
     CompanyJobListPage(),
-    CommunityBoardPage(),
-    CompanyMyPage(),
-    CompanyApplicantOverviewPage(),
+    const CommunityBoardPage(),
+    const CompanyMyPage(),
+    const CompanyApplicantOverviewPage(),
   ];
+  
 
   void _onTabChanged(int value) {
     final clamped = value.clamp(0, _pages.length - 1).toInt();
