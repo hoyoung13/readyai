@@ -1,6 +1,8 @@
+import 'package:ai/features/tabs/tabs_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CompanyMyPage extends StatelessWidget {
   const CompanyMyPage({super.key});
@@ -8,7 +10,16 @@ class CompanyMyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('나의 공고관리')),
+      appBar: AppBar(
+        title: const Text('나의 공고관리'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: '로그아웃',
+            onPressed: () => _handleLogout(context),
+          ),
+        ],
+      ),
       backgroundColor: AppColors.bg,
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -24,7 +35,7 @@ class CompanyMyPage extends StatelessWidget {
               title: const Text('공고 관리'),
               subtitle: const Text('등록된 공고를 수정하거나 마감합니다.'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.go('/company/jobs'),
+              onTap: () => context.go('/profile/company-jobs'),
             ),
           ),
           Card(
@@ -49,4 +60,10 @@ class CompanyMyPage extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _handleLogout(BuildContext context) async {
+  await FirebaseAuth.instance.signOut();
+  if (!context.mounted) return;
+  context.go('/login');
 }

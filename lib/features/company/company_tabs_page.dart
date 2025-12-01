@@ -6,6 +6,7 @@ import 'package:ai/features/company/company_home_page.dart';
 import 'package:ai/features/company/company_job_list_page.dart';
 import 'package:ai/features/company/company_my_page.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:ai/features/tabs/jobs_tab.dart';
 
 class CompanyTabsPage extends StatefulWidget {
   const CompanyTabsPage({super.key, this.initialIndex = 0});
@@ -21,12 +22,11 @@ class _CompanyTabsPageState extends State<CompanyTabsPage> {
 
   final _pages = <Widget>[
     const CompanyHomePage(),
-    CompanyJobListPage(),
+    const JobsTab(),
     const CommunityBoardPage(),
-    const CompanyMyPage(),
     const CompanyApplicantOverviewPage(),
+    const CompanyMyPage(),
   ];
-  
 
   void _onTabChanged(int value) {
     final clamped = value.clamp(0, _pages.length - 1).toInt();
@@ -43,10 +43,10 @@ class _CompanyTabsPageState extends State<CompanyTabsPage> {
         context.go('/company/community');
         break;
       case 3:
-        context.go('/company/mypage');
+        context.go('/company/applicants');
         break;
       case 4:
-        context.go('/company/applicants');
+        context.go('/company/mypage');
         break;
     }
   }
@@ -72,7 +72,7 @@ class _CompanyTabsPageState extends State<CompanyTabsPage> {
             NavigationDestination(
               icon: Icon(Icons.work_outline),
               selectedIcon: Icon(Icons.work),
-              label: '공고관리',
+              label: '공고',
             ),
             NavigationDestination(
               icon: Icon(Icons.forum_outlined),
@@ -80,14 +80,14 @@ class _CompanyTabsPageState extends State<CompanyTabsPage> {
               label: '게시판',
             ),
             NavigationDestination(
-              icon: Icon(Icons.assignment_outlined),
-              selectedIcon: Icon(Icons.assignment),
-              label: '나의 공고관리',
-            ),
-            NavigationDestination(
               icon: Icon(Icons.assignment_ind_outlined),
               selectedIcon: Icon(Icons.assignment_ind),
               label: '지원현황',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.assignment_outlined),
+              selectedIcon: Icon(Icons.assignment),
+              label: '나의 공고관리',
             ),
           ],
         ),

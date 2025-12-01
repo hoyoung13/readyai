@@ -72,13 +72,13 @@ final router = GoRouter(
     GoRoute(
       path: '/company/mypage',
       builder: (_, __) => const CompanyRouteGuard(
-        child: CompanyTabsPage(initialIndex: 3),
+        child: CompanyTabsPage(initialIndex: 4),
       ),
     ),
     GoRoute(
       path: '/company/applicants',
       builder: (_, __) => const CompanyRouteGuard(
-        child: CompanyTabsPage(initialIndex: 4),
+        child: CompanyTabsPage(initialIndex: 3),
       ),
     ),
     GoRoute(

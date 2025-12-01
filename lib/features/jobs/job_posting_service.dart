@@ -50,7 +50,10 @@ class JobPostingService {
   Stream<List<JobPostRecord>> streamOwnerPosts(String ownerUid) {
     return _firestore
         .collection('jobPosts')
-        .where('authorId', isEqualTo: ownerUid)
+        .where(Filter.or(
+          Filter('authorId', isEqualTo: ownerUid),
+          Filter('ownerUid', isEqualTo: ownerUid),
+        ))
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs

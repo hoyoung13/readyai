@@ -25,7 +25,7 @@ class CompanyHomePage extends StatelessWidget {
         icon: Icons.work_outline,
         tag: '공고 관리',
         colors: [Color(0xFF7EE8FA), Color(0xFFEEC0C6)],
-        route: '/company/jobs',
+        route: '/profile/company-jobs',
       ),
       const _CompanyHomeCard(
         title: '지원 내역',
