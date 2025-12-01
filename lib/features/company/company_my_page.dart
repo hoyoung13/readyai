@@ -35,7 +35,7 @@ class CompanyMyPage extends StatelessWidget {
               title: const Text('공고 관리'),
               subtitle: const Text('등록된 공고를 수정하거나 마감합니다.'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.go('/profile/company-jobs'),
+              onTap: () => context.push('/profile/company-jobs'),
             ),
           ),
           Card(

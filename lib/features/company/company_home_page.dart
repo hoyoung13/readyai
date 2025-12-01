@@ -166,7 +166,7 @@ class _CompanyHomeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => context.go(route),
+          onTap: () => context.push(route),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(

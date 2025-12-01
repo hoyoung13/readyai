@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -48,18 +49,42 @@ class JobPostingService {
       _firestore.collection('jobPosts').doc(id).delete();
 
   Stream<List<JobPostRecord>> streamOwnerPosts(String ownerUid) {
-    return _firestore
+    final baseQuery = _firestore
         .collection('jobPosts')
-        .where(Filter.or(
-          Filter('authorId', isEqualTo: ownerUid),
-          Filter('ownerUid', isEqualTo: ownerUid),
-        ))
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
+        .orderBy('createdAt', descending: true);
+
+    final orQuery = baseQuery.where(Filter.or(
+      Filter('authorId', isEqualTo: ownerUid),
+      Filter('ownerUid', isEqualTo: ownerUid),
+    ));
+
+    final fallbackQuery = baseQuery.where('authorId', isEqualTo: ownerUid);
+
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subscription;
+    final controller = StreamController<List<JobPostRecord>>();
+
+    void attachListener(Query<Map<String, dynamic>> query,
+        {required bool isFallback}) {
+      subscription?.cancel();
+      subscription = query.snapshots().listen((snapshot) {
+        final posts = snapshot.docs
             .map(JobPostRecord.fromDoc)
             .whereType<JobPostRecord>()
-            .toList(growable: false));
+            .toList(growable: false);
+        controller.add(posts);
+      }, onError: (error, stackTrace) {
+        if (!isFallback) {
+          attachListener(fallbackQuery, isFallback: true);
+        } else {
+          controller.addError(error, stackTrace);
+        }
+      });
+    }
+
+    attachListener(orQuery, isFallback: false);
+    controller.onCancel = () => subscription?.cancel();
+
+    return controller.stream;
   }
 
   Stream<List<JobPostRecord>> streamAllPosts({int limit = 50}) {
@@ -258,6 +283,7 @@ class JobPostDraft {
       'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
       'deadline': Timestamp.fromDate(deadline),
       'authorId': authorId,
+      'ownerUid': authorId,
       'isApproved': isApproved,
       'isActive': isActive && active,
       'viewCount': viewCount,

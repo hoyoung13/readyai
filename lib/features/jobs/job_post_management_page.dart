@@ -131,71 +131,76 @@ class _CompanyJobsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: StreamBuilder<List<JobPostRecord>>(
-            stream: service.streamOwnerPosts(ownerUid),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-              final posts = snapshot.data ?? const <JobPostRecord>[];
-              if (posts.isEmpty) {
-                return const _EmptyState(
-                  message: '등록된 채용 공고가 없습니다. 첫 공고를 등록해 보세요!',
-                );
-              }
+    return SafeArea(
+      top: false,
+      bottom: true,
+      child: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<List<JobPostRecord>>(
+              stream: service.streamOwnerPosts(ownerUid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemBuilder: (context, index) {
-                  final post = posts[index];
-                  return _JobPostCard(post: post, service: service);
-                },
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemCount: posts.length,
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () async {
-                final created = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => const JobPostFormPage(),
-                  ),
-                );
-                if (created == true && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('새 공고가 추가되었습니다.')),
+                final posts = snapshot.data ?? const <JobPostRecord>[];
+                if (posts.isEmpty) {
+                  return const _EmptyState(
+                    message: '등록된 채용 공고가 없습니다. 첫 공고를 등록해 보세요!',
                   );
                 }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return _JobPostCard(post: post, service: service);
+                  },
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemCount: posts.length,
+                );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB486FF),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final created = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => const JobPostFormPage(),
+                    ),
+                  );
+                  if (created == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('새 공고가 추가되었습니다.')),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB486FF),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-              ),
-              child: const Text(
-                '신규 공고 등록',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                child: const Text(
+                  '신규 공고 등록',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
