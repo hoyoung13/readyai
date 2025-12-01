@@ -2,9 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:ai/features/jobs/job_posting_service.dart'
+    show JobApplicationRecord, JobPostingService;
 
 class CompanyHomePage extends StatelessWidget {
   const CompanyHomePage({super.key});
+
+  static final JobPostingService _jobService = JobPostingService();
 
   String _companyName(User? user) {
     final name = user?.displayName?.trim();
@@ -12,6 +16,77 @@ class CompanyHomePage extends StatelessWidget {
       return name;
     }
     return '기업';
+  }
+
+  void _openNotifications(BuildContext context, String ownerUid) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '새로운 지원 알림',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => context.go('/company/applicants'),
+                    icon: const Icon(Icons.launch),
+                    tooltip: '지원현황 바로가기',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              StreamBuilder<List<JobApplicationRecord>>(
+                stream: _jobService.streamApplicationsForOwner(ownerUid),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final applications =
+                      snapshot.data ?? const <JobApplicationRecord>[];
+                  if (applications.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('아직 도착한 지원이 없습니다.'),
+                    );
+                  }
+
+                  final latest = applications.take(5).toList(growable: false);
+                  return Column(
+                    children: [
+                      for (final application in latest)
+                        _NotificationTile(
+                          application: application,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.go('/company/applicants');
+                          },
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -64,13 +139,9 @@ class CompanyHomePage extends StatelessWidget {
                     ),
                     const Spacer(),
                     IconButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('알림 센터가 준비 중입니다.'),
-                          ),
-                        );
-                      },
+                      onPressed: user == null
+                          ? null
+                          : () => _openNotifications(context, user.uid),
                       icon: const Icon(Icons.notifications_none),
                     ),
                   ],
@@ -235,6 +306,32 @@ class _CompanyHomeCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({required this.application, required this.onTap});
+
+  final JobApplicationRecord application;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final appliedDate =
+        '${application.appliedAt.month.toString().padLeft(2, '0')}.${application.appliedAt.day.toString().padLeft(2, '0')}';
+    final jobLabel =
+        application.jobTitle.isNotEmpty ? application.jobTitle : '지원 공고 확인하기';
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: onTap,
+      leading: const CircleAvatar(
+        backgroundColor: Color(0xFFEEF8FA),
+        child: Icon(Icons.notifications, color: Colors.black87),
+      ),
+      title: Text('${application.applicantName}님이 지원했어요'),
+      subtitle: Text('$jobLabel · $appliedDate'),
+      trailing: const Icon(Icons.chevron_right),
     );
   }
 }

@@ -1,126 +1,42 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:ai/features/jobs/job_posting_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 
-class CompanyApplicantOverviewPage extends StatelessWidget {
+class CompanyApplicantOverviewPage extends StatefulWidget {
   const CompanyApplicantOverviewPage({super.key});
 
-  static final _applicants = [
-    {
-      'name': '김가임',
-      'appliedAt': '2024-06-01',
-      'resumeScore': 87,
-      'coverLetterScore': 82,
-      'interviewScore': 90,
-      'finalResult': '대기',
-    },
-    {
-      'name': '박지원',
-      'appliedAt': '2024-06-03',
-      'resumeScore': 78,
-      'coverLetterScore': 75,
-      'interviewScore': 81,
-      'finalResult': '대기',
-    },
-  ];
+  @override
+  State<CompanyApplicantOverviewPage> createState() =>
+      _CompanyApplicantOverviewPageState();
+}
 
-  void _openInterview(BuildContext context, Map<String, Object?> applicant) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('AI 면접 분석 이동'),
-          content: Text(
-            '${applicant['name']}님의 AI 면접 영상과 분석 페이지로 이동합니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _openFinalSummary(BuildContext context, Map<String, Object?> applicant) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${applicant['name']} - AI 평가 요약',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _scoreRow('이력서', applicant['resumeScore'] as int),
-              _scoreRow('자기소개서', applicant['coverLetterScore'] as int),
-              _scoreRow('면접', applicant['interviewScore'] as int),
-              const SizedBox(height: 16),
-              const Text(
-                'AI가 평가한 내용을 기반으로 최종 결과를 선택하세요.',
-                style: TextStyle(color: AppColors.subtext),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.mint,
-                        foregroundColor: Colors.black,
-                      ),
-                      child: const Text('합격'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.tonal(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('불합격'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+class _CompanyApplicantOverviewPageState
+    extends State<CompanyApplicantOverviewPage> {
+  final JobPostingService _service = JobPostingService();
+  JobPostRecord? _selectedJob;
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('로그인 후 이용해 주세요.')),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('지원 내역 보기'),
+        title: const Text('지원 현황 보기'),
         centerTitle: false,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
+          preferredSize: const Size.fromHeight(50),
           child: Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Column(
               children: const [
                 Text(
-                  '(주)부천컴퍼니',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  '백엔드 개발자 채용',
+                  '본인이 등록한 채용공고를 선택하면 지원 내역이 표시돼요.',
                   style: TextStyle(color: AppColors.subtext),
                 ),
               ],
@@ -129,124 +45,19 @@ class CompanyApplicantOverviewPage extends StatelessWidget {
         ),
       ),
       backgroundColor: AppColors.bg,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(14)),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: _ApplicantHeaderRow(),
-                ),
-              ),
-              for (final applicant in _applicants)
-                _ApplicantRow(
-                  applicant: applicant,
-                  onInterview: () => _openInterview(context, applicant),
-                  onFinal: () => _openFinalSummary(context, applicant),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Widget _scoreRow(String label, int value) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        Text('$value점', style: const TextStyle(color: AppColors.text)),
-      ],
-    ),
-  );
-}
-
-class _ApplicantHeaderRow extends StatelessWidget {
-  const _ApplicantHeaderRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: const [
-        Expanded(flex: 2, child: Text('지원자', textAlign: TextAlign.center)),
-        Expanded(flex: 2, child: Text('지원일자', textAlign: TextAlign.center)),
-        Expanded(child: Text('이력서', textAlign: TextAlign.center)),
-        Expanded(child: Text('자기소개서', textAlign: TextAlign.center)),
-        Expanded(child: Text('면접', textAlign: TextAlign.center)),
-        Expanded(child: Text('최종', textAlign: TextAlign.center)),
-      ],
-    );
-  }
-}
-
-class _ApplicantRow extends StatelessWidget {
-  const _ApplicantRow({
-    required this.applicant,
-    required this.onInterview,
-    required this.onFinal,
-  });
-
-  final Map<String, Object?> applicant;
-  final VoidCallback onInterview;
-  final VoidCallback onFinal;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      child: Row(
+      body: Column(
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              applicant['name'] as String,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+          _JobPicker(
+            service: _service,
+            ownerUid: user.uid,
+            selectedJob: _selectedJob,
+            onSelected: (job) => setState(() => _selectedJob = job),
           ),
           Expanded(
-            flex: 2,
-            child: Text(
-              applicant['appliedAt'] as String,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Expanded(child: _RoundedActionButton(label: '확인', onTap: () {})),
-          Expanded(child: _RoundedActionButton(label: '확인', onTap: () {})),
-          Expanded(
-            child: _RoundedActionButton(
-              label: '확인',
-              onTap: onInterview,
-            ),
-          ),
-          Expanded(
-            child: _RoundedActionButton(
-              label: '확인',
-              onTap: onFinal,
+            child: _ApplicantList(
+              service: _service,
+              ownerUid: user.uid,
+              selectedJob: _selectedJob,
             ),
           ),
         ],
@@ -255,26 +66,368 @@ class _ApplicantRow extends StatelessWidget {
   }
 }
 
-class _RoundedActionButton extends StatelessWidget {
-  const _RoundedActionButton({required this.label, required this.onTap});
+class _JobPicker extends StatelessWidget {
+  const _JobPicker({
+    required this.service,
+    required this.ownerUid,
+    required this.selectedJob,
+    required this.onSelected,
+  });
 
-  final String label;
-  final VoidCallback onTap;
+  final JobPostingService service;
+  final String ownerUid;
+  final JobPostRecord? selectedJob;
+  final ValueChanged<JobPostRecord> onSelected;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: EdgeInsets.zero,
-        ),
-        child: Text(label),
+      height: 170,
+      child: StreamBuilder<List<JobPostRecord>>(
+        stream: service.streamOwnerPosts(ownerUid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final posts = snapshot.data ?? const <JobPostRecord>[];
+          if (posts.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('등록한 채용공고가 없습니다. 공고를 먼저 등록해주세요.'),
+              ),
+            );
+          }
+
+          final currentSelection = selectedJob;
+          if (currentSelection == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              onSelected(posts.first);
+            });
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              final isSelected = post.id == selectedJob?.id;
+              return _JobCard(
+                post: post,
+                selected: isSelected,
+                service: service,
+                onTap: () => onSelected(post),
+              );
+            },
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemCount: posts.length,
+          );
+        },
       ),
     );
   }
+}
+
+class _ApplicantList extends StatelessWidget {
+  const _ApplicantList({
+    required this.service,
+    required this.ownerUid,
+    required this.selectedJob,
+  });
+
+  final JobPostingService service;
+  final String ownerUid;
+  final JobPostRecord? selectedJob;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selectedJob == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text('확인할 채용공고를 선택해 주세요.'),
+        ),
+      );
+    }
+
+    return StreamBuilder<List<JobApplicationRecord>>(
+      stream: service.streamApplicationsForOwner(
+        ownerUid,
+        jobPostId: selectedJob!.id,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final applications = snapshot.data ?? const <JobApplicationRecord>[];
+        if (applications.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('해당 공고에 접수된 지원 내역이 없습니다.'),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+          itemBuilder: (context, index) {
+            final application = applications[index];
+            return _ApplicantTile(application: application);
+          },
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemCount: applications.length,
+        );
+      },
+    );
+  }
+}
+
+class _JobCard extends StatelessWidget {
+  const _JobCard({
+    required this.post,
+    required this.selected,
+    required this.onTap,
+    required this.service,
+  });
+
+  final JobPostRecord post;
+  final bool selected;
+  final VoidCallback onTap;
+  final JobPostingService service;
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeColor = selected ? AppColors.mint : Colors.white;
+    final textColor = selected ? Colors.black : AppColors.text;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 260,
+        decoration: BoxDecoration(
+          color: badgeColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.primary : const Color(0xFFE5E5E5),
+            width: selected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            )
+          ],
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              post.company,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              post.title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: textColor,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                const Icon(Icons.people_outline, size: 18),
+                const SizedBox(width: 6),
+                StreamBuilder<int>(
+                  stream: service.watchApplicationCount(post.id),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data ?? post.applicantCount;
+                    return Text('지원자 $count명');
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplicantTile extends StatelessWidget {
+  const _ApplicantTile({required this.application});
+
+  final JobApplicationRecord application;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel =
+        JobApplicationStatus.labels[application.status] ?? application.status;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE9E9E9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  application.applicantName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              _StatusPill(label: statusLabel),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_formatDate(application.appliedAt)} · ${application.jobTitle.isNotEmpty ? application.jobTitle : '공고 확인'}',
+            style: const TextStyle(color: AppColors.subtext),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _ActionChip(
+                icon: Icons.description_outlined,
+                label: '이력서/포트폴리오',
+                onTap: application.resumeUrl == null
+                    ? null
+                    : () => _launchUrl(application.resumeUrl!, context),
+              ),
+              const SizedBox(width: 10),
+              _ActionChip(
+                icon: Icons.chat_bubble_outline,
+                label: 'AI 질문 & 답변',
+                onTap: application.memo?.isNotEmpty == true
+                    ? () => _showMemo(context, application.memo!)
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMemo(BuildContext context, String memo) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('지원자 답변/메모'),
+        content: Text(memo),
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(String url, BuildContext context) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (!await canLaunchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('링크를 열 수 없습니다.')),
+        );
+      }
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({required this.icon, required this.label, this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFFF3ECFF) : const Color(0xFFF5F5F7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: enabled ? const Color(0xFFB486FF) : const Color(0xFFE3E3E3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 18, color: enabled ? Colors.black : AppColors.subtext),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: enabled ? Colors.black : AppColors.subtext,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7DDFF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF5B3AB2),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+String _formatDate(DateTime date) {
+  return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 }

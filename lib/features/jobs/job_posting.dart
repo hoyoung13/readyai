@@ -67,6 +67,8 @@ class JobPosting {
     required this.region,
     required this.url,
     required this.postedDateText,
+    this.postId,
+    this.ownerUid,
     this.postedDate,
     this.applicationStartDateText = '',
     this.applicationStartDate,
@@ -80,6 +82,7 @@ class JobPosting {
     this.notice = '',
     this.visible = true,
     this.blockedReason = '',
+    this.interviewQuestions = const <String>[],
   });
 
   final String title;
@@ -87,6 +90,8 @@ class JobPosting {
   final String region;
   final String url;
   final String postedDateText;
+  final String? postId;
+  final String? ownerUid;
   final DateTime? postedDate;
   final String applicationStartDateText;
   final DateTime? applicationStartDate;
@@ -100,6 +105,7 @@ class JobPosting {
   final String notice;
   final bool visible;
   final String blockedReason;
+  final List<String> interviewQuestions;
 
   factory JobPosting.fromJson(Map<String, dynamic> json) {
     final title = _readFirst(json, const [
@@ -203,6 +209,8 @@ class JobPosting {
       region: region,
       url: url,
       postedDateText: postedDateText,
+      postId: (json['postId'] ?? json['id'])?.toString(),
+      ownerUid: (json['ownerUid'] ?? json['authorId'])?.toString(),
       postedDate: _parseDate(postedDateText),
       applicationStartDateText: applicationStartDateText,
       applicationStartDate: _parseDate(applicationStartDateText),
@@ -216,6 +224,7 @@ class JobPosting {
       notice: notice,
       visible: json['visible'] != false,
       blockedReason: (json['blockedReason'] ?? '').toString(),
+      interviewQuestions: _readStringList(json, const ['interviewQuestions']),
     );
   }
 

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import '../tabs/tabs_shared.dart';
 import 'job_interview_question_service.dart';
 import 'job_activity.dart';
 import 'job_activity_service.dart';
 import 'job_posting.dart';
+import 'job_posting_service.dart';
 import '../camera/interview_flow_launcher.dart';
 import '../camera/interview_models.dart';
 import '../camera/interview_question_bank.dart';
@@ -20,6 +21,7 @@ class JobDetailPage extends StatelessWidget {
   static const InterviewFlowLauncher _interviewLauncher =
       InterviewFlowLauncher();
   static final JobActivityService _activityService = JobActivityService();
+  static final JobPostingService _postingService = JobPostingService();
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +48,7 @@ class JobDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _PrimaryActions(
-              onApply: () => _launchDetail(job.url, context),
+              onApply: () => _handleApply(context),
               onPractice: () => _handleStartInterview(context),
             ),
             const SizedBox(height: 24),
@@ -161,16 +163,261 @@ class JobDetailPage extends StatelessWidget {
                   style: const TextStyle(height: 1.5),
                 ),
                 if (trimmedNotice.isNotEmpty) const SizedBox(height: 8),
-                if (trimmedNotice.isNotEmpty)
-                  const Text(
-                    '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
-                  ),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleApply(BuildContext context) async {
+    final postId = job.postId;
+    final ownerUid = job.ownerUid;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 지원할 수 있습니다.')),
+      );
+      return;
+    }
+
+    if (postId == null ||
+        postId.isEmpty ||
+        ownerUid == null ||
+        ownerUid.isEmpty) {
+      _launchDetail(job.url, context);
+      return;
+    }
+
+    final resumeController = TextEditingController();
+    final memoController = TextEditingController();
+
+    final category = JobCategory(
+      title: job.companyLabel,
+      subtitle: job.title,
+    );
+    final baseQuestions = job.interviewQuestions.isNotEmpty
+        ? job.interviewQuestions
+        : InterviewQuestionBank.getQuestions(
+            category: category,
+            mode: InterviewMode.ai,
+          ).take(3).toList(growable: false);
+    final followUpQuestions = InterviewQuestionBank.getQuestions(
+      category: category,
+      mode: InterviewMode.ai,
+    ).skip(3).take(2).toList(growable: false);
+
+    final baseControllers =
+        baseQuestions.map((_) => TextEditingController()).toList();
+    final followUpControllers =
+        followUpQuestions.map((_) => TextEditingController()).toList();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        var submitting = false;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            bottom: 20 + MediaQuery.of(sheetContext).viewInsets.bottom,
+            top: 20,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AI 지원하기',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '이력서와 기업이 남긴 질문, AI가 제안하는 추가 질문을 함께 제출해요.',
+                      style: TextStyle(color: AppColors.subtext),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: resumeController,
+                      decoration: const InputDecoration(
+                        labelText: '이력서/포트폴리오 링크',
+                        hintText: '파일 링크 또는 URL을 입력하세요',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: memoController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: '추가 자기소개 (선택)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (baseQuestions.isNotEmpty) ...[
+                      const Text(
+                        '기업이 저장한 질문',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < baseQuestions.length; i++) ...[
+                        Text(baseQuestions[i]),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: baseControllers[i],
+                          decoration: const InputDecoration(
+                            hintText: '답변을 입력하세요',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                    if (followUpQuestions.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'AI 추가 확인 질문',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < followUpQuestions.length; i++) ...[
+                        Text(followUpQuestions[i]),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: followUpControllers[i],
+                          decoration: const InputDecoration(
+                            hintText: '답변을 입력하세요',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: submitting
+                            ? null
+                            : () async {
+                                if (resumeController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content:
+                                            Text('이력서나 포트폴리오 링크를 입력해 주세요.')),
+                                  );
+                                  return;
+                                }
+
+                                setState(() => submitting = true);
+                                final memoLines = <String>[];
+                                for (var i = 0; i < baseQuestions.length; i++) {
+                                  final answer = baseControllers[i].text.trim();
+                                  if (answer.isNotEmpty) {
+                                    memoLines
+                                        .add('${baseQuestions[i]}\n- $answer');
+                                  }
+                                }
+                                for (var i = 0;
+                                    i < followUpQuestions.length;
+                                    i++) {
+                                  final answer =
+                                      followUpControllers[i].text.trim();
+                                  if (answer.isNotEmpty) {
+                                    memoLines.add(
+                                        '${followUpQuestions[i]}\n- $answer');
+                                  }
+                                }
+                                final extraMemo = memoController.text.trim();
+                                if (extraMemo.isNotEmpty) {
+                                  memoLines.add('추가 메모\n- $extraMemo');
+                                }
+
+                                try {
+                                  await _postingService.submitApplication(
+                                    jobPostId: postId,
+                                    ownerUid: ownerUid,
+                                    jobTitle: job.title,
+                                    jobCompany: job.companyLabel,
+                                    applicantUid: user.uid,
+                                    applicantName:
+                                        user.displayName ?? user.email ?? '지원자',
+                                    resumeUrl: resumeController.text.trim(),
+                                    memo: memoLines.join('\n\n'),
+                                  );
+                                  try {
+                                    await _activityService
+                                        .recordApplication(job);
+                                  } on JobActivityAuthException {
+                                    // ignore - already handled by login guard above
+                                  }
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                            '지원서가 접수되었어요. AI 면접 결과를 기다려 주세요!'),
+                                      ),
+                                    );
+                                  }
+                                } catch (error) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('지원 중 문제가 발생했습니다: $error'),
+                                    ),
+                                  );
+                                } finally {
+                                  setState(() => submitting = false);
+                                }
+                              },
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: submitting
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('AI 분석과 함께 지원하기'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    for (final controller in [
+      resumeController,
+      memoController,
+      ...baseControllers,
+      ...followUpControllers,
+    ]) {
+      controller.dispose();
+    }
   }
 
   Future<void> _handleStartInterview(BuildContext context) async {
@@ -476,8 +723,8 @@ class _PrimaryActions extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            icon: const Icon(Icons.open_in_new),
-            label: const Text('외부 링크로 입사지원'),
+            icon: const Icon(Icons.assignment_turned_in_outlined),
+            label: const Text('AI 분석과 함께 지원하기'),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -500,7 +747,7 @@ class _PrimaryActions extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            '지원 버튼은 외부 채용 사이트를 새 창에서 열어요.',
+            '제출된 답변과 이력서를 기반으로 AI 질문이 저장되고 기업에게 바로 전달돼요.',
             style: TextStyle(
               color: AppColors.subtext,
               fontSize: 13,

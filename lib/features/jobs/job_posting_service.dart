@@ -167,6 +167,63 @@ class JobPostingService {
         .map((snapshot) => snapshot.size);
   }
 
+  Future<JobApplicationRecord> submitApplication({
+    required String jobPostId,
+    required String ownerUid,
+    required String jobTitle,
+    required String jobCompany,
+    required String applicantUid,
+    required String applicantName,
+    String? resumeUrl,
+    String? memo,
+  }) async {
+    final trimmedName = applicantName.trim();
+    if (trimmedName.isEmpty) {
+      throw const JobPostingServiceAuthException();
+    }
+
+    final now = Timestamp.now();
+    final data = <String, Object?>{
+      'jobPostId': jobPostId,
+      'ownerUid': ownerUid,
+      'jobTitle': jobTitle,
+      'jobCompany': jobCompany,
+      'applicantUid': applicantUid,
+      'applicantName': trimmedName,
+      'status': JobApplicationStatus.submitted,
+      'appliedAt': now,
+      'resumeUrl': resumeUrl?.trim(),
+      'memo': memo?.trim(),
+    }..removeWhere((key, value) =>
+        value == null || (value is String && value.trim().isEmpty));
+
+    final doc = _firestore
+        .collection('jobPosts')
+        .doc(jobPostId)
+        .collection('applications')
+        .doc();
+
+    await doc.set(data);
+    await _firestore.collection('jobPosts').doc(jobPostId).update({
+      'applicantCount': FieldValue.increment(1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return JobApplicationRecord(
+      id: doc.id,
+      jobPostId: jobPostId,
+      ownerUid: ownerUid,
+      applicantUid: applicantUid,
+      applicantName: trimmedName,
+      status: JobApplicationStatus.submitted,
+      appliedAt: now.toDate(),
+      resumeUrl: resumeUrl?.trim(),
+      memo: memo?.trim(),
+      jobTitle: jobTitle,
+      jobCompany: jobCompany,
+    );
+  }
+
   Future<void> updateApplicationStatus(
     String jobPostId,
     String applicationId,
@@ -465,6 +522,8 @@ class JobPostRecord {
       company: companyName,
       region: location,
       url: applyMethod,
+      postId: id,
+      ownerUid: authorId,
       postedDateText: _formatDate(createdAt),
       postedDate: createdAt,
       applicationStartDateText: _formatDate(startDate ?? createdAt),
@@ -477,6 +536,7 @@ class JobPostRecord {
       notice: additionalNotes,
       visible: isApproved && isActive,
       blockedReason: blockedReason,
+      interviewQuestions: interviewQuestions,
       summaryItems: [
         JobSummaryItem(
             label: '접수 시작', value: _formatDate(startDate ?? createdAt)),
@@ -497,6 +557,8 @@ class JobApplicationRecord {
     required this.appliedAt,
     this.resumeUrl,
     this.memo,
+    this.jobTitle = '',
+    this.jobCompany = '',
   });
 
   final String id;
@@ -508,6 +570,8 @@ class JobApplicationRecord {
   final DateTime appliedAt;
   final String? resumeUrl;
   final String? memo;
+  final String jobTitle;
+  final String jobCompany;
 
   static JobApplicationRecord? fromDoc(
       QueryDocumentSnapshot<Map<String, dynamic>> doc) {
@@ -527,6 +591,8 @@ class JobApplicationRecord {
       appliedAt: appliedAt,
       resumeUrl: (data['resumeUrl'] as String?),
       memo: (data['memo'] as String?),
+      jobTitle: (data['jobTitle'] ?? '').toString(),
+      jobCompany: (data['jobCompany'] ?? '').toString(),
     );
   }
 }
