@@ -38,6 +38,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   final _applyMethodCtl = TextEditingController();
   final _attachmentsCtl = TextEditingController();
   final _additionalNotesCtl = TextEditingController();
+  final List<TextEditingController> _interviewQuestionCtls = [];
   DateTime? _startDate;
   DateTime? _deadline;
   bool _submitting = false;
@@ -73,6 +74,22 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _additionalNotesCtl.text = existing.additionalNotes;
       _startDate = existing.startDate ?? existing.createdAt;
       _deadline = existing.deadline;
+      _setupInterviewQuestionControllers(existing.interviewQuestions);
+    } else {
+      _setupInterviewQuestionControllers(const []);
+    }
+  }
+
+  void _setupInterviewQuestionControllers(List<String> questions) {
+    final initialQuestions =
+        questions.isNotEmpty ? questions.take(5).toList() : List.filled(3, '');
+
+    for (final q in initialQuestions) {
+      _interviewQuestionCtls.add(TextEditingController(text: q));
+    }
+
+    while (_interviewQuestionCtls.length < 3) {
+      _interviewQuestionCtls.add(TextEditingController());
     }
   }
 
@@ -100,6 +117,9 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     _applyMethodCtl.dispose();
     _attachmentsCtl.dispose();
     _additionalNotesCtl.dispose();
+    for (final ctl in _interviewQuestionCtls) {
+      ctl.dispose();
+    }
     super.dispose();
   }
 
@@ -122,6 +142,21 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     }
   }
 
+  void _addInterviewQuestion() {
+    if (_interviewQuestionCtls.length >= 5) return;
+    setState(() {
+      _interviewQuestionCtls.add(TextEditingController());
+    });
+  }
+
+  void _removeInterviewQuestion(int index) {
+    if (_interviewQuestionCtls.length <= 3) return;
+    setState(() {
+      final controller = _interviewQuestionCtls.removeAt(index);
+      controller.dispose();
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -132,6 +167,15 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     }
     if (_startDate!.isAfter(_deadline!)) {
       _showSnack('모집 시작일이 마감일보다 늦을 수 없습니다.');
+      return;
+    }
+    final interviewQuestions = _interviewQuestionCtls
+        .map((c) => c.text.trim())
+        .where((q) => q.isNotEmpty)
+        .toList(growable: false);
+
+    if (interviewQuestions.length < 3) {
+      _showSnack('면접 질문을 최소 3개 입력해 주세요.');
       return;
     }
 
@@ -167,6 +211,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       applyMethod: _applyMethodCtl.text.trim(),
       attachments: _splitInput(_attachmentsCtl.text),
       additionalNotes: _additionalNotesCtl.text.trim(),
+      interviewQuestions: interviewQuestions,
       startDate: _startDate!,
       deadline: _deadline!,
       authorId: user.uid,
@@ -283,6 +328,55 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
                   controller: _processCtl,
                   maxLines: 3,
                   validator: null,
+                ),
+                _Gap(),
+                const _SectionTitle('면접 질문 (비공개)'),
+                const SizedBox(height: 8),
+                const Text(
+                  '면접관이 참고할 질문을 최소 3개, 최대 5개까지 입력하세요. 지원자에게는 공개되지 않습니다.',
+                  style: TextStyle(color: AppColors.subtext, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                ...List.generate(_interviewQuestionCtls.length, (index) {
+                  final canRemove = _interviewQuestionCtls.length > 3;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _interviewQuestionCtls[index],
+                            validator: (v) =>
+                                _required(v, '면접 질문 ${index + 1}을 입력해 주세요'),
+                            decoration: InputDecoration(
+                              labelText: '면접 질문 ${index + 1}',
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: const OutlineInputBorder(
+                                  borderSide: BorderSide.none),
+                            ),
+                          ),
+                        ),
+                        if (canRemove)
+                          IconButton(
+                            tooltip: '질문 삭제',
+                            onPressed: () => _removeInterviewQuestion(index),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _interviewQuestionCtls.length >= 5
+                        ? null
+                        : _addInterviewQuestion,
+                    icon: const Icon(Icons.add),
+                    label: const Text('질문 추가'),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const _SectionTitle('근무 조건'),

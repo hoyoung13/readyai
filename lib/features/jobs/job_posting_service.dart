@@ -234,6 +234,7 @@ class JobPostDraft {
     required this.additionalNotes,
     required this.deadline,
     required this.authorId,
+    this.interviewQuestions = const <String>[],
     this.companyWebsite,
     this.attachments = const <String>[],
     this.startDate,
@@ -266,6 +267,7 @@ class JobPostDraft {
   final String applyMethod;
   final List<String> attachments;
   final String additionalNotes;
+  final List<String> interviewQuestions;
   final DateTime? startDate;
   final DateTime deadline;
   final String authorId;
@@ -300,6 +302,7 @@ class JobPostDraft {
       'applyMethod': applyMethod,
       'attachments': attachments,
       'additionalNotes': additionalNotes,
+      'interviewQuestions': interviewQuestions,
       'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
       'deadline': Timestamp.fromDate(deadline),
       'authorId': authorId,
@@ -338,6 +341,7 @@ class JobPostRecord {
     required this.applyMethod,
     required this.attachments,
     required this.additionalNotes,
+    required this.interviewQuestions,
     required this.deadline,
     required this.createdAt,
     required this.updatedAt,
@@ -373,6 +377,7 @@ class JobPostRecord {
   final String applyMethod;
   final List<String> attachments;
   final String additionalNotes;
+  final List<String> interviewQuestions;
   final DateTime? startDate;
   final DateTime deadline;
   final DateTime createdAt;
@@ -437,6 +442,7 @@ class JobPostRecord {
         applyMethod: (data['applyMethod'] ?? data['url'] ?? '').toString(),
         attachments: _normalizeList(data['attachments']),
         additionalNotes: (data['additionalNotes'] ?? '').toString(),
+        interviewQuestions: _normalizeList(data['interviewQuestions']),
         startDate: startDate,
         deadline: deadline,
         createdAt: createdAt,
