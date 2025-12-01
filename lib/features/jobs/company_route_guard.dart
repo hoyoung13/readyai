@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
+import '../../core/utils/role_utils.dart';
 import '../../core/router/app_router.dart';
 
 class CompanyRouteGuard extends StatelessWidget {
@@ -9,14 +9,10 @@ class CompanyRouteGuard extends StatelessWidget {
 
   final Widget child;
 
-  bool _isCompanyRole(String? role) {
-    return role == 'company' || role == 'corporate' || role == 'admin';
-  }
-
   @override
   Widget build(BuildContext context) {
     final cached = userRoleCache.value;
-    if (_isCompanyRole(cached)) {
+    if (isCompanyRole(cached)) {
       return child;
     }
 
@@ -36,8 +32,8 @@ class CompanyRouteGuard extends StatelessWidget {
         }
 
         final role = snapshot.data?.data()?['role'] as String?;
-        if (_isCompanyRole(role)) {
-          userRoleCache.value = role;
+        if (isCompanyRole(role)) {
+          userRoleCache.value = normalizeRole(role);
           return child;
         }
 

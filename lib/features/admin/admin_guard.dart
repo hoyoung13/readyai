@@ -2,7 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
+import '../../core/utils/role_utils.dart';
 import '../../core/router/app_router.dart';
 
 class AdminRouteGuard extends StatelessWidget {
@@ -13,7 +13,7 @@ class AdminRouteGuard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cachedRole = userRoleCache.value;
-    if (cachedRole == 'admin') {
+    if (normalizeRole(cachedRole) == 'admin') {
       return child;
     }
 
@@ -35,7 +35,7 @@ class AdminRouteGuard extends StatelessWidget {
         }
 
         final data = snapshot.data?.data();
-        final role = data?['role'] as String?;
+        final role = normalizeRole(data?['role'] as String?);
         if (role == 'admin') {
           userRoleCache.value = 'admin';
           return child;

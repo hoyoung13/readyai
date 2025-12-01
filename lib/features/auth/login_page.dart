@@ -4,6 +4,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // ✅ 추가
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ai/core/router/app_router.dart';
+import 'package:ai/core/utils/role_utils.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,10 +47,10 @@ class _LoginPageState extends State<LoginPage> {
       final userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final data = userDoc.data();
-      final role = (data?['role'] as String?) ?? 'user';
+      final role = normalizeRole((data?['role'] as String?) ?? 'user');
 
       final bool isApproved =
-          role == 'company' ? (data?['isApproved'] == true) : true;
+          isCompanyRole(role) ? (data?['isApproved'] == true) : true;
 
       if (!isApproved) {
         await FirebaseAuth.instance.signOut();
@@ -63,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         if (role == 'admin') {
           context.go('/admin');
-        } else if (role == 'company') {
+        } else if (isCompanyRole(role)) {
           context.go('/company');
         } else {
           context.go('/tabs');

@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:ai/core/router/app_router.dart';
 import 'tabs_shared.dart';
+import 'package:ai/core/utils/role_utils.dart';
 
 class CompanyHomeTab extends StatelessWidget {
   const CompanyHomeTab({super.key});
@@ -23,146 +25,102 @@ class CompanyHomeTab extends StatelessWidget {
     final items = [
       _CompanyAction(
         title: '나의 공고',
-        subtitle: '채용 공고 등록/관리',
-        emoji: '📣',
+        subtitle: '공고 관리',
+        icon: Icons.campaign_outlined,
         tag: '공고 관리',
-        colors: const [Color(0xFFA181FF), Color(0xFFBFA4FF)],
         onTap: () => context.push('/profile/company-jobs'),
       ),
       _CompanyAction(
         title: '지원 내역',
         subtitle: '지원자 관리',
-        emoji: '🗂️',
+        icon: Icons.work_history_outlined,
         tag: '지원자 관리',
-        colors: const [Color(0xFF9BC5FF), Color(0xFFB4D5FF)],
         onTap: () => context.push('/profile/company-jobs'),
       ),
       _CompanyAction(
         title: '게시판',
-        subtitle: '커뮤니티 소통',
-        emoji: '💬',
-        tag: '게시판',
-        colors: const [Color(0xFFFFD3A5), Color(0xFFFFAAA6)],
+        subtitle: '게시판',
+        icon: Icons.forum_outlined,
+        tag: '커뮤니티',
         onTap: () => context.push('/community'),
         tabIndex: 3,
       ),
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 28),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.business_center_rounded,
-                          color: AppColors.text),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'ReadyAI for Company',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7EE8FA), Color(0xFFEEC0C6)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 14,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '안녕하세요, $greetingName님',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                height: 1.3,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              '공고 관리와 지원자 확인을 한곳에서 빠르게!',
-                              style: TextStyle(
-                                color: AppColors.text,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                '기업 전용 대시보드',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.text,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text('📌', style: TextStyle(fontSize: 42)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Column(
+              Row(
                 children: [
-                  for (var i = 0; i < items.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 12),
-                    _CompanyActionCard(action: items[i]),
-                  ],
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/logo.png',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Already',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none_rounded,
+                        color: AppColors.text),
+                    onPressed: () => _launchNotificationSetting(),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 28),
+              Text(
+                '안녕하세요, $greetingName님',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '오늘의 추천 공고들을 확인해보세요',
+                style: TextStyle(
+                  color: AppColors.subtext,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB486FF),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < items.length; i++)
+                      _CompanyActionCard(
+                        action: items[i],
+                        isLast: i == items.length - 1,
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -177,8 +135,7 @@ class _CompanyAction {
     required this.title,
     required this.subtitle,
     required this.tag,
-    required this.colors,
-    required this.emoji,
+    required this.icon,
     this.tabIndex,
     this.onTap,
   });
@@ -186,101 +143,100 @@ class _CompanyAction {
   final String title;
   final String subtitle;
   final String tag;
-  final List<Color> colors;
-  final String emoji;
+  final IconData icon;
   final int? tabIndex;
   final VoidCallback? onTap;
 }
 
 class _CompanyActionCard extends StatelessWidget {
-  const _CompanyActionCard({required this.action});
+  const _CompanyActionCard({required this.action, this.isLast = false});
 
   final _CompanyAction action;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () {
-            final navigation = TabsNavigation.of(context);
-            if (navigation != null && action.tabIndex != null) {
-              navigation.goTo(action.tabIndex!);
-            }
-            action.onTap?.call();
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: action.colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 14,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          final navigation = TabsNavigation.of(context);
+          if (navigation != null && action.tabIndex != null) {
+            navigation.goTo(action.tabIndex!);
+          }
+          action.onTap?.call();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: isLast
+                  ? BorderSide.none
+                  : const BorderSide(color: Color(0x22FFFFFF), width: 1),
             ),
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.85),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          action.tag,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.text,
-                          ),
-                        ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(action.icon, color: const Color(0xFF7B3EFF)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      action.title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        action.title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          height: 1.25,
-                          color: Colors.black87,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      action.subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFFE9DBFF),
+                        fontSize: 13,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        action.subtitle,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7B3EFF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  action.tag,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Text(action.emoji, style: const TextStyle(fontSize: 40)),
-              ],
-            ),
+              )
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+void _launchNotificationSetting() async {
+  final uri = Uri.parse('app-settings:');
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri);
   }
 }

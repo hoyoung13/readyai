@@ -49,40 +49,60 @@ class JobPostingService {
       _firestore.collection('jobPosts').doc(id).delete();
 
   Stream<List<JobPostRecord>> streamOwnerPosts(String ownerUid) {
-    final baseQuery = _firestore
-        .collection('jobPosts')
-        .orderBy('createdAt', descending: true);
-
-    final orQuery = baseQuery.where(Filter.or(
-      Filter('authorId', isEqualTo: ownerUid),
-      Filter('ownerUid', isEqualTo: ownerUid),
-    ));
-
-    final fallbackQuery = baseQuery.where('authorId', isEqualTo: ownerUid);
-
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subscription;
     final controller = StreamController<List<JobPostRecord>>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? authorSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? ownerSub;
 
-    void attachListener(Query<Map<String, dynamic>> query,
-        {required bool isFallback}) {
-      subscription?.cancel();
-      subscription = query.snapshots().listen((snapshot) {
-        final posts = snapshot.docs
+    var authorPosts = const <JobPostRecord>[];
+    var ownerPosts = const <JobPostRecord>[];
+
+    List<JobPostRecord> _mergeAndSort() {
+      final merged = <String, JobPostRecord>{};
+      for (final post in [...authorPosts, ...ownerPosts]) {
+        merged[post.id] = post;
+      }
+      final list = merged.values.toList(growable: false);
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    }
+
+    void attachAuthorListener() {
+      authorSub?.cancel();
+      authorSub = _firestore
+          .collection('jobPosts')
+          .where('authorId', isEqualTo: ownerUid)
+          .snapshots()
+          .listen((snapshot) {
+        authorPosts = snapshot.docs
             .map(JobPostRecord.fromDoc)
             .whereType<JobPostRecord>()
             .toList(growable: false);
-        controller.add(posts);
-      }, onError: (error, stackTrace) {
-        if (!isFallback) {
-          attachListener(fallbackQuery, isFallback: true);
-        } else {
-          controller.addError(error, stackTrace);
-        }
-      });
+        controller.add(_mergeAndSort());
+      }, onError: controller.addError);
     }
 
-    attachListener(orQuery, isFallback: false);
-    controller.onCancel = () => subscription?.cancel();
+    void attachOwnerListener() {
+      ownerSub?.cancel();
+      ownerSub = _firestore
+          .collection('jobPosts')
+          .where('ownerUid', isEqualTo: ownerUid)
+          .snapshots()
+          .listen((snapshot) {
+        ownerPosts = snapshot.docs
+            .map(JobPostRecord.fromDoc)
+            .whereType<JobPostRecord>()
+            .toList(growable: false);
+        controller.add(_mergeAndSort());
+      }, onError: controller.addError);
+    }
+
+    attachAuthorListener();
+    attachOwnerListener();
+
+    controller.onCancel = () {
+      authorSub?.cancel();
+      ownerSub?.cancel();
+    };
 
     return controller.stream;
   }
