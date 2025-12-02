@@ -118,19 +118,18 @@ class _JobPicker extends StatelessWidget {
               final post = posts[index];
               final isSelected = post.id == selectedJob?.id;
               return Padding(
-                padding: EdgeInsets.only(
-                  left: index == 0 ? 16 : 10,
-                  right: index == posts.length - 1 ? 16 : 10,
-                  top: 14,
-                  bottom: 10,
-                ),
-                child: _JobCard(
-                  post: post,
-                  selected: isSelected,
-                  service: service,
-                  onTap: () => onSelected(post),
-                )
-              );
+                  padding: EdgeInsets.only(
+                    left: index == 0 ? 16 : 10,
+                    right: index == posts.length - 1 ? 16 : 10,
+                    top: 14,
+                    bottom: 10,
+                  ),
+                  child: _JobCard(
+                    post: post,
+                    selected: isSelected,
+                    service: service,
+                    onTap: () => onSelected(post),
+                  ));
             },
             onPageChanged: (page) {
               final post = posts[page];
@@ -178,7 +177,11 @@ class _ApplicantList extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final applications = snapshot.data ?? const <JobApplicationRecord>[];
+        final applications =
+            List<JobApplicationRecord>.from(snapshot.data ?? const []);
+        applications.sort(
+          (a, b) => b.appliedAt.compareTo(a.appliedAt),
+        );
         if (applications.isEmpty) {
           return const Center(
             child: Padding(
@@ -188,14 +191,79 @@ class _ApplicantList extends StatelessWidget {
           );
         }
 
-        return ListView.separated(
+        return Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-          itemBuilder: (context, index) {
-            final application = applications[index];
-            return _ApplicantTile(application: application);
-          },
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemCount: applications.length,
+          child: Card(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 4,
+            shadowColor: Colors.black26.withOpacity(0.05),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '지원 내역 보기',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (selectedJob != null)
+                        Flexible(
+                          child: Text(
+                            selectedJob!.title,
+                            style: const TextStyle(color: AppColors.subtext),
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(12),
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 700),
+                          child: DataTable(
+                            columns: const [
+                              DataColumn(label: Text('지원자')),
+                              DataColumn(label: Text('지원일자')),
+                              DataColumn(label: Text('이력서')),
+                              DataColumn(label: Text('자기소개서')),
+                              DataColumn(label: Text('면접')),
+                              DataColumn(label: Text('최종')),
+                            ],
+                            rows: applications
+                                .map((application) => _buildApplicantDataRow(
+                                    application, context))
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -283,254 +351,160 @@ class _JobCard extends StatelessWidget {
   }
 }
 
-class _ApplicantTile extends StatelessWidget {
-  const _ApplicantTile({required this.application});
+DataRow _buildApplicantDataRow(
+  JobApplicationRecord application,
+  BuildContext context,
+) {
+  return DataRow(cells: [
+    DataCell(
+      Text(
+        application.applicantName,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    ),
+    DataCell(
+      Text(
+        _formatDate(application.appliedAt),
+        style: const TextStyle(color: AppColors.subtext),
+      ),
+    ),
+    DataCell(
+      _ActionButton(
+        label: '다운로드',
+        onPressed: application.resumeUrl == null
+            ? null
+            : () => _launchUrl(application.resumeUrl!),
+      ),
+    ),
+    DataCell(
+      _ActionButton(
+        label: '다운로드',
+        onPressed: application.coverLetterUrl == null
+            ? null
+            : () => _launchUrl(application.coverLetterUrl!),
+      ),
+    ),
+    DataCell(
+      _ActionButton(
+        label: '확인',
+        onPressed: () => _showInterviewResult(application, context),
+      ),
+    ),
+    DataCell(
+      _ActionButton(
+        label: '확인',
+        onPressed: () => _showInterviewResult(application, context),
+      ),
+    ),
+  ]);
+}
 
-  final JobApplicationRecord application;
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final statusLabel =
-        JobApplicationStatus.labels[application.status] ?? application.status;
-    final hasInterviewResult = application.interviewVideoUrl != null ||
-        (application.interviewSummary?.isNotEmpty ?? false);
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE9E9E9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  application.applicantName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              _StatusPill(label: statusLabel),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${_formatDate(application.appliedAt)} · ${application.jobTitle.isNotEmpty ? application.jobTitle : '공고 확인'}',
-            style: const TextStyle(color: AppColors.subtext),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              _ActionChip(
-                icon: Icons.download_outlined,
-                label: application.resumeFileName ?? '이력서 다운로드',
-                onTap: application.resumeUrl == null
-                    ? null
-                    : () => _launchUrl(application.resumeUrl!, context),
-              ),
-              _ActionChip(
-                icon: Icons.download_outlined,
-                label: application.coverLetterFileName ?? '자기소개서 다운로드',
-                onTap: application.coverLetterUrl == null
-                    ? null
-                    : () => _launchUrl(application.coverLetterUrl!, context),
-              ),
-              _ActionChip(
-                icon: Icons.play_circle_outline,
-                label: '면접 영상·AI 결과 보기',
-                onTap:
-                    hasInterviewResult ? () => _showInterviewResult(context) : null,
-              ),
-            ],
-          ),
-if (application.interviewSummary?.isNotEmpty ?? false) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF6F2FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'AI 면접 요약',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    application.interviewSummary!,
-                    style: const TextStyle(color: AppColors.subtext),
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: SizedBox(
+        height: 36,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF6C4CFF),
+            minimumSize: const Size(70, 36),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-        ],
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          onPressed: onPressed,
+          child: Text(label),
+        ),
       ),
     );
-  }
-
-  void _showInterviewResult(BuildContext context) {
-    final videoUrl = application.interviewVideoUrl;
-    if (videoUrl == null && (application.interviewSummary?.isEmpty ?? true)) {
-      return;
-    }
-
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.insights_outlined, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${application.applicantName}님의 면접 결과',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (application.interviewSummary?.isNotEmpty ?? false) ...[
-                const Text(
-                  'AI 요약',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  application.interviewSummary!,
-                  style: const TextStyle(color: AppColors.subtext),
-                ),
-                const SizedBox(height: 14),
-              ],
-              if (videoUrl != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () => _launchUrl(videoUrl, context),
-                    icon: const Icon(Icons.play_circle_outline),
-                    label: const Text('녹화 영상 열기'),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-
-  Future<void> _launchUrl(String url, BuildContext context) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    if (!await canLaunchUrl(uri)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('링크를 열 수 없습니다.')),
-        );
-      }
-      return;
-    }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }
 
-class _ActionChip extends StatelessWidget {
-  const _ActionChip({required this.icon, required this.label, this.onTap});
+Future<void> _launchUrl(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return;
+  if (!await canLaunchUrl(uri)) {
+    return;
+  }
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
 
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
+void _showInterviewResult(
+  JobApplicationRecord application,
+  BuildContext context,
+) {
+  final videoUrl = application.interviewVideoUrl;
+  final hasSummary = application.interviewSummary?.isNotEmpty ?? false;
+  if (videoUrl == null && !hasSummary) {
+    return;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: enabled ? const Color(0xFFF3ECFF) : const Color(0xFFF5F5F7),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: enabled ? const Color(0xFFB486FF) : const Color(0xFFE3E3E3),
-          ),
-        ),
-        child: Row(
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon,
-                size: 18, color: enabled ? Colors.black : AppColors.subtext),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: enabled ? Colors.black : AppColors.subtext,
-              ),
+            Row(
+              children: [
+                const Icon(Icons.insights_outlined, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${application.applicantName}님의 면접 결과',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+            if (hasSummary) ...[
+              const Text(
+                'AI 요약',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                application.interviewSummary!,
+                style: const TextStyle(color: AppColors.subtext),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (videoUrl != null)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _launchUrl(videoUrl),
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: const Text('녹화 영상 열기'),
+                ),
+              ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE7DDFF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF5B3AB2),
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 String _formatDate(DateTime date) {
-  return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+  return '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }

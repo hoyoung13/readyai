@@ -138,24 +138,41 @@ class JobPostingService {
     String? status,
     String? jobPostId,
   }) {
-    Query<Map<String, dynamic>> query =
-        _firestore.collectionGroup('applications').where(
-              'ownerUid',
-              isEqualTo: ownerUid,
-            );
+    Query<Map<String, dynamic>> _buildQuery() {
+      if (jobPostId != null && jobPostId.isNotEmpty) {
+        var query = _firestore
+            .collection('jobPosts')
+            .doc(jobPostId)
+            .collection('applications')
+            .where('ownerUid', isEqualTo: ownerUid);
 
-    if (status != null && status.isNotEmpty) {
-      query = query.where('status', isEqualTo: status);
-    }
-    if (jobPostId != null && jobPostId.isNotEmpty) {
-      query = query.where('jobPostId', isEqualTo: jobPostId);
+        if (status != null && status.isNotEmpty) {
+          query = query.where('status', isEqualTo: status);
+        }
+
+        return query.orderBy('appliedAt', descending: true);
+      }
+
+      var query = _firestore.collectionGroup('applications').where(
+            'ownerUid',
+            isEqualTo: ownerUid,
+          );
+
+      if (status != null && status.isNotEmpty) {
+        query = query.where('status', isEqualTo: status);
+      }
+
+      return query.orderBy('appliedAt', descending: true);
     }
 
-    return query.orderBy('appliedAt', descending: true).snapshots().map(
-        (snapshot) => snapshot.docs
-            .map(JobApplicationRecord.fromDoc)
-            .whereType<JobApplicationRecord>()
-            .toList(growable: false));
+    return _buildQuery().snapshots().map((snapshot) {
+      final applications = snapshot.docs
+          .map(JobApplicationRecord.fromDoc)
+          .whereType<JobApplicationRecord>()
+          .toList(growable: false);
+
+      return List<JobApplicationRecord>.unmodifiable(applications);
+    });
   }
 
   Stream<int> watchApplicationCount(String jobPostId) {
