@@ -175,6 +175,9 @@ class JobPostingService {
     required String applicantUid,
     required String applicantName,
     String? resumeUrl,
+    String? resumeFileName,
+    String? coverLetterUrl,
+    String? coverLetterFileName,
     String? memo,
   }) async {
     final trimmedName = applicantName.trim();
@@ -193,6 +196,9 @@ class JobPostingService {
       'status': JobApplicationStatus.submitted,
       'appliedAt': now,
       'resumeUrl': resumeUrl?.trim(),
+      'resumeFileName': resumeFileName?.trim(),
+      'coverLetterUrl': coverLetterUrl?.trim(),
+      'coverLetterFileName': coverLetterFileName?.trim(),
       'memo': memo?.trim(),
     }..removeWhere((key, value) =>
         value == null || (value is String && value.trim().isEmpty));
@@ -218,6 +224,9 @@ class JobPostingService {
       status: JobApplicationStatus.submitted,
       appliedAt: now.toDate(),
       resumeUrl: resumeUrl?.trim(),
+      resumeFileName: resumeFileName?.trim(),
+      coverLetterUrl: coverLetterUrl?.trim(),
+      coverLetterFileName: coverLetterFileName?.trim(),
       memo: memo?.trim(),
       jobTitle: jobTitle,
       jobCompany: jobCompany,
@@ -556,6 +565,9 @@ class JobApplicationRecord {
     required this.status,
     required this.appliedAt,
     this.resumeUrl,
+    this.resumeFileName,
+    this.coverLetterUrl,
+    this.coverLetterFileName,
     this.memo,
     this.jobTitle = '',
     this.jobCompany = '',
@@ -569,6 +581,9 @@ class JobApplicationRecord {
   final String status;
   final DateTime appliedAt;
   final String? resumeUrl;
+  final String? resumeFileName;
+  final String? coverLetterUrl;
+  final String? coverLetterFileName;
   final String? memo;
   final String jobTitle;
   final String jobCompany;
@@ -590,6 +605,9 @@ class JobApplicationRecord {
       status: (data['status'] ?? JobApplicationStatus.submitted).toString(),
       appliedAt: appliedAt,
       resumeUrl: (data['resumeUrl'] as String?),
+      resumeFileName: (data['resumeFileName'] as String?),
+      coverLetterUrl: (data['coverLetterUrl'] as String?),
+      coverLetterFileName: (data['coverLetterFileName'] as String?),
       memo: (data['memo'] as String?),
       jobTitle: (data['jobTitle'] ?? '').toString(),
       jobCompany: (data['jobCompany'] ?? '').toString(),

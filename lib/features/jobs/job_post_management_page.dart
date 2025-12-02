@@ -544,7 +544,7 @@ class _ApplicationTile extends StatelessWidget {
               ),
               _TableCell(
                 child: _ActionPill(
-                  label: '확인',
+                  label: application.resumeFileName ?? '확인',
                   onTap: application.resumeUrl != null
                       ? () => _launchResume(application.resumeUrl!, context)
                       : null,
@@ -552,9 +552,9 @@ class _ApplicationTile extends StatelessWidget {
               ),
               _TableCell(
                 child: _ActionPill(
-                  label: '확인',
-                  onTap: application.memo?.isNotEmpty == true
-                      ? () => _showMemo(context)
+                  label: application.coverLetterFileName ?? '확인',
+                  onTap: application.coverLetterUrl != null
+                      ? () => _launchResume(application.coverLetterUrl!, context)
                       : null,
                 ),
               ),
@@ -584,16 +584,6 @@ class _ApplicationTile extends StatelessWidget {
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  void _showMemo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('메모'),
-        content: Text(application.memo ?? ''),
-      ),
-    );
   }
 
   void _showApplicationDetail(BuildContext context) {

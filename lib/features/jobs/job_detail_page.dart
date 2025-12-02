@@ -1,3 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -172,6 +175,7 @@ class JobDetailPage extends StatelessWidget {
   }
 
   Future<void> _handleApply(BuildContext context) async {
+    final parentContext = context;
     final postId = job.postId;
     final ownerUid = job.ownerUid;
     final user = FirebaseAuth.instance.currentUser;
@@ -191,28 +195,62 @@ class JobDetailPage extends StatelessWidget {
       return;
     }
 
-    final resumeController = TextEditingController();
-    final memoController = TextEditingController();
+    PlatformFile? resumeFile;
+    PlatformFile? coverLetterFile;
 
-    final category = JobCategory(
-      title: job.companyLabel,
-      subtitle: job.title,
-    );
-    final baseQuestions = job.interviewQuestions.isNotEmpty
-        ? job.interviewQuestions
-        : InterviewQuestionBank.getQuestions(
-            category: category,
-            mode: InterviewMode.ai,
-          ).take(3).toList(growable: false);
-    final followUpQuestions = InterviewQuestionBank.getQuestions(
-      category: category,
-      mode: InterviewMode.ai,
-    ).skip(3).take(2).toList(growable: false);
+    Future<void> pickAttachment(
+        {required bool isResume,
+        required void Function(void Function()) setState}) async {
+      final result = await FilePicker.platform.pickFiles(
+        withData: true,
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: const [
+          'pdf',
+          'doc',
+          'docx',
+          'ppt',
+          'pptx',
+          'hwp',
+          'hwpx',
+        ],
+      );
 
-    final baseControllers =
-        baseQuestions.map((_) => TextEditingController()).toList();
-    final followUpControllers =
-        followUpQuestions.map((_) => TextEditingController()).toList();
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          if (isResume) {
+            resumeFile = result.files.first;
+          } else {
+            coverLetterFile = result.files.first;
+          }
+        });
+      }
+    }
+
+    Future<String> uploadAttachment(PlatformFile file, String prefix) async {
+      final bytes = file.bytes;
+      if (bytes == null) {
+        throw Exception('파일을 불러올 수 없습니다. 다시 선택해 주세요.');
+      }
+
+      final storageRef = FirebaseStorage.instance.ref().child(
+            'applications/$postId/${user.uid}/$prefix-${DateTime.now().millisecondsSinceEpoch}-${file.name}',
+          );
+
+      final metadata = SettableMetadata(
+        contentType: file.extension != null
+            ? 'application/${file.extension}'
+            : 'application/octet-stream',
+        customMetadata: {
+          'originalName': file.name,
+          'jobPostId': postId,
+          'applicantUid': user.uid,
+        },
+      );
+
+      await storageRef.putData(bytes, metadata);
+      return storageRef.getDownloadURL();
+    }
 
     await showModalBottomSheet(
       context: context,
@@ -244,112 +282,80 @@ class JobDetailPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      '이력서와 기업이 남긴 질문, AI가 제안하는 추가 질문을 함께 제출해요.',
+                      '이력서와 자기소개서를 파일로 제출하고, 카메라 AI 면접으로 답변을 녹화하세요.',
                       style: TextStyle(color: AppColors.subtext),
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: resumeController,
-                      decoration: const InputDecoration(
-                        labelText: '이력서/포트폴리오 링크',
-                        hintText: '파일 링크 또는 URL을 입력하세요',
-                        border: OutlineInputBorder(),
+                    _AttachmentPickerTile(
+                      title: '이력서 파일 첨부',
+                      description: 'PDF, DOC, PPT 등 최대 20MB 파일을 올려주세요.',
+                      fileName: resumeFile?.name,
+                      onTap: () => pickAttachment(
+                        isResume: true,
+                        setState: setState,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: memoController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: '추가 자기소개 (선택)',
-                        border: OutlineInputBorder(),
+                    _AttachmentPickerTile(
+                      title: '자기소개서 파일 첨부',
+                      description: '경험과 강점을 담은 파일을 추가로 제출해 주세요.',
+                      fileName: coverLetterFile?.name,
+                      onTap: () => pickAttachment(
+                        isResume: false,
+                        setState: setState,
                       ),
                     ),
+                    const SizedBox(height: 18),
+                    OutlinedButton.icon(
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
+                              await _handleStartInterview(parentContext);
+                            },
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        side: const BorderSide(color: AppColors.primary),
+                      ),
+                      icon: const Icon(Icons.videocam_outlined),
+                      label: const Text('카메라 AI 질문 면접 시작'),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      '카메라로 답변을 녹화하면 AI가 질문 면접을 도와줘요.',
+                      style: TextStyle(color: AppColors.subtext),
+                    ),
                     const SizedBox(height: 16),
-                    if (baseQuestions.isNotEmpty) ...[
-                      const Text(
-                        '기업이 저장한 질문',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      for (var i = 0; i < baseQuestions.length; i++) ...[
-                        Text(baseQuestions[i]),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: baseControllers[i],
-                          decoration: const InputDecoration(
-                            hintText: '답변을 입력하세요',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                    ],
-                    if (followUpQuestions.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      const Text(
-                        'AI 추가 확인 질문',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      for (var i = 0; i < followUpQuestions.length; i++) ...[
-                        Text(followUpQuestions[i]),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: followUpControllers[i],
-                          decoration: const InputDecoration(
-                            hintText: '답변을 입력하세요',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                    ],
-                    const SizedBox(height: 6),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: submitting
                             ? null
                             : () async {
-                                if (resumeController.text.trim().isEmpty) {
+                                if (resumeFile == null ||
+                                    coverLetterFile == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                        content:
-                                            Text('이력서나 포트폴리오 링크를 입력해 주세요.')),
+                                      content:
+                                          Text('이력서와 자기소개서 파일을 모두 첨부해 주세요.'),
+                                    ),
                                   );
                                   return;
                                 }
 
                                 setState(() => submitting = true);
-                                final memoLines = <String>[];
-                                for (var i = 0; i < baseQuestions.length; i++) {
-                                  final answer = baseControllers[i].text.trim();
-                                  if (answer.isNotEmpty) {
-                                    memoLines
-                                        .add('${baseQuestions[i]}\n- $answer');
-                                  }
-                                }
-                                for (var i = 0;
-                                    i < followUpQuestions.length;
-                                    i++) {
-                                  final answer =
-                                      followUpControllers[i].text.trim();
-                                  if (answer.isNotEmpty) {
-                                    memoLines.add(
-                                        '${followUpQuestions[i]}\n- $answer');
-                                  }
-                                }
-                                final extraMemo = memoController.text.trim();
-                                if (extraMemo.isNotEmpty) {
-                                  memoLines.add('추가 메모\n- $extraMemo');
-                                }
 
                                 try {
+                                  final resumeUrl = await uploadAttachment(
+                                    resumeFile!,
+                                    'resume',
+                                  );
+                                  final coverLetterUrl = await uploadAttachment(
+                                    coverLetterFile!,
+                                    'cover-letter',
+                                  );
                                   await _postingService.submitApplication(
                                     jobPostId: postId,
                                     ownerUid: ownerUid,
@@ -358,8 +364,10 @@ class JobDetailPage extends StatelessWidget {
                                     applicantUid: user.uid,
                                     applicantName:
                                         user.displayName ?? user.email ?? '지원자',
-                                    resumeUrl: resumeController.text.trim(),
-                                    memo: memoLines.join('\n\n'),
+                                    resumeUrl: resumeUrl,
+                                    resumeFileName: resumeFile?.name,
+                                    coverLetterUrl: coverLetterUrl,
+                                    coverLetterFileName: coverLetterFile?.name,
                                   );
                                   try {
                                     await _activityService
@@ -409,15 +417,6 @@ class JobDetailPage extends StatelessWidget {
         );
       },
     );
-
-    for (final controller in [
-      resumeController,
-      memoController,
-      ...baseControllers,
-      ...followUpControllers,
-    ]) {
-      controller.dispose();
-    }
   }
 
   Future<void> _handleStartInterview(BuildContext context) async {
@@ -747,11 +746,63 @@ class _PrimaryActions extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            '제출된 답변과 이력서를 기반으로 AI 질문이 저장되고 기업에게 바로 전달돼요.',
+            '이력서/자기소개서 파일 제출과 AI 면접 준비를 한 번에 진행할 수 있어요.',
             style: TextStyle(
               color: AppColors.subtext,
               fontSize: 13,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentPickerTile extends StatelessWidget {
+  const _AttachmentPickerTile({
+    required this.title,
+    required this.description,
+    required this.onTap,
+    this.fileName,
+  });
+
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+  final String? fileName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primarySoft),
+        color: Colors.white,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: const TextStyle(color: AppColors.subtext),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onTap,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+            ),
+            icon: const Icon(Icons.attach_file_outlined),
+            label: Text(fileName ?? '파일 선택'),
           ),
         ],
       ),

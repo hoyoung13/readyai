@@ -318,18 +318,18 @@ class _ApplicantTile extends StatelessWidget {
             children: [
               _ActionChip(
                 icon: Icons.description_outlined,
-                label: '이력서/포트폴리오',
+                label: application.resumeFileName ?? '이력서',
                 onTap: application.resumeUrl == null
                     ? null
                     : () => _launchUrl(application.resumeUrl!, context),
               ),
               const SizedBox(width: 10),
               _ActionChip(
-                icon: Icons.chat_bubble_outline,
-                label: 'AI 질문 & 답변',
-                onTap: application.memo?.isNotEmpty == true
-                    ? () => _showMemo(context, application.memo!)
-                    : null,
+                icon: Icons.assignment_outlined,
+                label: application.coverLetterFileName ?? '자기소개서',
+                onTap: application.coverLetterUrl == null
+                    ? null
+                    : () => _launchUrl(application.coverLetterUrl!, context),
               ),
             ],
           ),
@@ -338,15 +338,6 @@ class _ApplicantTile extends StatelessWidget {
     );
   }
 
-  void _showMemo(BuildContext context, String memo) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('지원자 답변/메모'),
-        content: Text(memo),
-      ),
-    );
-  }
 
   Future<void> _launchUrl(String url, BuildContext context) async {
     final uri = Uri.tryParse(url);
