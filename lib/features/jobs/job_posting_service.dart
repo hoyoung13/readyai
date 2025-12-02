@@ -179,6 +179,8 @@ class JobPostingService {
     String? coverLetterUrl,
     String? coverLetterFileName,
     String? memo,
+    String? interviewVideoUrl,
+    String? interviewSummary,
   }) async {
     final trimmedName = applicantName.trim();
     if (trimmedName.isEmpty) {
@@ -200,6 +202,8 @@ class JobPostingService {
       'coverLetterUrl': coverLetterUrl?.trim(),
       'coverLetterFileName': coverLetterFileName?.trim(),
       'memo': memo?.trim(),
+      'interviewVideoUrl': interviewVideoUrl?.trim(),
+      'interviewSummary': interviewSummary?.trim(),
     }..removeWhere((key, value) =>
         value == null || (value is String && value.trim().isEmpty));
 
@@ -228,6 +232,8 @@ class JobPostingService {
       coverLetterUrl: coverLetterUrl?.trim(),
       coverLetterFileName: coverLetterFileName?.trim(),
       memo: memo?.trim(),
+      interviewVideoUrl: interviewVideoUrl?.trim(),
+      interviewSummary: interviewSummary?.trim(),
       jobTitle: jobTitle,
       jobCompany: jobCompany,
     );
@@ -569,6 +575,8 @@ class JobApplicationRecord {
     this.coverLetterUrl,
     this.coverLetterFileName,
     this.memo,
+    this.interviewVideoUrl,
+    this.interviewSummary,
     this.jobTitle = '',
     this.jobCompany = '',
   });
@@ -585,6 +593,8 @@ class JobApplicationRecord {
   final String? coverLetterUrl;
   final String? coverLetterFileName;
   final String? memo;
+  final String? interviewVideoUrl;
+  final String? interviewSummary;
   final String jobTitle;
   final String jobCompany;
 
@@ -609,6 +619,8 @@ class JobApplicationRecord {
       coverLetterUrl: (data['coverLetterUrl'] as String?),
       coverLetterFileName: (data['coverLetterFileName'] as String?),
       memo: (data['memo'] as String?),
+      interviewVideoUrl: (data['interviewVideoUrl'] as String?),
+      interviewSummary: (data['interviewSummary'] as String?),
       jobTitle: (data['jobTitle'] ?? '').toString(),
       jobCompany: (data['jobCompany'] ?? '').toString(),
     );
