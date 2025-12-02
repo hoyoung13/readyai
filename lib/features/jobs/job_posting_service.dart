@@ -140,11 +140,10 @@ class JobPostingService {
   }) {
     Query<Map<String, dynamic>> _buildQuery() {
       if (jobPostId != null && jobPostId.isNotEmpty) {
-        var query = _firestore
+        Query<Map<String, dynamic>> query = _firestore
             .collection('jobPosts')
             .doc(jobPostId)
-            .collection('applications')
-            .where('ownerUid', isEqualTo: ownerUid);
+            .collection('applications');
 
         if (status != null && status.isNotEmpty) {
           query = query.where('status', isEqualTo: status);
