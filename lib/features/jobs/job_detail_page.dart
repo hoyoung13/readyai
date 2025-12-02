@@ -1,9 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../tabs/tabs_shared.dart';
 import 'job_interview_question_service.dart';
 import 'job_activity.dart';
@@ -25,6 +25,8 @@ class JobDetailPage extends StatelessWidget {
       InterviewFlowLauncher();
   static final JobActivityService _activityService = JobActivityService();
   static final JobPostingService _postingService = JobPostingService();
+
+  
 
   @override
   Widget build(BuildContext context) {
@@ -356,14 +358,15 @@ class JobDetailPage extends StatelessWidget {
                                     coverLetterFile!,
                                     'cover-letter',
                                   );
+                                  final applicantName =
+                                      await _resolveApplicantName(user);
                                   await _postingService.submitApplication(
                                     jobPostId: postId,
                                     ownerUid: ownerUid,
                                     jobTitle: job.title,
                                     jobCompany: job.companyLabel,
                                     applicantUid: user.uid,
-                                    applicantName:
-                                        user.displayName ?? user.email ?? '지원자',
+                                    applicantName: applicantName,
                                     resumeUrl: resumeUrl,
                                     resumeFileName: resumeFile?.name,
                                     coverLetterUrl: coverLetterUrl,
@@ -372,9 +375,7 @@ class JobDetailPage extends StatelessWidget {
                                   try {
                                     await _activityService
                                         .recordApplication(job);
-                                  } on JobActivityAuthException {
-                                    // ignore - already handled by login guard above
-                                  }
+                                  } on JobActivityAuthException {}
                                   if (context.mounted) {
                                     Navigator.of(context).pop();
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -417,6 +418,25 @@ class JobDetailPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<String> _resolveApplicantName(User user) async {
+    final displayName = user.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    final profileName = (snapshot.data()?['name'] as String?)?.trim();
+    if (profileName != null && profileName.isNotEmpty) {
+      return profileName;
+    }
+
+    return '지원자';
   }
 
   Future<void> _handleStartInterview(BuildContext context) async {
