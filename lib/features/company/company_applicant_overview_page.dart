@@ -245,17 +245,21 @@ class _ApplicantList extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                         child: DataTable(
                           columnSpacing: 12,
+                          dataRowMinHeight: 64,
                           headingTextStyle: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.text,
                           ),
                           columns: const [
                             DataColumn(label: Text('지원자')),
-                            DataColumn(label: Text('지원일자')),
-                            DataColumn(label: Text('이력서')),
-                            DataColumn(label: Text('자기소개서')),
-                            DataColumn(label: Text('면접')),
-                            DataColumn(label: Text('최종')),
+                            DataColumn(
+                              label: Center(child: Text('이력서')),
+                            ),
+                            DataColumn(
+                              label: Center(child: Text('자기소개서')),
+                            ),
+                            DataColumn(label: Center(child: Text('면접'))),
+                            DataColumn(label: Center(child: Text('최종'))),
                           ],
                           rows: applications
                               .map(
@@ -270,44 +274,46 @@ class _ApplicantList extends StatelessWidget {
                                       ),
                                     ),
                                     DataCell(
-                                      Text(
-                                        _formatDate(application.appliedAt),
-                                        style: const TextStyle(
-                                          color: AppColors.subtext,
+                                      Center(
+                                        child: _TableActionButton(
+                                          label: '다운로드',
+                                          onPressed:
+                                              application.resumeUrl == null
+                                                  ? null
+                                                  : () => _launchUrl(
+                                                      application.resumeUrl!),
                                         ),
                                       ),
                                     ),
                                     DataCell(
-                                      _TableActionButton(
-                                        label: '다운로드',
-                                        onPressed: application.resumeUrl == null
-                                            ? null
-                                            : () => _launchUrl(
-                                                application.resumeUrl!),
+                                      Center(
+                                        child: _TableActionButton(
+                                          label: '다운로드',
+                                          onPressed: application
+                                                      .coverLetterUrl ==
+                                                  null
+                                              ? null
+                                              : () => _launchUrl(
+                                                  application.coverLetterUrl!),
+                                        ),
                                       ),
                                     ),
                                     DataCell(
-                                      _TableActionButton(
-                                        label: '다운로드',
-                                        onPressed: application.coverLetterUrl ==
-                                                null
-                                            ? null
-                                            : () => _launchUrl(
-                                                application.coverLetterUrl!),
+                                      Center(
+                                        child: _TableActionButton(
+                                          label: '확인',
+                                          onPressed: () => _showInterviewResult(
+                                              application, context),
+                                        ),
                                       ),
                                     ),
                                     DataCell(
-                                      _TableActionButton(
-                                        label: '확인',
-                                        onPressed: () => _showInterviewResult(
-                                            application, context),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _TableActionButton(
-                                        label: '확인',
-                                        onPressed: () => _showInterviewResult(
-                                            application, context),
+                                      Center(
+                                        child: _TableActionButton(
+                                          label: '확인',
+                                          onPressed: () => _showInterviewResult(
+                                              application, context),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -513,8 +519,4 @@ void _showInterviewResult(
       );
     },
   );
-}
-
-String _formatDate(DateTime date) {
-  return '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
