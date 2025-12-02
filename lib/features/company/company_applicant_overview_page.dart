@@ -193,13 +193,18 @@ class _ApplicantList extends StatelessWidget {
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-          child: Card(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            elevation: 4,
-            shadowColor: Colors.black26.withOpacity(0.05),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -233,18 +238,84 @@ class _ApplicantList extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(12),
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      itemBuilder: (context, index) {
-                        final application = applications[index];
-                        return _ApplicantEntry(
-                          application: application,
-                          onOpenInterview: () =>
-                              _showInterviewResult(application, context),
-                        );
-                      },
-                      separatorBuilder: (_, __) => const Divider(height: 24),
-                      itemCount: applications.length,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                        child: DataTable(
+                          columnSpacing: 12,
+                          headingTextStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.text,
+                          ),
+                          columns: const [
+                            DataColumn(label: Text('지원자')),
+                            DataColumn(label: Text('지원일자')),
+                            DataColumn(label: Text('이력서')),
+                            DataColumn(label: Text('자기소개서')),
+                            DataColumn(label: Text('면접')),
+                            DataColumn(label: Text('최종')),
+                          ],
+                          rows: applications
+                              .map(
+                                (application) => DataRow(
+                                  cells: [
+                                    DataCell(
+                                      Text(
+                                        application.applicantName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        _formatDate(application.appliedAt),
+                                        style: const TextStyle(
+                                          color: AppColors.subtext,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      _TableActionButton(
+                                        label: '다운로드',
+                                        onPressed: application.resumeUrl == null
+                                            ? null
+                                            : () => _launchUrl(
+                                                application.resumeUrl!),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      _TableActionButton(
+                                        label: '다운로드',
+                                        onPressed: application.coverLetterUrl ==
+                                                null
+                                            ? null
+                                            : () => _launchUrl(
+                                                application.coverLetterUrl!),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      _TableActionButton(
+                                        label: '확인',
+                                        onPressed: () => _showInterviewResult(
+                                            application, context),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      _TableActionButton(
+                                        label: '확인',
+                                        onPressed: () => _showInterviewResult(
+                                            application, context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -338,71 +409,8 @@ class _JobCard extends StatelessWidget {
   }
 }
 
-class _ApplicantEntry extends StatelessWidget {
-  const _ApplicantEntry({
-    required this.application,
-    required this.onOpenInterview,
-  });
-
-  final JobApplicationRecord application;
-  final VoidCallback onOpenInterview;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                application.applicantName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            Text(
-              _formatDate(application.appliedAt),
-              style: const TextStyle(color: AppColors.subtext),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _ActionButton(
-              label: '이력서 다운로드',
-              onPressed: application.resumeUrl == null
-                  ? null
-                  : () => _launchUrl(application.resumeUrl!),
-            ),
-            _ActionButton(
-              label: '자기소개서 다운로드',
-              onPressed: application.coverLetterUrl == null
-                  ? null
-                  : () => _launchUrl(application.coverLetterUrl!),
-            ),
-            _ActionButton(
-              label: '면접 결과 보기',
-              onPressed: onOpenInterview,
-            ),
-            _ActionButton(
-              label: '최종 평가 보기',
-              onPressed: onOpenInterview,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.label, required this.onPressed});
+class _TableActionButton extends StatelessWidget {
+  const _TableActionButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback? onPressed;
