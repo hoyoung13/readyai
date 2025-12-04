@@ -245,7 +245,7 @@ class _ApplicantList extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                         child: DataTable(
                           columnSpacing: 12,
-                          dataRowMinHeight: 64,
+                          dataRowMaxHeight: 72,
                           headingTextStyle: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.text,
