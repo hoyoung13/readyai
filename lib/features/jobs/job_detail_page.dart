@@ -187,6 +187,13 @@ class JobDetailPage extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     var dialogOpen = true;
 
+    void closeDialogIfOpen() {
+      if (dialogOpen && rootNavigator.mounted) {
+        rootNavigator.pop();
+        dialogOpen = false;
+      }
+    }
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -197,6 +204,10 @@ class JobDetailPage extends StatelessWidget {
     try {
       generated = await _questionService.generateQuestions(job);
     } on JobInterviewQuestionException catch (error) {
+      if (!context.mounted) {
+        closeDialogIfOpen();
+        return _mixQuestions(const [], category);
+      }
       messenger
         ..removeCurrentSnackBar()
         ..showSnackBar(
@@ -205,6 +216,10 @@ class JobDetailPage extends StatelessWidget {
           ),
         );
     } catch (_) {
+      if (!context.mounted) {
+        closeDialogIfOpen();
+        return _mixQuestions(const [], category);
+      }
       messenger
         ..removeCurrentSnackBar()
         ..showSnackBar(
@@ -213,10 +228,7 @@ class JobDetailPage extends StatelessWidget {
           ),
         );
     } finally {
-      if (dialogOpen && rootNavigator.mounted) {
-        rootNavigator.pop();
-        dialogOpen = false;
-      }
+      closeDialogIfOpen();
     }
 
     return _mixQuestions(generated, category);
@@ -293,6 +305,7 @@ class JobDetailPage extends StatelessWidget {
 
     Future<void> pickAttachment(
         {required bool isResume,
+        required BuildContext scope,
         required void Function(void Function()) setState}) async {
       final result = await FilePicker.platform.pickFiles(
         withData: true,
@@ -310,6 +323,9 @@ class JobDetailPage extends StatelessWidget {
       );
 
       if (result != null && result.files.isNotEmpty) {
+        if (!scope.mounted) {
+          return;
+        }
         setState(() {
           if (isResume) {
             resumeFile = result.files.first;
@@ -363,6 +379,7 @@ class JobDetailPage extends StatelessWidget {
                         fileName: resumeFile?.name,
                         onTap: () => pickAttachment(
                           isResume: true,
+                          scope: context,
                           setState: setState,
                         ),
                       ),
@@ -373,6 +390,7 @@ class JobDetailPage extends StatelessWidget {
                         fileName: coverLetterFile?.name,
                         onTap: () => pickAttachment(
                           isResume: false,
+                          scope: context,
                           setState: setState,
                         ),
                       ),
@@ -396,19 +414,17 @@ class JobDetailPage extends StatelessWidget {
                                       coverLetterFile == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content:
-                                            Text('이력서와 자기소개서를 모두 첨부해 주세요.'),
-                                      ),
+                                          content:
+                                              Text('이력서와 자기소개서를 모두 첨부해 주세요.')),
                                     );
                                     return;
                                   }
-
                                   setState(() => submitting = true);
                                   final portfolioUrl =
                                       portfolioController.text.trim();
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop();
-                                  }
+                                  Navigator.of(sheetContext).pop();
+
+                                  if (!parentContext.mounted) return;
                                   await _handleApplyInterview(
                                     parentContext,
                                     resumeFile: resumeFile!,

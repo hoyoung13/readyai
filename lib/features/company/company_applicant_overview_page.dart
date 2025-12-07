@@ -1,11 +1,14 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/jobs/job_interview_evaluation_page.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 class CompanyApplicantOverviewPage extends StatefulWidget {
   const CompanyApplicantOverviewPage({super.key});
@@ -284,7 +287,8 @@ class _ApplicantList extends StatelessWidget {
                                               application.resumeUrl == null
                                                   ? null
                                                   : () => _launchUrl(
-                                                      application.resumeUrl!),
+                                                      application.resumeUrl!,
+                                                      context),
                                         ),
                                       ),
                                     ),
@@ -292,12 +296,13 @@ class _ApplicantList extends StatelessWidget {
                                       Center(
                                         child: _TableActionButton(
                                           label: '다운로드',
-                                          onPressed: application
-                                                      .coverLetterUrl ==
-                                                  null
-                                              ? null
-                                              : () => _launchUrl(
-                                                  application.coverLetterUrl!),
+                                          onPressed:
+                                              application.coverLetterUrl == null
+                                                  ? null
+                                                  : () => _launchUrl(
+                                                      application
+                                                          .coverLetterUrl!,
+                                                      context),
                                         ),
                                       ),
                                     ),
@@ -450,13 +455,47 @@ class _TableActionButton extends StatelessWidget {
   }
 }
 
-Future<void> _launchUrl(String url) async {
-  final uri = Uri.tryParse(url);
-  if (uri == null) return;
-  if (!await canLaunchUrl(uri)) {
-    return;
+Future<void> _launchUrl(String url, BuildContext context) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  try {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('잘못된 링크입니다.')),
+      );
+      return;
+    }
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('파일을 다운로드 중입니다...')),
+    );
+
+    final ref = FirebaseStorage.instance.refFromURL(url);
+    final directory = await getApplicationDocumentsDirectory();
+    final fileName =
+        uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'downloaded_file';
+    final file = File('${directory.path}/$fileName');
+
+    await ref.writeToFile(file);
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('다운로드 완료. 파일을 여는 중입니다.')),
+    );
+
+    final result = await OpenFilex.open(file.path);
+    if (result.type != ResultType.done) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('파일을 열 수 없습니다: ${result.message}')),
+      );
+    }
+  } catch (e) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text('파일을 여는 중 오류가 발생했습니다: $e')),
+    );
   }
-  await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
 }
 
 void _showInterviewResult(
@@ -532,7 +571,7 @@ void _showInterviewResult(
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _launchUrl(videoUrl),
+                  onPressed: () => _launchUrl(videoUrl, context),
                   icon: const Icon(Icons.play_circle_outline),
                   label: const Text('녹화 영상 열기'),
                 ),
