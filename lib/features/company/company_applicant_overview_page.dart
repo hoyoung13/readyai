@@ -287,8 +287,10 @@ class _ApplicantList extends StatelessWidget {
                                               application.resumeUrl == null
                                                   ? null
                                                   : () => _launchUrl(
-                                                      application.resumeUrl!,
-                                                      context),
+                                                        application.resumeUrl!,
+                                                        context,
+                                                        openFile: false,
+                                                      ),
                                         ),
                                       ),
                                     ),
@@ -300,9 +302,11 @@ class _ApplicantList extends StatelessWidget {
                                               application.coverLetterUrl == null
                                                   ? null
                                                   : () => _launchUrl(
-                                                      application
-                                                          .coverLetterUrl!,
-                                                      context),
+                                                        application
+                                                            .coverLetterUrl!,
+                                                        context,
+                                                        openFile: false,
+                                                      ),
                                         ),
                                       ),
                                     ),
@@ -455,7 +459,17 @@ class _TableActionButton extends StatelessWidget {
   }
 }
 
-Future<void> _launchUrl(String url, BuildContext context) async {
+String sanitizeFileName(String raw) {
+  final noParams = raw.split('?').first;
+  final last = noParams.split('/').last;
+  return last.replaceAll(RegExp(r'[\/\\]'), '_');
+}
+
+Future<void> _launchUrl(
+  String url,
+  BuildContext context, {
+  bool openFile = true,
+}) async {
   final messenger = ScaffoldMessenger.of(context);
 
   try {
@@ -473,27 +487,36 @@ Future<void> _launchUrl(String url, BuildContext context) async {
 
     final ref = FirebaseStorage.instance.refFromURL(url);
     final directory = await getApplicationDocumentsDirectory();
-    final fileName =
-        uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'downloaded_file';
+
+    final fileName = sanitizeFileName(uri.pathSegments.last);
     final file = File('${directory.path}/$fileName');
 
     await ref.writeToFile(file);
 
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(content: Text('다운로드 완료. 파일을 여는 중입니다.')),
-    );
 
-    final result = await OpenFilex.open(file.path);
-    if (result.type != ResultType.done) {
+    if (openFile) {
       messenger.showSnackBar(
-        SnackBar(content: Text('파일을 열 수 없습니다: ${result.message}')),
+        const SnackBar(content: Text('다운로드 완료. 파일을 여는 중입니다.')),
+      );
+
+      final result = await OpenFilex.open(file.path);
+      if (result.type != ResultType.done) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('파일을 열 수 없습니다: ${result.message}')),
+        );
+      }
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text('다운로드가 완료되었습니다: ${file.path}')),
       );
     }
-  } catch (e) {
+  } catch (e, stack) {
+    print(' STORAGE DOWNLOAD ERROR: $e');
+    print(stack);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      SnackBar(content: Text('파일을 여는 중 오류가 발생했습니다: $e')),
+      SnackBar(content: Text('파일을 처리하는 중 오류가 발생했습니다: $e')),
     );
   }
 }
