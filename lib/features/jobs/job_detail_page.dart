@@ -328,12 +328,14 @@ class JobDetailPage extends StatelessWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         builder: (sheetContext) {
+          final viewInsets = MediaQuery.of(sheetContext).viewInsets.bottom;
+          final viewPadding = MediaQuery.of(sheetContext).padding.bottom;
           var submitting = false;
           return Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
-              bottom: 20 + MediaQuery.of(sheetContext).viewInsets.bottom,
+              bottom: 20 + viewInsets + viewPadding,
               top: 20,
             ),
             child: StatefulBuilder(
