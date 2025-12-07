@@ -363,9 +363,6 @@ class _JobInterviewEvaluationPageState
                     style: const TextStyle(height: 1.6),
                   ),
                 ),
-              if (hasFaceAnalysis) const SizedBox(height: 16),
-              if (hasFaceAnalysis)
-                _FaceAnalysisCard(faceAnalysis: _result.faceAnalysis!),
               const SizedBox(height: 24),
               if (widget.args.portfolioUrl != null &&
                   widget.args.portfolioUrl!.trim().isNotEmpty)
@@ -539,61 +536,6 @@ class _QuestionList extends StatelessWidget {
               ),
             )
             .toList(growable: false),
-      ),
-    );
-  }
-}
-
-class _FaceAnalysisCard extends StatelessWidget {
-  const _FaceAnalysisCard({required this.faceAnalysis});
-
-  final FaceAnalysisResult faceAnalysis;
-
-  @override
-  Widget build(BuildContext context) {
-    return _InfoSection(
-      title: '표정 분석',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _FaceRow(label: '웃음', value: faceAnalysis.smileScore),
-          _FaceRow(label: '스트레스 지수', value: faceAnalysis.stressScore),
-          if (faceAnalysis.blinkCount != null)
-            Text('눈 깜빡임: ${faceAnalysis.blinkCount}회'),
-        ],
-      ),
-    );
-  }
-}
-
-class _FaceRow extends StatelessWidget {
-  const _FaceRow({required this.label, required this.value});
-
-  final String label;
-  final double value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          SizedBox(width: 110, child: Text(label)),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: value.clamp(0, 1).toDouble(),
-                minHeight: 10,
-                backgroundColor: AppColors.primarySoft,
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text('${(value * 100).toStringAsFixed(0)}%'),
-        ],
       ),
     );
   }
