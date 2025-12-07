@@ -30,6 +30,27 @@ class InterviewFlowLauncher {
     );
   }
 
+  Future<InterviewRecordingResult?> recordInterview({
+    required BuildContext context,
+    required JobCategory category,
+    required InterviewMode mode,
+    required List<String> questions,
+  }) async {
+    final granted = await _ensureCameraPermission(context);
+    if (!granted || !context.mounted) {
+      return null;
+    }
+
+    return context.push<InterviewRecordingResult>(
+      '/interview/camera',
+      extra: InterviewCameraArgs(
+        category: category,
+        mode: mode,
+        questions: questions,
+      ),
+    );
+  }
+
   Future<void> _startInterview(
     BuildContext context,
     JobCategory category,

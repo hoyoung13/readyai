@@ -554,7 +554,8 @@ class _ApplicationTile extends StatelessWidget {
                 child: _ActionPill(
                   label: application.coverLetterFileName ?? '확인',
                   onTap: application.coverLetterUrl != null
-                      ? () => _launchResume(application.coverLetterUrl!, context)
+                      ? () =>
+                          _launchResume(application.coverLetterUrl!, context)
                       : null,
                 ),
               ),
@@ -583,7 +584,7 @@ class _ApplicationTile extends StatelessWidget {
       );
       return;
     }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
   }
 
   void _showApplicationDetail(BuildContext context) {

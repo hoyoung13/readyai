@@ -28,6 +28,7 @@ import 'package:ai/features/community/community_post_detail_page.dart';
 import 'package:ai/features/jobs/job_post_form_page.dart';
 import 'package:ai/features/jobs/job_post_management_page.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
+import 'package:ai/features/jobs/job_interview_evaluation_page.dart';
 
 final ValueNotifier<String?> userRoleCache = ValueNotifier<String?>(null);
 
@@ -218,6 +219,18 @@ final router = GoRouter(
         }
         return const Scaffold(
           body: Center(child: Text('면접 결과를 불러오지 못했습니다.')),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/interview/job-evaluation',
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is JobInterviewEvaluationArgs) {
+          return JobInterviewEvaluationPage(args: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('면접 평가 정보를 불러오지 못했습니다.')),
         );
       },
     ),

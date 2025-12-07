@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ai/features/camera/interview_models.dart';
+import 'package:ai/features/jobs/job_interview_evaluation_page.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 
@@ -460,6 +463,26 @@ void _showInterviewResult(
   JobApplicationRecord application,
   BuildContext context,
 ) {
+  InterviewRecordingResult? storedResult;
+  if (application.interviewResult != null) {
+    storedResult =
+        InterviewRecordingResult.fromMap(application.interviewResult);
+  }
+
+  if (storedResult != null) {
+    final resultWithVideo = storedResult.copyWith(
+      videoUrl: storedResult.videoUrl ?? application.interviewVideoUrl,
+    );
+
+    context.push(
+      '/interview/job-evaluation',
+      extra: JobInterviewEvaluationArgs.fromApplication(
+        application: application,
+        result: resultWithVideo,
+      ),
+    );
+    return;
+  }
   final videoUrl = application.interviewVideoUrl;
   final hasSummary = application.interviewSummary?.isNotEmpty ?? false;
   if (videoUrl == null && !hasSummary) {

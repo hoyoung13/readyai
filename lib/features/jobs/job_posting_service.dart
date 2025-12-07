@@ -195,8 +195,11 @@ class JobPostingService {
     String? coverLetterUrl,
     String? coverLetterFileName,
     String? memo,
+    String? portfolioUrl,
     String? interviewVideoUrl,
     String? interviewSummary,
+    List<String>? interviewQuestions,
+    Map<String, dynamic>? interviewResult,
   }) async {
     final trimmedName = applicantName.trim();
     if (trimmedName.isEmpty) {
@@ -218,8 +221,11 @@ class JobPostingService {
       'coverLetterUrl': coverLetterUrl?.trim(),
       'coverLetterFileName': coverLetterFileName?.trim(),
       'memo': memo?.trim(),
+      'portfolioUrl': portfolioUrl?.trim(),
       'interviewVideoUrl': interviewVideoUrl?.trim(),
       'interviewSummary': interviewSummary?.trim(),
+      'interviewQuestions': interviewQuestions,
+      'interviewResult': interviewResult,
     }..removeWhere((key, value) =>
         value == null || (value is String && value.trim().isEmpty));
 
@@ -248,8 +254,11 @@ class JobPostingService {
       coverLetterUrl: coverLetterUrl?.trim(),
       coverLetterFileName: coverLetterFileName?.trim(),
       memo: memo?.trim(),
+      portfolioUrl: portfolioUrl?.trim(),
       interviewVideoUrl: interviewVideoUrl?.trim(),
       interviewSummary: interviewSummary?.trim(),
+      interviewQuestions: interviewQuestions ?? const <String>[],
+      interviewResult: interviewResult,
       jobTitle: jobTitle,
       jobCompany: jobCompany,
     );
@@ -591,8 +600,11 @@ class JobApplicationRecord {
     this.coverLetterUrl,
     this.coverLetterFileName,
     this.memo,
+    this.portfolioUrl,
     this.interviewVideoUrl,
     this.interviewSummary,
+    this.interviewQuestions = const <String>[],
+    this.interviewResult,
     this.jobTitle = '',
     this.jobCompany = '',
   });
@@ -609,8 +621,11 @@ class JobApplicationRecord {
   final String? coverLetterUrl;
   final String? coverLetterFileName;
   final String? memo;
+  final String? portfolioUrl;
   final String? interviewVideoUrl;
   final String? interviewSummary;
+  final List<String> interviewQuestions;
+  final Map<String, dynamic>? interviewResult;
   final String jobTitle;
   final String jobCompany;
 
@@ -635,8 +650,12 @@ class JobApplicationRecord {
       coverLetterUrl: (data['coverLetterUrl'] as String?),
       coverLetterFileName: (data['coverLetterFileName'] as String?),
       memo: (data['memo'] as String?),
+      portfolioUrl: (data['portfolioUrl'] as String?),
       interviewVideoUrl: (data['interviewVideoUrl'] as String?),
       interviewSummary: (data['interviewSummary'] as String?),
+      interviewQuestions:
+          _normalizeList(data['interviewQuestions']).toList(growable: false),
+      interviewResult: data['interviewResult'] as Map<String, dynamic>?,
       jobTitle: (data['jobTitle'] ?? '').toString(),
       jobCompany: (data['jobCompany'] ?? '').toString(),
     );

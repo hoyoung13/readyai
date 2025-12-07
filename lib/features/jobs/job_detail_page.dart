@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import '../tabs/tabs_shared.dart';
 import 'job_interview_question_service.dart';
@@ -10,6 +11,7 @@ import 'job_activity.dart';
 import 'job_activity_service.dart';
 import 'job_posting.dart';
 import 'job_posting_service.dart';
+import 'job_interview_evaluation_page.dart';
 import '../camera/interview_flow_launcher.dart';
 import '../camera/interview_models.dart';
 import '../camera/interview_question_bank.dart';
@@ -25,8 +27,6 @@ class JobDetailPage extends StatelessWidget {
       InterviewFlowLauncher();
   static final JobActivityService _activityService = JobActivityService();
   static final JobPostingService _postingService = JobPostingService();
-
-  
 
   @override
   Widget build(BuildContext context) {
@@ -176,6 +176,93 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
+  Future<List<String>> _prepareInterviewQuestions(
+    BuildContext context,
+    JobCategory category,
+  ) async {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.of(context);
+    var dialogOpen = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    List<String> generated = const [];
+    try {
+      generated = await _questionService.generateQuestions(job);
+    } on JobInterviewQuestionException catch (error) {
+      messenger
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('${error.message} 기본 질문으로 진행할게요.'),
+          ),
+        );
+    } catch (_) {
+      messenger
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('맞춤 질문을 준비하지 못했습니다. 기본 질문으로 진행할게요.'),
+          ),
+        );
+    } finally {
+      if (dialogOpen && rootNavigator.mounted) {
+        rootNavigator.pop();
+        dialogOpen = false;
+      }
+    }
+
+    return _mixQuestions(generated, category);
+  }
+
+  List<String> _mixQuestions(List<String> generated, JobCategory category) {
+    final presetQuestions = job.interviewQuestions
+        .map((q) => q.trim())
+        .where((q) => q.isNotEmpty)
+        .toList(growable: false);
+
+    final pool = <String>[];
+    final seen = <String>{};
+
+    for (final question in [...presetQuestions, ...generated]) {
+      if (seen.add(question)) {
+        pool.add(question);
+      }
+    }
+
+    final fallback = InterviewQuestionBank.getQuestions(
+      category: category,
+      mode: InterviewMode.ai,
+    );
+
+    for (final question in fallback) {
+      if (pool.length >= _questionService.questionCount) {
+        break;
+      }
+      if (seen.add(question)) {
+        pool.add(question);
+      }
+    }
+
+    if (pool.length > _questionService.questionCount) {
+      pool.shuffle();
+      return pool.sublist(0, _questionService.questionCount);
+    }
+
+    if (pool.length < _questionService.questionCount && fallback.isNotEmpty) {
+      while (pool.length < _questionService.questionCount) {
+        pool.add(fallback[pool.length % fallback.length]);
+      }
+    }
+
+    pool.shuffle();
+    return pool;
+  }
+
   Future<void> _handleApply(BuildContext context) async {
     final parentContext = context;
     final postId = job.postId;
@@ -199,6 +286,7 @@ class JobDetailPage extends StatelessWidget {
 
     PlatformFile? resumeFile;
     PlatformFile? coverLetterFile;
+    final portfolioController = TextEditingController();
 
     Future<void> pickAttachment(
         {required bool isResume,
@@ -229,195 +317,134 @@ class JobDetailPage extends StatelessWidget {
       }
     }
 
-    Future<String> uploadAttachment(PlatformFile file, String prefix) async {
-      final bytes = file.bytes;
-      if (bytes == null) {
-        throw Exception('파일을 불러올 수 없습니다. 다시 선택해 주세요.');
-      }
-
-      final storageRef = FirebaseStorage.instance.ref().child(
-            'applications/$postId/${user.uid}/$prefix-${DateTime.now().millisecondsSinceEpoch}-${file.name}',
-          );
-
-      final metadata = SettableMetadata(
-        contentType: file.extension != null
-            ? 'application/${file.extension}'
-            : 'application/octet-stream',
-        customMetadata: {
-          'originalName': file.name,
-          'jobPostId': postId,
-          'applicantUid': user.uid,
-        },
-      );
-
-      await storageRef.putData(bytes, metadata);
-      return storageRef.getDownloadURL();
-    }
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        var submitting = false;
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            bottom: 20 + MediaQuery.of(sheetContext).viewInsets.bottom,
-            top: 20,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'AI 지원하기',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+    try {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetContext) {
+          var submitting = false;
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: 20 + MediaQuery.of(sheetContext).viewInsets.bottom,
+              top: 20,
+            ),
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'AI 지원 준비',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '이력서와 자기소개서를 파일로 제출하고, 카메라 AI 면접으로 답변을 녹화하세요.',
-                      style: TextStyle(color: AppColors.subtext),
-                    ),
-                    const SizedBox(height: 16),
-                    _AttachmentPickerTile(
-                      title: '이력서 파일 첨부',
-                      description: 'PDF, DOC, PPT 등 최대 20MB 파일을 올려주세요.',
-                      fileName: resumeFile?.name,
-                      onTap: () => pickAttachment(
-                        isResume: true,
-                        setState: setState,
+                      const SizedBox(height: 8),
+                      const Text(
+                        '필수 서류를 첨부하고 카메라 AI 질문 면접을 시작하세요. 면접 평가 페이지에서 최종 지원을 완료할 수 있습니다.',
+                        style: TextStyle(color: AppColors.subtext),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _AttachmentPickerTile(
-                      title: '자기소개서 파일 첨부',
-                      description: '경험과 강점을 담은 파일을 추가로 제출해 주세요.',
-                      fileName: coverLetterFile?.name,
-                      onTap: () => pickAttachment(
-                        isResume: false,
-                        setState: setState,
+                      const SizedBox(height: 16),
+                      _AttachmentPickerTile(
+                        title: '이력서 파일 첨부',
+                        description: 'PDF, DOC, PPT 등 최대 20MB 파일을 올려주세요.',
+                        fileName: resumeFile?.name,
+                        onTap: () => pickAttachment(
+                          isResume: true,
+                          setState: setState,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    OutlinedButton.icon(
-                      onPressed: submitting
-                          ? null
-                          : () async {
-                              if (context.mounted) {
-                                Navigator.of(context).pop();
-                              }
-                              await _handleStartInterview(parentContext);
-                            },
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                        side: const BorderSide(color: AppColors.primary),
+                      const SizedBox(height: 12),
+                      _AttachmentPickerTile(
+                        title: '자기소개서 파일 첨부',
+                        description: '경험과 강점을 담은 파일을 추가로 제출해 주세요.',
+                        fileName: coverLetterFile?.name,
+                        onTap: () => pickAttachment(
+                          isResume: false,
+                          setState: setState,
+                        ),
                       ),
-                      icon: const Icon(Icons.videocam_outlined),
-                      label: const Text('카메라 AI 질문 면접 시작'),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      '카메라로 답변을 녹화하면 AI가 질문 면접을 도와줘요.',
-                      style: TextStyle(color: AppColors.subtext),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: submitting
-                            ? null
-                            : () async {
-                                if (resumeFile == null ||
-                                    coverLetterFile == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text('이력서와 자기소개서 파일을 모두 첨부해 주세요.'),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                setState(() => submitting = true);
-
-                                try {
-                                  final resumeUrl = await uploadAttachment(
-                                    resumeFile!,
-                                    'resume',
-                                  );
-                                  final coverLetterUrl = await uploadAttachment(
-                                    coverLetterFile!,
-                                    'cover-letter',
-                                  );
-                                  final applicantName =
-                                      await _resolveApplicantName(user);
-                                  await _postingService.submitApplication(
-                                    jobPostId: postId,
-                                    ownerUid: ownerUid,
-                                    jobTitle: job.title,
-                                    jobCompany: job.companyLabel,
-                                    applicantUid: user.uid,
-                                    applicantName: applicantName,
-                                    resumeUrl: resumeUrl,
-                                    resumeFileName: resumeFile?.name,
-                                    coverLetterUrl: coverLetterUrl,
-                                    coverLetterFileName: coverLetterFile?.name,
-                                  );
-                                  try {
-                                    await _activityService
-                                        .recordApplication(job);
-                                  } on JobActivityAuthException {}
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop();
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: portfolioController,
+                        decoration: const InputDecoration(
+                          labelText: '포트폴리오/링크 (선택)',
+                          hintText: 'GitHub, 노션, 블로그 등 주소를 남겨주세요.',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: submitting
+                              ? null
+                              : () async {
+                                  if (resumeFile == null ||
+                                      coverLetterFile == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text(
-                                            '지원서가 접수되었어요. AI 면접 결과를 기다려 주세요!'),
+                                        content:
+                                            Text('이력서와 자기소개서를 모두 첨부해 주세요.'),
                                       ),
                                     );
+                                    return;
                                   }
-                                } catch (error) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('지원 중 문제가 발생했습니다: $error'),
-                                    ),
+
+                                  setState(() => submitting = true);
+                                  final portfolioUrl =
+                                      portfolioController.text.trim();
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                  await _handleApplyInterview(
+                                    parentContext,
+                                    resumeFile: resumeFile!,
+                                    coverLetterFile: coverLetterFile!,
+                                    portfolioUrl: portfolioUrl.isEmpty
+                                        ? null
+                                        : portfolioUrl,
                                   );
-                                } finally {
-                                  setState(() => submitting = false);
-                                }
-                              },
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                },
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            side: const BorderSide(color: AppColors.primary),
+                          ),
+                          icon: const Icon(Icons.videocam_outlined),
+                          label: submitting
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('카메라 AI 질문 면접 시작'),
                         ),
-                        child: submitting
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('AI 분석과 함께 지원하기'),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
+                      const SizedBox(height: 10),
+                      const Text(
+                        '면접이 끝나면 AI 평가 결과 페이지에서 지원을 완료할 수 있어요.',
+                        style: TextStyle(color: AppColors.subtext),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      );
+    } finally {
+      portfolioController.dispose();
+    }
   }
 
   Future<String> _resolveApplicantName(User user) async {
@@ -445,51 +472,7 @@ class JobDetailPage extends StatelessWidget {
       subtitle: job.title,
     );
 
-    final rootNavigator = Navigator.of(context, rootNavigator: true);
-    final messenger = ScaffoldMessenger.of(context);
-    var dialogOpen = true;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) {
-        return const Center(child: CircularProgressIndicator());
-      },
-    );
-
-    List<String> questions;
-    try {
-      questions = await _questionService.generateQuestions(job);
-    } on JobInterviewQuestionException catch (error) {
-      questions = InterviewQuestionBank.getQuestions(
-        category: category,
-        mode: InterviewMode.ai,
-      );
-      messenger
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text('${error.message} 기본 질문으로 진행할게요.'),
-          ),
-        );
-    } catch (_) {
-      questions = InterviewQuestionBank.getQuestions(
-        category: category,
-        mode: InterviewMode.ai,
-      );
-      messenger
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('맞춤 질문을 준비하지 못했습니다. 기본 질문으로 진행할게요.'),
-          ),
-        );
-    } finally {
-      if (dialogOpen && rootNavigator.mounted) {
-        rootNavigator.pop();
-        dialogOpen = false;
-      }
-    }
+    final questions = await _prepareInterviewQuestions(context, category);
 
     if (!context.mounted) {
       return;
@@ -500,6 +483,45 @@ class JobDetailPage extends StatelessWidget {
       category: category,
       mode: InterviewMode.ai,
       questions: questions,
+    );
+  }
+
+  Future<void> _handleApplyInterview(
+    BuildContext context, {
+    required PlatformFile resumeFile,
+    required PlatformFile coverLetterFile,
+    String? portfolioUrl,
+  }) async {
+    final category = JobCategory(
+      title: job.companyLabel,
+      subtitle: job.title,
+    );
+
+    final questions = await _prepareInterviewQuestions(context, category);
+    if (!context.mounted) {
+      return;
+    }
+
+    final result = await _interviewLauncher.recordInterview(
+      context: context,
+      category: category,
+      mode: InterviewMode.ai,
+      questions: questions,
+    );
+    if (!context.mounted || result == null) {
+      return;
+    }
+
+    await context.push(
+      '/interview/job-evaluation',
+      extra: JobInterviewEvaluationArgs(
+        job: job,
+        result: result,
+        questions: questions,
+        resumeFile: resumeFile,
+        coverLetterFile: coverLetterFile,
+        portfolioUrl: portfolioUrl,
+      ),
     );
   }
 
