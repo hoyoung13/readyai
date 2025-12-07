@@ -180,6 +180,9 @@ class JobDetailPage extends StatelessWidget {
     BuildContext context,
     JobCategory category,
   ) async {
+    if (!context.mounted) {
+      return _mixQuestions(const [], category);
+    }
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final messenger = ScaffoldMessenger.of(context);
     var dialogOpen = true;
@@ -492,6 +495,9 @@ class JobDetailPage extends StatelessWidget {
     required PlatformFile coverLetterFile,
     String? portfolioUrl,
   }) async {
+    if (!context.mounted) {
+      return;
+    }
     final category = JobCategory(
       title: job.companyLabel,
       subtitle: job.title,
