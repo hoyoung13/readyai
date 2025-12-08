@@ -94,6 +94,8 @@ flutter:
     - assets/keys/service-account.json
 
     - assets/report.png
+    - assets/regions.json
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

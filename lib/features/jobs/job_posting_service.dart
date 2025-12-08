@@ -319,7 +319,9 @@ class JobPostDraft {
     required this.qualification,
     required this.preferred,
     required this.process,
-    required this.location,
+    required this.locationCity,
+    required this.locationDistrict,
+    required this.locationNeighborhood,
     required this.workHours,
     required this.salary,
     required this.benefits,
@@ -352,7 +354,9 @@ class JobPostDraft {
   final String qualification;
   final String preferred;
   final String process;
-  final String location;
+  final String locationCity;
+  final String locationDistrict;
+  final String locationNeighborhood;
   final String workHours;
   final String salary;
   final String benefits;
@@ -376,6 +380,11 @@ class JobPostDraft {
 
   Map<String, dynamic> toFirestore({required String authorId}) {
     final active = deadline.isAfter(DateTime.now());
+    final location = _buildLocationLabel(
+      city: locationCity,
+      district: locationDistrict,
+      neighborhood: locationNeighborhood,
+    );
     return {
       'title': title,
       'category': category,
@@ -388,6 +397,9 @@ class JobPostDraft {
       'preferred': preferred,
       'process': process,
       'location': location,
+      'locationCity': locationCity,
+      'locationDistrict': locationDistrict,
+      'locationNeighborhood': locationNeighborhood,
       'workHours': workHours,
       'salary': salary,
       'benefits': benefits,
@@ -429,6 +441,9 @@ class JobPostRecord {
     required this.preferred,
     required this.process,
     required this.location,
+    required this.locationCity,
+    required this.locationDistrict,
+    required this.locationNeighborhood,
     required this.workHours,
     required this.salary,
     required this.benefits,
@@ -465,6 +480,9 @@ class JobPostRecord {
   final String preferred;
   final String process;
   final String location;
+  final String locationCity;
+  final String locationDistrict;
+  final String locationNeighborhood;
   final String workHours;
   final String salary;
   final String benefits;
@@ -487,7 +505,12 @@ class JobPostRecord {
   final String blockReason;
 
   String get company => companyName;
-  String get region => location;
+  String get region => _buildLocationLabel(
+        city: locationCity,
+        district: locationDistrict,
+        neighborhood: locationNeighborhood,
+        fallback: location,
+      );
   DateTime get applicationStartDate => startDate ?? createdAt;
   DateTime get applicationEndDate => deadline;
   String get url => applyMethod;
@@ -530,6 +553,9 @@ class JobPostRecord {
         preferred: (data['preferred'] ?? '').toString(),
         process: (data['process'] ?? '').toString(),
         location: (data['location'] ?? data['region'] ?? '').toString(),
+        locationCity: (data['locationCity'] ?? '').toString(),
+        locationDistrict: (data['locationDistrict'] ?? '').toString(),
+        locationNeighborhood: (data['locationNeighborhood'] ?? '').toString(),
         workHours: (data['workHours'] ?? '').toString(),
         salary: (data['salary'] ?? '').toString(),
         benefits: (data['benefits'] ?? '').toString(),
@@ -560,7 +586,12 @@ class JobPostRecord {
     return JobPosting(
       title: title,
       company: companyName,
-      region: location,
+      region: _buildLocationLabel(
+        city: locationCity,
+        district: locationDistrict,
+        neighborhood: locationNeighborhood,
+        fallback: location,
+      ),
       url: applyMethod,
       postId: id,
       ownerUid: authorId,
@@ -703,4 +734,22 @@ List<String> _normalizeList(dynamic value) {
 
 String _formatDate(DateTime date) {
   return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+}
+
+String _buildLocationLabel({
+  String? city,
+  String? district,
+  String? neighborhood,
+  String fallback = '',
+}) {
+  final parts = [city, district, neighborhood]
+      .map((part) => part?.trim() ?? '')
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+
+  if (parts.isNotEmpty) {
+    return parts.join(' ');
+  }
+
+  return fallback;
 }

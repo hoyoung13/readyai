@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/jobs/job_interview_evaluation_page.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
+import 'package:ai/features/notifications/notification_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 import 'package:ai/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,6 +25,7 @@ class CompanyApplicantOverviewPage extends StatefulWidget {
 class _CompanyApplicantOverviewPageState
     extends State<CompanyApplicantOverviewPage> {
   final JobPostingService _service = JobPostingService();
+  final NotificationService _notificationService = NotificationService();
   JobPostRecord? _selectedJob;
 
   @override
@@ -67,6 +69,7 @@ class _CompanyApplicantOverviewPageState
               service: _service,
               ownerUid: user.uid,
               selectedJob: _selectedJob,
+              notificationService: _notificationService,
             ),
           ),
         ],
@@ -158,11 +161,13 @@ class _ApplicantList extends StatelessWidget {
     required this.service,
     required this.ownerUid,
     required this.selectedJob,
+    required this.notificationService,
   });
 
   final JobPostingService service;
   final String ownerUid;
   final JobPostRecord? selectedJob;
+  final NotificationService notificationService;
 
   @override
   Widget build(BuildContext context) {
@@ -188,10 +193,17 @@ class _ApplicantList extends StatelessWidget {
 
         final applications =
             List<JobApplicationRecord>.from(snapshot.data ?? const []);
-        applications.sort(
+        final pendingApplications = applications
+            .where(
+              (application) =>
+                  application.status != JobApplicationStatus.accepted &&
+                  application.status != JobApplicationStatus.rejected,
+            )
+            .toList();
+        pendingApplications.sort(
           (a, b) => b.appliedAt.compareTo(a.appliedAt),
         );
-        if (applications.isEmpty) {
+        if (pendingApplications.isEmpty) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(20),
@@ -269,7 +281,7 @@ class _ApplicantList extends StatelessWidget {
                             ),
                             DataColumn(label: Center(child: Text('면접'))),
                           ],
-                          rows: applications
+                          rows: pendingApplications
                               .map(
                                 (application) => DataRow(
                                   cells: [
@@ -320,6 +332,7 @@ class _ApplicantList extends StatelessWidget {
                                             application,
                                             context,
                                             service,
+                                            notificationService,
                                           ),
                                         ),
                                       ),
@@ -534,6 +547,7 @@ void _showInterviewResult(
   JobApplicationRecord application,
   BuildContext context,
   JobPostingService service,
+  NotificationService notificationService,
 ) {
   InterviewRecordingResult? storedResult;
   if (application.interviewResult != null) {
@@ -571,6 +585,7 @@ void _showInterviewResult(
         hasSummary: hasSummary,
         videoUrl: videoUrl,
         service: service,
+        notificationService: notificationService,
       );
     },
   );
@@ -582,12 +597,14 @@ class _InterviewResultSheet extends StatefulWidget {
     required this.hasSummary,
     required this.videoUrl,
     required this.service,
+    required this.notificationService,
   });
 
   final JobApplicationRecord application;
   final bool hasSummary;
   final String? videoUrl;
   final JobPostingService service;
+  final NotificationService notificationService;
 
   @override
   State<_InterviewResultSheet> createState() => _InterviewResultSheetState();
@@ -598,6 +615,34 @@ class _InterviewResultSheetState extends State<_InterviewResultSheet> {
   bool _isInitializing = false;
   String? _errorMessage;
   bool _isUpdating = false;
+
+  Future<void> _sendStatusNotification(String status) async {
+    final applicantUid = widget.application.applicantUid.trim();
+    if (applicantUid.isEmpty) {
+      return;
+    }
+
+    final label = status == JobApplicationStatus.accepted ? '1차 합격' : '불합격';
+    final jobTitle = widget.application.jobTitle.isNotEmpty
+        ? widget.application.jobTitle
+        : '채용공고';
+    final company = widget.application.jobCompany.isNotEmpty
+        ? '${widget.application.jobCompany} '
+        : '';
+
+    await widget.notificationService.sendNotification(
+      userId: applicantUid,
+      type: 'application_status',
+      title: '$company$jobTitle $label 안내',
+      message:
+          '지원하신 ${company.isEmpty ? '' : company}$jobTitle 공고의 1차 결과가 "$label" 처리되었습니다.',
+      data: {
+        'jobPostId': widget.application.jobPostId,
+        'applicationId': widget.application.id,
+        'status': status,
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -664,6 +709,7 @@ class _InterviewResultSheetState extends State<_InterviewResultSheet> {
         widget.application.id,
         status,
       );
+      await _sendStatusNotification(status);
       if (!mounted) return;
       Navigator.of(context).pop();
       final label = status == JobApplicationStatus.accepted ? '1차 합격' : '불합격';

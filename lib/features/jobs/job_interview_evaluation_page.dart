@@ -12,6 +12,7 @@ import 'package:ai/features/camera/services/interview_video_storage_service.dart
 import 'package:ai/features/jobs/job_activity_service.dart';
 import 'package:ai/features/jobs/job_posting.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
+import 'package:ai/features/notifications/notification_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
 import 'package:video_player/video_player.dart';
 
@@ -28,6 +29,8 @@ class JobInterviewEvaluationArgs {
     this.jobCompany,
     this.applicationId,
     this.jobPostId,
+    this.applicantUid,
+    this.applicantName,
     this.isEmployerView = false,
   });
 
@@ -44,6 +47,8 @@ class JobInterviewEvaluationArgs {
       portfolioUrl: application.portfolioUrl,
       applicationId: application.id,
       jobPostId: application.jobPostId,
+      applicantUid: application.applicantUid,
+      applicantName: application.applicantName,
       isEmployerView: true,
     );
   }
@@ -59,6 +64,8 @@ class JobInterviewEvaluationArgs {
   final String? jobCompany;
   final String? applicationId;
   final String? jobPostId;
+  final String? applicantUid;
+  final String? applicantName;
   final bool isEmployerView;
 
   bool get canSubmitApplication =>
@@ -97,6 +104,7 @@ class _JobInterviewEvaluationPageState
   Future<void>? _initializeVideoFuture;
   static final JobPostingService _postingService = JobPostingService();
   static final JobActivityService _activityService = JobActivityService();
+  final NotificationService _notificationService = NotificationService();
   bool _isUpdatingStatus = false;
 
   @override
@@ -247,6 +255,7 @@ class _JobInterviewEvaluationPageState
         applicationId,
         status,
       );
+      await _sendStatusNotification(status);
       if (!mounted) return;
       final label = status == JobApplicationStatus.accepted ? '1차 합격' : '불합격';
       ScaffoldMessenger.of(context).showSnackBar(
@@ -264,6 +273,34 @@ class _JobInterviewEvaluationPageState
         setState(() => _isUpdatingStatus = false);
       }
     }
+  }
+
+  Future<void> _sendStatusNotification(String status) async {
+    final applicantUid = widget.args.applicantUid?.trim();
+    if (applicantUid == null || applicantUid.isEmpty) {
+      return;
+    }
+
+    final label = status == JobApplicationStatus.accepted ? '1차 합격' : '불합격';
+    final jobTitle = widget.args.jobTitle?.isNotEmpty == true
+        ? widget.args.jobTitle!
+        : widget.args.displayJobTitle;
+    final company = widget.args.jobCompany?.isNotEmpty == true
+        ? '${widget.args.jobCompany} '
+        : '';
+
+    await _notificationService.sendNotification(
+      userId: applicantUid,
+      type: 'application_status',
+      title: '$company$jobTitle $label 안내',
+      message:
+          '지원하신 ${company.isEmpty ? '' : company}$jobTitle 공고의 1차 결과가 "$label" 처리되었습니다.',
+      data: {
+        'jobPostId': widget.args.jobPostId,
+        'applicationId': widget.args.applicationId,
+        'status': status,
+      },
+    );
   }
 
   Future<String> _uploadAttachment({

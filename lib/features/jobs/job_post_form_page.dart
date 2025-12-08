@@ -1,6 +1,8 @@
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import 'company_route_guard.dart';
 import 'job_posting_service.dart';
 import '../tabs/tabs_shared.dart';
@@ -26,7 +28,6 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   final _qualificationCtl = TextEditingController();
   final _preferredCtl = TextEditingController();
   final _processCtl = TextEditingController();
-  final _locationCtl = TextEditingController();
   final _workHoursCtl = TextEditingController();
   final _salaryCtl = TextEditingController();
   final _benefitsCtl = TextEditingController();
@@ -42,12 +43,22 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   DateTime? _startDate;
   DateTime? _deadline;
   bool _submitting = false;
+  bool _loadingRegions = true;
+  Map<String, dynamic> _regions = const {};
+  String? _selectedCity;
+  String? _selectedDistrict;
+  String? _selectedNeighborhood;
+
+  String? _initialCity;
+  String? _initialDistrict;
+  String? _initialNeighborhood;
 
   final JobPostingService _service = JobPostingService();
 
   @override
   void initState() {
     super.initState();
+    _loadRegions();
     final existing = widget.existing;
     if (existing != null) {
       _titleCtl.text = existing.title;
@@ -60,7 +71,6 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _qualificationCtl.text = existing.qualification;
       _preferredCtl.text = existing.preferred;
       _processCtl.text = existing.process;
-      _locationCtl.text = existing.location;
       _workHoursCtl.text = existing.workHours;
       _salaryCtl.text = existing.salary;
       _benefitsCtl.text = existing.benefits;
@@ -74,6 +84,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _additionalNotesCtl.text = existing.additionalNotes;
       _startDate = existing.startDate ?? existing.createdAt;
       _deadline = existing.deadline;
+      _setInitialLocation(existing);
       _setupInterviewQuestionControllers(existing.interviewQuestions);
     } else {
       _setupInterviewQuestionControllers(const []);
@@ -93,6 +104,122 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     }
   }
 
+  Future<void> _loadRegions() async {
+    try {
+      final raw = await rootBundle.loadString('assets/regions.json');
+      final decoded = json.decode(raw);
+      if (decoded is Map<String, dynamic>) {
+        setState(() {
+          _regions = decoded;
+        });
+        _applyInitialLocationSelection();
+      }
+    } catch (_) {
+      _showSnack('지역 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRegions = false);
+      }
+    }
+  }
+
+  void _setInitialLocation(JobPostRecord existing) {
+    _initialCity = existing.locationCity.trim().isNotEmpty
+        ? existing.locationCity.trim()
+        : null;
+    _initialDistrict = existing.locationDistrict.trim().isNotEmpty
+        ? existing.locationDistrict.trim()
+        : null;
+    _initialNeighborhood = existing.locationNeighborhood.trim().isNotEmpty
+        ? existing.locationNeighborhood.trim()
+        : null;
+
+    if (_initialCity == null && existing.location.trim().isNotEmpty) {
+      final parts = existing.location.trim().split(RegExp(r'\s+'));
+      if (parts.isNotEmpty) {
+        _initialCity = parts[0];
+        if (parts.length > 1) {
+          _initialDistrict = parts[1];
+        }
+        if (parts.length > 2) {
+          _initialNeighborhood = parts.sublist(2).join(' ');
+        }
+      }
+    }
+  }
+
+  void _applyInitialLocationSelection() {
+    if (_regions.isEmpty) return;
+
+    String? city = _initialCity;
+    String? district = _initialDistrict;
+    String? neighborhood = _initialNeighborhood;
+
+    if (city != null && !_cityOptions.contains(city)) {
+      city = null;
+      district = null;
+      neighborhood = null;
+    }
+
+    if (city != null) {
+      final districts = _districtOptions(city);
+      if (district != null && !districts.contains(district)) {
+        district = null;
+        neighborhood = null;
+      }
+
+      if (district != null) {
+        final neighborhoods = _neighborhoodOptions(city, district);
+        if (neighborhood != null && !neighborhoods.contains(neighborhood)) {
+          neighborhood = null;
+        }
+      }
+    }
+
+    setState(() {
+      _selectedCity = city;
+      _selectedDistrict = district;
+      _selectedNeighborhood = neighborhood;
+    });
+  }
+
+  List<String> get _cityOptions {
+    final cities =
+        _regions.keys.map((e) => e.toString()).toList(growable: false);
+    cities.sort();
+    return cities;
+  }
+
+  List<String> _districtOptions(String city) {
+    final districts = _regions[city];
+    if (districts is Map<String, dynamic>) {
+      final list =
+          districts.keys.map((e) => e.toString()).toList(growable: false);
+      list.sort();
+      return list;
+    }
+    return const [];
+  }
+
+  List<String> _neighborhoodOptions(String city, String district) {
+    final districts = _regions[city];
+    if (districts is Map<String, dynamic>) {
+      final neighborhoods = districts[district];
+      if (neighborhoods is List) {
+        return neighborhoods.map((e) => e.toString()).toList(growable: false);
+      }
+    }
+    return const [];
+  }
+
+  List<String> get _selectedDistrictOptions =>
+      _selectedCity == null ? const [] : _districtOptions(_selectedCity!);
+
+  List<String> get _selectedNeighborhoodOptions =>
+      _selectedCity != null && _selectedDistrict != null
+          ? _neighborhoodOptions(_selectedCity!, _selectedDistrict!)
+          : const [];
+
   @override
   void dispose() {
     _titleCtl.dispose();
@@ -105,7 +232,6 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     _qualificationCtl.dispose();
     _preferredCtl.dispose();
     _processCtl.dispose();
-    _locationCtl.dispose();
     _workHoursCtl.dispose();
     _salaryCtl.dispose();
     _benefitsCtl.dispose();
@@ -169,6 +295,12 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _showSnack('모집 시작일이 마감일보다 늦을 수 없습니다.');
       return;
     }
+    if (_selectedCity == null ||
+        _selectedDistrict == null ||
+        _selectedNeighborhood == null) {
+      _showSnack('근무지를 모두 선택해 주세요.');
+      return;
+    }
     final interviewQuestions = _interviewQuestionCtls
         .map((c) => c.text.trim())
         .where((q) => q.isNotEmpty)
@@ -198,7 +330,9 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       qualification: _qualificationCtl.text.trim(),
       preferred: _preferredCtl.text.trim(),
       process: _processCtl.text.trim(),
-      location: _locationCtl.text.trim(),
+      locationCity: _selectedCity!,
+      locationDistrict: _selectedDistrict!,
+      locationNeighborhood: _selectedNeighborhood!,
       workHours: _workHoursCtl.text.trim(),
       salary: _salaryCtl.text.trim(),
       benefits: _benefitsCtl.text.trim(),
@@ -240,6 +374,118 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildRegionDropdowns() {
+    const decoration = InputDecoration(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderSide: BorderSide.none),
+    );
+
+    if (_loadingRegions) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text('근무지', style: TextStyle(fontWeight: FontWeight.w700)),
+          SizedBox(height: 12),
+          Center(child: CircularProgressIndicator()),
+        ],
+      );
+    }
+
+    if (_cityOptions.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('근무지', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE5E5EA)),
+            ),
+            child: const Text('지역 정보를 불러올 수 없습니다.'),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('근무지', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedCity,
+                decoration: decoration,
+                items: _cityOptions
+                    .map((opt) => DropdownMenuItem<String>(
+                          value: opt,
+                          child: Text(opt),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCity = value;
+                    _selectedDistrict = null;
+                    _selectedNeighborhood = null;
+                  });
+                },
+                validator: (v) => _required(v, '시를 선택해 주세요'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedDistrict,
+                decoration: decoration,
+                items: _selectedDistrictOptions
+                    .map((opt) => DropdownMenuItem<String>(
+                          value: opt,
+                          child: Text(opt),
+                        ))
+                    .toList(),
+                onChanged: _selectedCity == null
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _selectedDistrict = value;
+                          _selectedNeighborhood = null;
+                        });
+                      },
+                validator: (v) => _required(v, '구를 선택해 주세요'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedNeighborhood,
+          decoration: decoration,
+          items: _selectedNeighborhoodOptions
+              .map((opt) => DropdownMenuItem<String>(
+                    value: opt,
+                    child: Text(opt),
+                  ))
+              .toList(),
+          onChanged: _selectedDistrict == null
+              ? null
+              : (value) {
+                  setState(() {
+                    _selectedNeighborhood = value;
+                  });
+                },
+          validator: (v) => _required(v, '동을 선택해 주세요'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -381,11 +627,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
                 const SizedBox(height: 24),
                 const _SectionTitle('근무 조건'),
                 _Gap(),
-                _LabeledField(
-                  label: '근무지',
-                  controller: _locationCtl,
-                  validator: (v) => _required(v, '근무지를 입력해 주세요'),
-                ),
+                _buildRegionDropdowns(),
                 _Gap(),
                 _LabeledField(
                   label: '근무 요일/시간',
