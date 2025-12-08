@@ -268,7 +268,6 @@ class _ApplicantList extends StatelessWidget {
                               label: Center(child: Text('자기소개서')),
                             ),
                             DataColumn(label: Center(child: Text('면접'))),
-                            DataColumn(label: Center(child: Text('최종'))),
                           ],
                           rows: applications
                               .map(
@@ -318,16 +317,10 @@ class _ApplicantList extends StatelessWidget {
                                         child: _TableActionButton(
                                           label: '확인',
                                           onPressed: () => _showInterviewResult(
-                                              application, context),
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Center(
-                                        child: _TableActionButton(
-                                          label: '확인',
-                                          onPressed: () => _showInterviewResult(
-                                              application, context),
+                                            application,
+                                            context,
+                                            service,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -540,6 +533,7 @@ Future<void> _launchUrl(
 void _showInterviewResult(
   JobApplicationRecord application,
   BuildContext context,
+  JobPostingService service,
 ) {
   InterviewRecordingResult? storedResult;
   if (application.interviewResult != null) {
@@ -576,6 +570,7 @@ void _showInterviewResult(
         application: application,
         hasSummary: hasSummary,
         videoUrl: videoUrl,
+        service: service,
       );
     },
   );
@@ -586,11 +581,13 @@ class _InterviewResultSheet extends StatefulWidget {
     required this.application,
     required this.hasSummary,
     required this.videoUrl,
+    required this.service,
   });
 
   final JobApplicationRecord application;
   final bool hasSummary;
   final String? videoUrl;
+  final JobPostingService service;
 
   @override
   State<_InterviewResultSheet> createState() => _InterviewResultSheetState();
@@ -600,6 +597,7 @@ class _InterviewResultSheetState extends State<_InterviewResultSheet> {
   VideoPlayerController? _controller;
   bool _isInitializing = false;
   String? _errorMessage;
+  bool _isUpdating = false;
 
   @override
   void initState() {
@@ -654,6 +652,36 @@ class _InterviewResultSheetState extends State<_InterviewResultSheet> {
   void dispose() {
     _controller?.dispose();
     super.dispose();
+  }
+
+  Future<void> _updateStatus(String status) async {
+    if (_isUpdating) return;
+    setState(() => _isUpdating = true);
+
+    try {
+      await widget.service.updateApplicationStatus(
+        widget.application.jobPostId,
+        widget.application.id,
+        status,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      final label = status == JobApplicationStatus.accepted ? '1차 합격' : '불합격';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('상태가 "$label"(으)로 변경되었습니다.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('상태를 업데이트하지 못했습니다. 다시 시도해 주세요.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdating = false);
+      }
+    }
   }
 
   @override
@@ -794,6 +822,51 @@ class _InterviewResultSheetState extends State<_InterviewResultSheet> {
                             : const SizedBox.shrink(),
               ],
             ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isUpdating
+                      ? null
+                      : () => _updateStatus(JobApplicationStatus.accepted),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: const Color(0xFFB486FF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '1차 합격',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isUpdating
+                      ? null
+                      : () => _updateStatus(JobApplicationStatus.rejected),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFFB486FF)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '불합격',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFB486FF),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
