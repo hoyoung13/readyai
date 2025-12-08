@@ -26,6 +26,8 @@ class JobInterviewEvaluationArgs {
     this.existingSummary,
     this.jobTitle,
     this.jobCompany,
+    this.applicationId,
+    this.jobPostId,
     this.isEmployerView = false,
   });
 
@@ -40,6 +42,8 @@ class JobInterviewEvaluationArgs {
       jobTitle: application.jobTitle,
       jobCompany: application.jobCompany,
       portfolioUrl: application.portfolioUrl,
+      applicationId: application.id,
+      jobPostId: application.jobPostId,
       isEmployerView: true,
     );
   }
@@ -53,6 +57,8 @@ class JobInterviewEvaluationArgs {
   final String? existingSummary;
   final String? jobTitle;
   final String? jobCompany;
+  final String? applicationId;
+  final String? jobPostId;
   final bool isEmployerView;
 
   bool get canSubmitApplication =>
@@ -91,6 +97,7 @@ class _JobInterviewEvaluationPageState
   Future<void>? _initializeVideoFuture;
   static final JobPostingService _postingService = JobPostingService();
   static final JobActivityService _activityService = JobActivityService();
+  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
@@ -215,6 +222,46 @@ class _JobInterviewEvaluationPageState
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
+      }
+    }
+  }
+
+  Future<void> _updateApplicationStatus(String status) async {
+    final jobPostId = widget.args.jobPostId;
+    final applicationId = widget.args.applicationId;
+
+    if (jobPostId == null || applicationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('지원 정보를 불러올 수 없습니다.')),
+      );
+      return;
+    }
+
+    if (_isUpdatingStatus) return;
+
+    setState(() => _isUpdatingStatus = true);
+
+    try {
+      await _postingService.updateApplicationStatus(
+        jobPostId,
+        applicationId,
+        status,
+      );
+      if (!mounted) return;
+      final label = status == JobApplicationStatus.accepted ? '1차 합격' : '불합격';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('상태가 "$label"(으)로 변경되었습니다.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('상태를 업데이트하지 못했습니다. 다시 시도해 주세요.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingStatus = false);
       }
     }
   }
@@ -382,31 +429,81 @@ class _JobInterviewEvaluationPageState
                 ),
               const SizedBox(height: 16),
               if (showApplyButton || widget.args.isEmployerView)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _submitting
-                        ? null
-                        : widget.args.isEmployerView
-                            ? () => ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('결과를 확인했습니다.')),
-                                )
-                            : _submitApplication,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                widget.args.isEmployerView
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _isUpdatingStatus
+                                  ? null
+                                  : () => _updateApplicationStatus(
+                                        JobApplicationStatus.accepted,
+                                      ),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(52),
+                              ),
+                              child: _isUpdatingStatus
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('1차 합격'),
                             ),
-                          )
-                        : Text(widget.args.isEmployerView ? '저장' : '지원하기'),
-                  ),
-                ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isUpdatingStatus
+                                  ? null
+                                  : () => _updateApplicationStatus(
+                                        JobApplicationStatus.rejected,
+                                      ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(52),
+                                side:
+                                    const BorderSide(color: Color(0xFFB486FF)),
+                              ),
+                              child: _isUpdatingStatus
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFB486FF),
+                                      ),
+                                    )
+                                  : const Text(
+                                      '불합격',
+                                      style:
+                                          TextStyle(color: Color(0xFFB486FF)),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _submitting ? null : _submitApplication,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('지원하기'),
+                        ),
+                      ),
             ],
           ),
         ),
