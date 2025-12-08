@@ -546,7 +546,11 @@ class _ApplicationTile extends StatelessWidget {
                 child: _ActionPill(
                   label: application.resumeFileName ?? '확인',
                   onTap: application.resumeUrl != null
-                      ? () => _launchResume(application.resumeUrl!, context)
+                      ? () => _launchResume(
+                            application.resumeUrl!,
+                            context,
+                            fileName: application.resumeFileName ?? '이력서 파일',
+                          )
                       : null,
                 ),
               ),
@@ -554,8 +558,12 @@ class _ApplicationTile extends StatelessWidget {
                 child: _ActionPill(
                   label: application.coverLetterFileName ?? '확인',
                   onTap: application.coverLetterUrl != null
-                      ? () =>
-                          _launchResume(application.coverLetterUrl!, context)
+                      ? () => _launchResume(
+                            application.coverLetterUrl!,
+                            context,
+                            fileName:
+                                application.coverLetterFileName ?? '자기소개서 파일',
+                          )
                       : null,
                 ),
               ),
@@ -575,7 +583,11 @@ class _ApplicationTile extends StatelessWidget {
     );
   }
 
-  Future<void> _launchResume(String url, BuildContext context) async {
+  Future<void> _launchResume(
+    String url,
+    BuildContext context, {
+    required String fileName,
+  }) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
     if (!await canLaunchUrl(uri)) {
@@ -585,6 +597,10 @@ class _ApplicationTile extends StatelessWidget {
       return;
     }
     await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$fileName 다운로드가 완료되었습니다.')),
+    );
   }
 
   void _showApplicationDetail(BuildContext context) {

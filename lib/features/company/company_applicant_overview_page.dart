@@ -3,9 +3,11 @@ import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/jobs/job_interview_evaluation_page.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:ai/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -465,6 +467,25 @@ String sanitizeFileName(String raw) {
   return last.replaceAll(RegExp(r'[\/\\]'), '_');
 }
 
+Future<void> showDownloadNotification(String fileName) async {
+  const notificationDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'download_channel',
+      'Downloads',
+      channelDescription: 'Download status notifications',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    ),
+  );
+
+  await flutterLocalNotificationsPlugin.show(
+    0,
+    '다운로드 완료',
+    '$fileName 이(가) 다운로드되었습니다.',
+    notificationDetails,
+  );
+}
+
 Future<void> _launchUrl(
   String url,
   BuildContext context, {
@@ -493,23 +514,17 @@ Future<void> _launchUrl(
 
     await ref.writeToFile(file);
 
+    await showDownloadNotification(fileName);
+
     messenger.hideCurrentSnackBar();
 
     if (openFile) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('다운로드 완료. 파일을 여는 중입니다.')),
-      );
-
       final result = await OpenFilex.open(file.path);
       if (result.type != ResultType.done) {
         messenger.showSnackBar(
           SnackBar(content: Text('파일을 열 수 없습니다: ${result.message}')),
         );
       }
-    } else {
-      messenger.showSnackBar(
-        SnackBar(content: Text('다운로드가 완료되었습니다: ${file.path}')),
-      );
     }
   } catch (e, stack) {
     print(' STORAGE DOWNLOAD ERROR: $e');
