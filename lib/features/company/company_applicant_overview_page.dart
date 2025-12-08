@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 
 class CompanyApplicantOverviewPage extends StatefulWidget {
   const CompanyApplicantOverviewPage({super.key});
@@ -571,52 +572,230 @@ void _showInterviewResult(
     showDragHandle: true,
     isScrollControlled: true,
     builder: (context) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.insights_outlined, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${application.applicantName}님의 면접 결과',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (hasSummary) ...[
-              const Text(
-                'AI 요약',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                application.interviewSummary!,
-                style: const TextStyle(color: AppColors.subtext),
-              ),
-              const SizedBox(height: 14),
-            ],
-            if (videoUrl != null)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => _launchUrl(videoUrl, context),
-                  icon: const Icon(Icons.play_circle_outline),
-                  label: const Text('녹화 영상 열기'),
-                ),
-              ),
-          ],
-        ),
+      return _InterviewResultSheet(
+        application: application,
+        hasSummary: hasSummary,
+        videoUrl: videoUrl,
       );
     },
   );
+}
+
+class _InterviewResultSheet extends StatefulWidget {
+  const _InterviewResultSheet({
+    required this.application,
+    required this.hasSummary,
+    required this.videoUrl,
+  });
+
+  final JobApplicationRecord application;
+  final bool hasSummary;
+  final String? videoUrl;
+
+  @override
+  State<_InterviewResultSheet> createState() => _InterviewResultSheetState();
+}
+
+class _InterviewResultSheetState extends State<_InterviewResultSheet> {
+  VideoPlayerController? _controller;
+  bool _isInitializing = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeController();
+  }
+
+  @override
+  void didUpdateWidget(covariant _InterviewResultSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _initializeController();
+    }
+  }
+
+  Future<void> _initializeController() async {
+    final videoUrl = widget.videoUrl;
+    if (videoUrl == null) {
+      return;
+    }
+
+    setState(() {
+      _isInitializing = true;
+      _errorMessage = null;
+    });
+
+    final nextController =
+        VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+    try {
+      await nextController.initialize();
+      nextController.setLooping(false);
+      if (!mounted) {
+        await nextController.dispose();
+        return;
+      }
+      setState(() {
+        _controller?.dispose();
+        _controller = nextController;
+        _isInitializing = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = '영상을 불러오지 못했습니다. 다시 시도해 주세요.';
+        _isInitializing = false;
+      });
+      await nextController.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.insights_outlined, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${widget.application.applicantName}님의 면접 결과',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (widget.hasSummary) ...[
+            const Text(
+              'AI 요약',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.application.interviewSummary!,
+              style: const TextStyle(color: AppColors.subtext),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (widget.videoUrl != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '녹화 영상',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _isInitializing
+                    ? const Center(child: CircularProgressIndicator())
+                    : _errorMessage != null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(Icons.error_outline,
+                                      color: Colors.redAccent),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '영상을 불러오지 못했습니다. 다시 시도해 주세요.',
+                                      style: TextStyle(color: Colors.redAccent),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              FilledButton.tonalIcon(
+                                onPressed: _initializeController,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('다시 시도'),
+                              ),
+                            ],
+                          )
+                        : controller != null
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AspectRatio(
+                                    aspectRatio:
+                                        controller.value.aspectRatio == 0
+                                            ? 16 / 9
+                                            : controller.value.aspectRatio,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Stack(
+                                        alignment: Alignment.bottomCenter,
+                                        children: [
+                                          VideoPlayer(controller),
+                                          VideoProgressIndicator(
+                                            controller,
+                                            allowScrubbing: true,
+                                            padding: const EdgeInsets.all(8),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      FilledButton.icon(
+                                        onPressed: () {
+                                          if (controller.value.isPlaying) {
+                                            controller.pause();
+                                          } else {
+                                            controller.play();
+                                          }
+                                          setState(() {});
+                                        },
+                                        icon: Icon(
+                                          controller.value.isPlaying
+                                              ? Icons.pause_circle_outline
+                                              : Icons.play_circle_outline,
+                                        ),
+                                        label: Text(controller.value.isPlaying
+                                            ? '일시정지'
+                                            : '재생'),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      OutlinedButton.icon(
+                                        onPressed: () {
+                                          controller.seekTo(Duration.zero);
+                                          controller.play();
+                                          setState(() {});
+                                        },
+                                        icon: const Icon(Icons.replay),
+                                        label: const Text('처음부터'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : const SizedBox.shrink(),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }
