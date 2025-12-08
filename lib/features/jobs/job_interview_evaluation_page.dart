@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -7,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/services/azure_face_service.dart';
 import 'package:ai/features/camera/services/interview_video_storage_service.dart';
@@ -15,6 +13,7 @@ import 'package:ai/features/jobs/job_activity_service.dart';
 import 'package:ai/features/jobs/job_posting.dart';
 import 'package:ai/features/jobs/job_posting_service.dart';
 import 'package:ai/features/tabs/tabs_shared.dart';
+import 'package:video_player/video_player.dart';
 
 class JobInterviewEvaluationArgs {
   const JobInterviewEvaluationArgs({
@@ -88,6 +87,8 @@ class _JobInterviewEvaluationPageState
   late InterviewRecordingResult _result;
   final InterviewVideoStorageService _videoStorageService =
       InterviewVideoStorageService();
+  VideoPlayerController? _videoController;
+  Future<void>? _initializeVideoFuture;
   static final JobPostingService _postingService = JobPostingService();
   static final JobActivityService _activityService = JobActivityService();
 
@@ -95,6 +96,13 @@ class _JobInterviewEvaluationPageState
   void initState() {
     super.initState();
     _result = widget.args.result;
+    _initializeVideoPlayer();
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
   }
 
   Future<void> _submitApplication() async {
@@ -187,6 +195,7 @@ class _JobInterviewEvaluationPageState
       if (mounted) {
         setState(() {
           _result = updatedResult;
+          _initializeVideoPlayer();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('지원서가 접수되었어요.')),
@@ -288,15 +297,20 @@ class _JobInterviewEvaluationPageState
     return buffer.toString().trim();
   }
 
-  void _launchVideo() {
+  void _initializeVideoPlayer() {
     final url = _result.videoUrl;
     if (url == null || url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('녹화 영상을 찾을 수 없습니다.')),
-      );
       return;
     }
-    launchUrlString(url, mode: LaunchMode.externalApplication);
+    _videoController?.dispose();
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    setState(() {
+      _videoController = controller;
+      _initializeVideoFuture = controller.initialize().then((_) {
+        controller.setLooping(true);
+        setState(() {});
+      });
+    });
   }
 
   @override
@@ -317,21 +331,17 @@ class _JobInterviewEvaluationPageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_videoController != null)
+                _VideoPlayerSection(
+                  controller: _videoController!,
+                  initializeVideoFuture: _initializeVideoFuture,
+                ),
+              if (_videoController != null) const SizedBox(height: 16),
               _JobHeader(
                 company: widget.args.displayCompany,
                 title: widget.args.displayJobTitle,
               ),
               const SizedBox(height: 16),
-              if (_result.videoUrl != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _launchVideo,
-                    icon: const Icon(Icons.play_circle_outline),
-                    label: const Text('녹화 영상 보기'),
-                  ),
-                ),
-              if (_result.videoUrl != null) const SizedBox(height: 16),
               if (score != null)
                 _ScoreCard(score: score)
               else
@@ -443,6 +453,104 @@ class _JobHeader extends StatelessWidget {
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoPlayerSection extends StatefulWidget {
+  const _VideoPlayerSection({
+    required this.controller,
+    required this.initializeVideoFuture,
+  });
+
+  final VideoPlayerController controller;
+  final Future<void>? initializeVideoFuture;
+
+  @override
+  State<_VideoPlayerSection> createState() => _VideoPlayerSectionState();
+}
+
+class _VideoPlayerSectionState extends State<_VideoPlayerSection> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '면접 영상',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (widget.initializeVideoFuture != null)
+            FutureBuilder(
+              future: widget.initializeVideoFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return const Text('영상을 불러오는 중 문제가 발생했습니다.');
+                }
+
+                return AspectRatio(
+                  aspectRatio: widget.controller.value.aspectRatio,
+                  child: VideoPlayer(widget.controller),
+                );
+              },
+            ),
+          const SizedBox(height: 12),
+          VideoProgressIndicator(
+            widget.controller,
+            allowScrubbing: true,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    if (widget.controller.value.isPlaying) {
+                      widget.controller.pause();
+                    } else {
+                      widget.controller.play();
+                    }
+                  });
+                },
+                icon: Icon(
+                  widget.controller.value.isPlaying
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_fill,
+                ),
+                iconSize: 32,
+              ),
+              const SizedBox(width: 8),
+              Text(widget.controller.value.isPlaying ? '일시정지' : '재생'),
+            ],
           ),
         ],
       ),
