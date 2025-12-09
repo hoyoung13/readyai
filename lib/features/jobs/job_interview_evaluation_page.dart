@@ -261,6 +261,7 @@ class _JobInterviewEvaluationPageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('상태가 "$label"(으)로 변경되었습니다.')),
       );
+      Navigator.of(context).maybePop();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

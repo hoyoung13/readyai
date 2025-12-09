@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:ai/core/router/app_router.dart';
+import 'package:ai/core/utils/role_utils.dart';
 import '../tabs/tabs_shared.dart';
 import 'job_interview_question_service.dart';
 import 'job_activity.dart';
@@ -52,10 +54,10 @@ class JobDetailPage extends StatelessWidget {
                   _handleToggleScrap(context, scrapped),
             ),
             const SizedBox(height: 16),
-            _PrimaryActions(
-              onApply: () => _handleApply(context),
-              onPractice: () => _handleStartInterview(context),
-            ),
+            if (!isCompanyRole(userRoleCache.value))
+              _PrimaryActions(
+                onApply: () => _handleApply(context),
+              ),
             const SizedBox(height: 24),
             if (job.summaryItems.isNotEmpty)
               _InfoBlock(
@@ -487,26 +489,6 @@ class JobDetailPage extends StatelessWidget {
     return '지원자';
   }
 
-  Future<void> _handleStartInterview(BuildContext context) async {
-    final category = JobCategory(
-      title: job.companyLabel,
-      subtitle: job.title,
-    );
-
-    final questions = await _prepareInterviewQuestions(context, category);
-
-    if (!context.mounted) {
-      return;
-    }
-
-    await _interviewLauncher.launch(
-      context: context,
-      category: category,
-      mode: InterviewMode.ai,
-      questions: questions,
-    );
-  }
-
   Future<void> _handleApplyInterview(
     BuildContext context, {
     required PlatformFile resumeFile,
@@ -740,11 +722,9 @@ class _HeaderCard extends StatelessWidget {
 class _PrimaryActions extends StatelessWidget {
   const _PrimaryActions({
     required this.onApply,
-    required this.onPractice,
   });
 
   final VoidCallback onApply;
-  final VoidCallback onPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -790,25 +770,6 @@ class _PrimaryActions extends StatelessWidget {
             ),
             icon: const Icon(Icons.assignment_turned_in_outlined),
             label: const Text('AI 분석과 함께 지원하기'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: onPractice,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
-              minimumSize: const Size.fromHeight(52),
-              textStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            icon: const Icon(Icons.smart_toy_outlined),
-            label: const Text('AI 면접 연습 시작'),
           ),
           const SizedBox(height: 6),
           const Text(
