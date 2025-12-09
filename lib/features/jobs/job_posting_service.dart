@@ -333,6 +333,8 @@ class JobPostDraft {
     required this.additionalNotes,
     required this.deadline,
     required this.authorId,
+    required this.searchTags,
+    required this.requiredYears,
     this.interviewQuestions = const <String>[],
     this.companyWebsite,
     this.attachments = const <String>[],
@@ -369,6 +371,7 @@ class JobPostDraft {
   final List<String> attachments;
   final String additionalNotes;
   final List<String> interviewQuestions;
+  final List<String> searchTags;
   final DateTime? startDate;
   final DateTime deadline;
   final String authorId;
@@ -376,6 +379,7 @@ class JobPostDraft {
   final bool isActive;
   final int viewCount;
   final int applicantCount;
+  final int requiredYears;
   final String blockReason;
 
   Map<String, dynamic> toFirestore({required String authorId}) {
@@ -412,6 +416,7 @@ class JobPostDraft {
       'attachments': attachments,
       'additionalNotes': additionalNotes,
       'interviewQuestions': interviewQuestions,
+      'searchTags': searchTags,
       'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
       'deadline': Timestamp.fromDate(deadline),
       'authorId': authorId,
@@ -420,6 +425,7 @@ class JobPostDraft {
       'isActive': isActive && active,
       'viewCount': viewCount,
       'applicantCount': applicantCount,
+      'requiredYears': requiredYears,
       'blockedReason': blockReason,
     }..removeWhere((key, value) => value == null);
   }
@@ -454,6 +460,7 @@ class JobPostRecord {
     required this.attachments,
     required this.additionalNotes,
     required this.interviewQuestions,
+    required this.searchTags,
     required this.deadline,
     required this.createdAt,
     required this.updatedAt,
@@ -461,6 +468,7 @@ class JobPostRecord {
     required this.isActive,
     required this.viewCount,
     required this.applicantCount,
+    required this.requiredYears,
     this.companyWebsite,
     this.startDate,
     this.blockReason = '',
@@ -493,6 +501,7 @@ class JobPostRecord {
   final List<String> attachments;
   final String additionalNotes;
   final List<String> interviewQuestions;
+  final List<String> searchTags;
   final DateTime? startDate;
   final DateTime deadline;
   final DateTime createdAt;
@@ -501,6 +510,7 @@ class JobPostRecord {
   final bool isActive;
   final int viewCount;
   final int applicantCount;
+  final int requiredYears;
   final String? companyWebsite;
   final String blockReason;
 
@@ -566,6 +576,7 @@ class JobPostRecord {
         attachments: _normalizeList(data['attachments']),
         additionalNotes: (data['additionalNotes'] ?? '').toString(),
         interviewQuestions: _normalizeList(data['interviewQuestions']),
+        searchTags: _normalizeList(data['searchTags']),
         startDate: startDate,
         deadline: deadline,
         createdAt: createdAt,
@@ -574,6 +585,7 @@ class JobPostRecord {
         isActive: data['isActive'] != false,
         viewCount: int.tryParse('${data['viewCount'] ?? 0}') ?? 0,
         applicantCount: int.tryParse('${data['applicantCount'] ?? 0}') ?? 0,
+        requiredYears: int.tryParse('${data['requiredYears'] ?? 0}') ?? 0,
         companyWebsite: (data['companyWebsite'] ?? '') as String?,
         blockReason: (data['blockedReason'] ?? '').toString(),
       );
@@ -705,6 +717,29 @@ class JobApplicationStatus {
     accepted: '합격',
     rejected: '불합격',
   };
+}
+
+class ApplicantProfile {
+  const ApplicantProfile({
+    required this.skills,
+    required this.experienceYears,
+    required this.majorCategory,
+    required this.subCategory,
+  });
+
+  final List<String> skills;
+  final int experienceYears;
+  final String majorCategory;
+  final String subCategory;
+}
+
+int calculateScore(ApplicantProfile applicant, JobPostRecord jobPost) {
+  int score = 0;
+  if (applicant.skills.any((s) => jobPost.searchTags.contains(s))) score += 40;
+  if (applicant.experienceYears >= jobPost.requiredYears) score += 20;
+  if (applicant.majorCategory == jobPost.category) score += 20;
+  if (applicant.subCategory == jobPost.subCategory) score += 20;
+  return score;
 }
 
 class JobPostingServiceAuthException implements Exception {

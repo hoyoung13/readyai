@@ -51,6 +51,10 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   TimeOfDay? _startTimeOfDay;
   TimeOfDay? _endTimeOfDay;
 
+  String? _selectedMajor;
+  String? _selectedSub;
+  List<String> _currentSubCategories = const [];
+
   String? _initialCity;
   String? _initialDistrict;
   String? _initialNeighborhood;
@@ -66,6 +70,14 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _titleCtl.text = existing.title;
       _categoryCtl.text = existing.category;
       _subCategoryCtl.text = existing.subCategory;
+      _selectedMajor = existing.category;
+      _currentSubCategories = subCategoryMap[_selectedMajor] ?? const ['미분류'];
+      if (existing.subCategory.isNotEmpty &&
+          !_currentSubCategories.contains(existing.subCategory)) {
+        _currentSubCategories = List<String>.from(_currentSubCategories)
+          ..add(existing.subCategory);
+      }
+      _selectedSub = existing.subCategory;
       _employmentTypeCtl.text = existing.employmentType;
       _experienceCtl.text = existing.experienceLevel;
       _educationCtl.text = existing.education;
@@ -91,6 +103,8 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     } else {
       _setupInterviewQuestionControllers(const []);
     }
+    _currentSubCategories =
+        subCategoryMap[_selectedMajor]?.toList(growable: false) ?? const [];
   }
 
   void _setupInterviewQuestionControllers(List<String> questions) {
@@ -245,6 +259,8 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _selectedCity != null && _selectedDistrict != null
           ? _neighborhoodOptions(_selectedCity!, _selectedDistrict!)
           : const [];
+  List<String> get _majorCategories =>
+      subCategoryMap.keys.toList(growable: false);
 
   @override
   void dispose() {
@@ -376,10 +392,19 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
 
     setState(() => _submitting = true);
 
+    final majorCategory = _categoryCtl.text.trim();
+    final subCategory = _subCategoryCtl.text.trim();
+    final searchTags = _buildSearchTags(
+      title: _titleCtl.text.trim(),
+      majorCategory: majorCategory,
+      subCategory: subCategory,
+    );
+    final requiredYears = _deriveRequiredYears(_experienceCtl.text.trim());
+
     final draft = JobPostDraft(
       title: _titleCtl.text.trim(),
-      category: _categoryCtl.text.trim(),
-      subCategory: _subCategoryCtl.text.trim(),
+      category: majorCategory,
+      subCategory: subCategory,
       employmentType: _employmentTypeCtl.text.trim(),
       experienceLevel: _experienceCtl.text.trim(),
       education: _educationCtl.text.trim(),
@@ -406,6 +431,8 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       startDate: _startDate!,
       deadline: _deadline!,
       authorId: user.uid,
+      searchTags: searchTags,
+      requiredYears: requiredYears,
       isApproved: widget.existing?.isApproved ?? false,
       isActive: true,
       viewCount: widget.existing?.viewCount ?? 0,
@@ -631,18 +658,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
                       controller: _titleCtl,
                       validator: (v) => _required(v, '공고 제목을 입력해 주세요'),
                     ),
-                    _LabeledDropdown(
-                      label: '직무 대분류',
-                      controller: _categoryCtl,
-                      options: _majorCategories,
-                      validator: (v) => _required(v, '직무 대분류를 선택해 주세요'),
-                    ),
-                    _LabeledDropdown(
-                      label: '직무 소분류',
-                      controller: _subCategoryCtl,
-                      options: _subCategories,
-                      validator: (v) => _required(v, '직무 소분류를 선택해 주세요'),
-                    ),
+                    _buildCategorySelectors(),
                     _LabeledDropdown(
                       label: '고용 형태',
                       controller: _employmentTypeCtl,
@@ -884,6 +900,96 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
         .where((e) => e.isNotEmpty)
         .toList();
   }
+
+  int _deriveRequiredYears(String experience) {
+    final match = RegExp(r'(\d+)').firstMatch(experience);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '0') ?? 0;
+    }
+    if (experience.contains('경력')) return 3;
+    return 0;
+  }
+
+  List<String> _buildSearchTags({
+    required String title,
+    required String majorCategory,
+    required String subCategory,
+  }) {
+    final normalizedTitle = title.trim();
+    final normalizedMajor = majorCategory.trim();
+    final normalizedSub = subCategory.trim();
+    final tags = <String>{
+      normalizedMajor,
+      normalizedSub,
+      normalizedMajor.toLowerCase(),
+      normalizedSub.toLowerCase(),
+      ...normalizedSub.split('/'),
+      ...normalizedTitle.split(' '),
+    };
+    tags.removeWhere((element) => element.trim().isEmpty);
+    return tags.toList(growable: false);
+  }
+
+  Widget _buildCategorySelectors() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('직무 대분류', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          key: ValueKey('major-$_selectedMajor'),
+          value: _selectedMajor,
+          decoration: _dropdownDecoration('선택해 주세요'),
+          items: _majorCategories
+              .map((opt) => DropdownMenuItem<String>(
+                    value: opt,
+                    child: Text(opt),
+                  ))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedMajor = value;
+              _categoryCtl.text = value ?? '';
+              _currentSubCategories =
+                  value != null && subCategoryMap[value] != null
+                      ? subCategoryMap[value]!
+                      : const ['미분류'];
+              _selectedSub = null;
+              _subCategoryCtl.clear();
+            });
+          },
+          validator: (v) => _required(v, '직무 대분류를 선택해 주세요'),
+        ),
+        const SizedBox(height: 16),
+        const Text('직무 소분류', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('sub-$_selectedMajor-$_selectedSub'),
+            value: _selectedSub,
+            decoration: _dropdownDecoration('대분류 선택 후 선택해 주세요'),
+            items: _currentSubCategories
+                .map((opt) => DropdownMenuItem<String>(
+                      value: opt,
+                      child: Text(opt),
+                    ))
+                .toList(),
+            onChanged: _selectedMajor == null
+                ? null
+                : (value) {
+                    setState(() {
+                      _selectedSub = value;
+                      _subCategoryCtl.text = value ?? '';
+                    });
+                  },
+            validator: (v) => _required(v, '직무 소분류를 선택해 주세요'),
+          ),
+        ),
+        const SizedBox(height: 14),
+      ],
+    );
+  }
 }
 
 class _DatePickerField extends StatelessWidget {
@@ -999,7 +1105,7 @@ class _LabeledDropdown extends StatelessWidget {
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: controller.text.isEmpty ? null : controller.text,
-            decoration: _fieldDecoration('선택해 주세요'),
+            decoration: _dropdownDecoration('선택해 주세요'),
             items: options
                 .map((opt) => DropdownMenuItem<String>(
                       value: opt,
@@ -1154,24 +1260,28 @@ InputDecoration _fieldDecoration(String hint) {
   );
 }
 
-const _majorCategories = [
-  'IT · 소프트웨어',
-  '모바일 앱',
-  '웹 프론트엔드',
-  '백엔드/서버',
-  '데이터/AI',
-  '클라우드/DevOps',
-  '보안(Security)',
-  '금융/핀테크',
-  '서비스/플랫폼',
-  '디자인/UX',
-  '제조/품질',
-  '공공/공기업',
-  '마케팅/광고',
-  '영업/CS',
-  '경영/지원',
-  '기타',
-];
+InputDecoration _dropdownDecoration(String hint) {
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400),
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    constraints: const BoxConstraints(minHeight: 52),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: const Color(0xFFE0E0E5)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: const Color(0xFFE0E0E5)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: Color(0xFF7B3EFF), width: 1.4),
+    ),
+  );
+}
 
 const Map<String, List<String>> subCategoryMap = {
   'IT · 소프트웨어': [
