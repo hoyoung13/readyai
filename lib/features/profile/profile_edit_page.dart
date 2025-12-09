@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io' show File;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,8 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import '../jobs/job_categories.dart';
 import '../tabs/tabs_shared.dart';
 
 class ProfileEditPage extends StatefulWidget {
@@ -31,10 +35,24 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   Uint8List? _pickedImageBytes;
   String? _profileImageUrl;
   bool _saving = false;
+  bool _loadingRegions = true;
+  Map<String, dynamic> _regions = const {};
+
+  String? _selectedMajor;
+  String? _selectedSub;
+  List<String> _currentSubCategories = const [];
+
+  String? _selectedCity;
+  String? _selectedDistrict;
+  String? _selectedNeighborhood;
+  String? _initialCity;
+  String? _initialDistrict;
+  String? _initialNeighborhood;
 
   @override
   void initState() {
     super.initState();
+    _loadRegions();
     _loadProfile();
   }
 
@@ -55,15 +73,131 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       _ageController.text = (data['age'] as int?)?.toString() ?? '';
       _phoneController.text = data['phone'] as String? ?? '';
       _emailController.text = data['email'] as String? ?? user.email ?? '';
-      _desiredRoleController.text = data['desiredRole'] as String? ?? '';
-      _desiredLocationController.text =
-          data['desiredLocation'] as String? ?? '';
       _careerType = data['careerType'] as String?;
       _gender = data['gender'] as String?;
       _birthDate = (data['birthDate'] as Timestamp?)?.toDate();
       _profileImageUrl = data['profileImageUrl'] as String?;
+      final major = data['desiredMajorRole'] as String?;
+      _selectedMajor = (major != null && major.isNotEmpty) ? major : null;
+      _currentSubCategories =
+          subCategoryMap[_selectedMajor]?.toList(growable: false) ?? const [];
+      final savedSub = data['desiredSubRole'] as String?;
+      _selectedSub =
+          (savedSub != null && savedSub.isNotEmpty) ? savedSub : null;
+      if (_selectedSub != null &&
+          _selectedMajor != null &&
+          !_currentSubCategories.contains(_selectedSub)) {
+        _currentSubCategories = List<String>.from(_currentSubCategories)
+          ..add(_selectedSub!);
+      }
+      _initialCity = data['desiredCity'] as String?;
+      _initialDistrict = data['desiredDistrict'] as String?;
+      _initialNeighborhood = data['desiredNeighborhood'] as String?;
+      _selectedCity = _initialCity;
+      _selectedDistrict = _initialDistrict;
+      _selectedNeighborhood = _initialNeighborhood;
+    });
+
+    _applyInitialLocationSelection();
+  }
+
+  Future<void> _loadRegions() async {
+    try {
+      final raw = await rootBundle.loadString('assets/regions.json');
+      final decoded = json.decode(raw);
+      if (decoded is Map<String, dynamic>) {
+        setState(() {
+          _regions = decoded;
+        });
+        _applyInitialLocationSelection();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('지역 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRegions = false);
+      }
+    }
+  }
+
+  void _applyInitialLocationSelection() {
+    if (_regions.isEmpty) return;
+
+    String? city = _selectedCity ?? _initialCity;
+    String? district = _selectedDistrict ?? _initialDistrict;
+    String? neighborhood = _selectedNeighborhood ?? _initialNeighborhood;
+
+    if (city != null && !_cityOptions.contains(city)) {
+      city = null;
+      district = null;
+      neighborhood = null;
+    }
+
+    if (city != null) {
+      final districts = _districtOptions(city);
+      if (district != null && !districts.contains(district)) {
+        district = null;
+        neighborhood = null;
+      }
+
+      if (district != null) {
+        final neighborhoods = _neighborhoodOptions(city, district);
+        if (neighborhood != null && !neighborhoods.contains(neighborhood)) {
+          neighborhood = null;
+        }
+      }
+    }
+
+    setState(() {
+      _selectedCity = city;
+      _selectedDistrict = district;
+      _selectedNeighborhood = neighborhood;
     });
   }
+
+  List<String> get _majorCategories =>
+      subCategoryMap.keys.toList(growable: false);
+
+  List<String> get _cityOptions {
+    final cities =
+        _regions.keys.map((e) => e.toString()).toList(growable: false);
+    cities.sort();
+    return cities;
+  }
+
+  List<String> _districtOptions(String city) {
+    final districts = _regions[city];
+    if (districts is Map<String, dynamic>) {
+      final list =
+          districts.keys.map((e) => e.toString()).toList(growable: false);
+      list.sort();
+      return list;
+    }
+    return const [];
+  }
+
+  List<String> _neighborhoodOptions(String city, String district) {
+    final districts = _regions[city];
+    if (districts is Map<String, dynamic>) {
+      final neighborhoods = districts[district];
+      if (neighborhoods is List) {
+        return neighborhoods.map((e) => e.toString()).toList(growable: false);
+      }
+    }
+    return const [];
+  }
+
+  List<String> get _selectedDistrictOptions =>
+      _selectedCity == null ? const [] : _districtOptions(_selectedCity!);
+
+  List<String> get _selectedNeighborhoodOptions =>
+      _selectedCity != null && _selectedDistrict != null
+          ? _neighborhoodOptions(_selectedCity!, _selectedDistrict!)
+          : const [];
 
   Future<String?> _uploadProfileImage(XFile image, String uid) async {
     final storageRef = FirebaseStorage.instance
@@ -119,8 +253,11 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
         'age': int.tryParse(_ageController.text.trim()),
         'phone': _phoneController.text.trim(),
         'email': _emailController.text.trim(),
-        'desiredRole': _desiredRoleController.text.trim(),
-        'desiredLocation': _desiredLocationController.text.trim(),
+        'desiredMajorRole': _selectedMajor,
+        'desiredSubRole': _selectedSub,
+        'desiredCity': _selectedCity,
+        'desiredDistrict': _selectedDistrict,
+        'desiredNeighborhood': _selectedNeighborhood,
         'careerType': _careerType,
         'gender': _gender,
         'birthDate': _birthDate,
@@ -237,15 +374,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                 onChanged: (value) => setState(() => _careerType = value),
               ),
               const SizedBox(height: 12),
-              _buildTextField(
-                controller: _desiredRoleController,
-                label: '희망 직무 / 분야',
-              ),
+              _buildCategorySelectors(),
               const SizedBox(height: 12),
-              _buildTextField(
-                controller: _desiredLocationController,
-                label: '희망 근무 지역',
-              ),
+              _buildRegionDropdowns(),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -260,6 +391,152 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategorySelectors() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('희망 직무/분야', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        _styledDropdown<String>(
+          hint: '대분류 선택',
+          value: _selectedMajor,
+          items: _majorCategories,
+          onChanged: (value) {
+            setState(() {
+              _selectedMajor = value;
+              _selectedSub = null;
+              _currentSubCategories =
+                  subCategoryMap[value]?.toList(growable: false) ?? const [];
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _styledDropdown<String>(
+            key: ValueKey(_selectedMajor ?? 'none'),
+            hint: '소분류 선택',
+            value: _selectedSub,
+            items: _currentSubCategories,
+            enabled: _selectedMajor != null,
+            onChanged: (value) => setState(() => _selectedSub = value),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegionDropdowns() {
+    const labelStyle = TextStyle(fontWeight: FontWeight.w700);
+
+    if (_loadingRegions) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_cityOptions.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('희망 근무 지역', style: labelStyle),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E5EA)),
+            ),
+            child: const Text('지역 정보를 불러올 수 없습니다.'),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('희망 근무 지역', style: labelStyle),
+        const SizedBox(height: 12),
+        _styledDropdown<String>(
+          hint: '시 선택',
+          value: _selectedCity,
+          items: _cityOptions,
+          onChanged: (value) {
+            setState(() {
+              _selectedCity = value;
+              _selectedDistrict = null;
+              _selectedNeighborhood = null;
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        _styledDropdown<String>(
+          hint: '구 선택',
+          value: _selectedDistrict,
+          items: _selectedDistrictOptions,
+          enabled: _selectedCity != null,
+          onChanged: (value) {
+            setState(() {
+              _selectedDistrict = value;
+              _selectedNeighborhood = null;
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        _styledDropdown<String>(
+          hint: '동 선택',
+          value: _selectedNeighborhood,
+          items: _selectedNeighborhoodOptions,
+          enabled: _selectedDistrict != null,
+          onChanged: (value) => setState(() => _selectedNeighborhood = value),
+        ),
+      ],
+    );
+  }
+
+  Widget _styledDropdown<T>({
+    Key? key,
+    required String hint,
+    required T? value,
+    required List<T> items,
+    required ValueChanged<T?> onChanged,
+    bool enabled = true,
+  }) {
+    return InputDecorator(
+      key: key,
+      decoration: const InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: Color(0xFFE5E5EA)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: Color(0xFFE5E5EA)),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          hint: Text(hint),
+          isExpanded: true,
+          items: items
+              .map(
+                (item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text('$item'),
+                ),
+              )
+              .toList(),
+          onChanged: enabled ? onChanged : null,
         ),
       ),
     );
@@ -405,8 +682,6 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     _ageController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
-    _desiredRoleController.dispose();
-    _desiredLocationController.dispose();
     super.dispose();
   }
 }
