@@ -42,6 +42,23 @@ class JobDetailPage extends StatelessWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: const Text('채용공고 상세'),
+        actions: [
+          StreamBuilder<JobActivity?>(
+            stream: _activityService.watch(job),
+            builder: (context, snapshot) {
+              final scrapped = snapshot.data?.scrapped ?? false;
+              return IconButton(
+                onPressed: () => _handleToggleScrap(context, scrapped),
+                icon: Icon(
+                  scrapped ? Icons.star : Icons.star_border,
+                  color: scrapped ? AppColors.primary : AppColors.subtext,
+                ),
+                tooltip: scrapped ? '스크랩 취소' : '스크랩',
+              );
+            },
+          ),
+          const SizedBox(width: 10),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
@@ -55,25 +72,30 @@ class JobDetailPage extends StatelessWidget {
                   _handleToggleScrap(context, scrapped),
             ),
             const SizedBox(height: 16),
+
+            // 🔥 지원하기 버튼 여기 유지
             if (!isCompanyRole(userRoleCache.value))
               _PrimaryActions(
                 onApply: () => _handleApply(context),
               ),
+
             const SizedBox(height: 24),
+
+            // 🔥 공고 요약은 지원하기 다음
             if (job.summaryItems.isNotEmpty)
               ModernSectionCard(
                 title: '공고 요약',
                 separated: true,
                 children: job.summaryItems
-                    .map(
-                      (item) => _InfoRow(
-                        label: item.label,
-                        value: item.value,
-                      ),
-                    )
+                    .map((item) => _InfoRow(
+                          label: item.label,
+                          value: item.value,
+                        ))
                     .toList(growable: false),
               ),
+
             if (job.summaryItems.isNotEmpty) const SizedBox(height: 16),
+
             if (hasApplicationPeriod)
               ModernSectionCard(
                 title: '접수 기간',
@@ -88,7 +110,9 @@ class JobDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
+
             if (hasApplicationPeriod) const SizedBox(height: 16),
+
             ModernSectionCard(
               title: '기본 정보',
               separated: true,
@@ -105,7 +129,9 @@ class JobDetailPage extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 16),
+
             if (trimmedDescription.isNotEmpty)
               ModernSectionCard(
                 title: '상세 설명',
@@ -116,37 +142,39 @@ class JobDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
+
             if (trimmedDescription.isNotEmpty) const SizedBox(height: 16),
+
             if (job.detailRows.isNotEmpty)
               ModernSectionCard(
                 title: '상세 정보',
                 separated: true,
-                children: job.detailRows
-                    .map(
-                      (row) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              row.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              row.description,
-                              style: const TextStyle(height: 1.6),
-                            ),
-                          ],
+                children: job.detailRows.map((row) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          row.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
                         ),
-                      ),
-                    )
-                    .toList(growable: false),
+                        const SizedBox(height: 6),
+                        Text(
+                          row.description,
+                          style: const TextStyle(height: 1.6),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
               ),
+
             if (job.detailRows.isNotEmpty) const SizedBox(height: 16),
+
             if (job.tags.isNotEmpty)
               ModernSectionCard(
                 title: '복리후생 / 태그',
@@ -154,13 +182,14 @@ class JobDetailPage extends StatelessWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: job.tags
-                        .map((tag) => ModernTag(label: tag))
-                        .toList(growable: false),
+                    children:
+                        job.tags.map((tag) => ModernTag(label: tag)).toList(),
                   ),
                 ],
               ),
+
             if (job.tags.isNotEmpty) const SizedBox(height: 16),
+
             ModernSectionCard(
               title: '안내',
               children: [
@@ -170,7 +199,6 @@ class JobDetailPage extends StatelessWidget {
                       : '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
                   style: const TextStyle(height: 1.6),
                 ),
-                if (trimmedNotice.isNotEmpty) const SizedBox(height: 8),
               ],
             ),
           ],
@@ -713,37 +741,6 @@ class _HeaderCard extends StatelessWidget {
                 ],
               ),
             ],
-          ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: StreamBuilder<JobActivity?>(
-              stream: activityService.watch(job),
-              builder: (context, snapshot) {
-                final scrapped = snapshot.data?.scrapped ?? false;
-                return Container(
-                  decoration: BoxDecoration(
-                    color: scrapped
-                        ? AppColors.primary.withOpacity(0.12)
-                        : const Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: scrapped
-                          ? AppColors.primary.withOpacity(0.25)
-                          : const Color(0xFFE5E5E5),
-                    ),
-                  ),
-                  child: IconButton(
-                    onPressed: () => onToggleScrap(scrapped),
-                    icon: Icon(
-                      scrapped ? Icons.star : Icons.star_outline,
-                      color: scrapped ? AppColors.primary : AppColors.subtext,
-                    ),
-                    tooltip: scrapped ? '스크랩 취소' : '스크랩',
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
