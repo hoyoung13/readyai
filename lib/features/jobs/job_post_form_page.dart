@@ -28,7 +28,6 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   final _qualificationCtl = TextEditingController();
   final _preferredCtl = TextEditingController();
   final _processCtl = TextEditingController();
-  final _workHoursCtl = TextEditingController();
   final _salaryCtl = TextEditingController();
   final _benefitsCtl = TextEditingController();
   final _companyCtl = TextEditingController();
@@ -48,6 +47,9 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   String? _selectedCity;
   String? _selectedDistrict;
   String? _selectedNeighborhood;
+  final Set<String> _selectedDays = {};
+  TimeOfDay? _startTimeOfDay;
+  TimeOfDay? _endTimeOfDay;
 
   String? _initialCity;
   String? _initialDistrict;
@@ -71,7 +73,6 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _qualificationCtl.text = existing.qualification;
       _preferredCtl.text = existing.preferred;
       _processCtl.text = existing.process;
-      _workHoursCtl.text = existing.workHours;
       _salaryCtl.text = existing.salary;
       _benefitsCtl.text = existing.benefits;
       _companyCtl.text = existing.companyName;
@@ -86,6 +87,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       _deadline = existing.deadline;
       _setInitialLocation(existing);
       _setupInterviewQuestionControllers(existing.interviewQuestions);
+      _initializeWorkHours(existing.workHours);
     } else {
       _setupInterviewQuestionControllers(const []);
     }
@@ -102,6 +104,30 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     while (_interviewQuestionCtls.length < 3) {
       _interviewQuestionCtls.add(TextEditingController());
     }
+  }
+
+  void _initializeWorkHours(String raw) {
+    final match = RegExp(r'^([월화수목금토일,\s]+)\s+(\d{2}:\d{2})~(\d{2}:\d{2})')
+        .firstMatch(raw.trim());
+    if (match != null) {
+      final days = match
+          .group(1)!
+          .split(RegExp(r'[\s,]+'))
+          .where((d) => d.isNotEmpty)
+          .toList();
+      _selectedDays.addAll(days.where((d) => _weekDays.contains(d)));
+      _startTimeOfDay = _parseTime(match.group(2)!);
+      _endTimeOfDay = _parseTime(match.group(3)!);
+    }
+  }
+
+  TimeOfDay? _parseTime(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   Future<void> _loadRegions() async {
@@ -124,15 +150,15 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   }
 
   void _setInitialLocation(JobPostRecord existing) {
-    _initialCity = existing.locationCity.trim().isNotEmpty
-        ? existing.locationCity.trim()
-        : null;
-    _initialDistrict = existing.locationDistrict.trim().isNotEmpty
-        ? existing.locationDistrict.trim()
-        : null;
-    _initialNeighborhood = existing.locationNeighborhood.trim().isNotEmpty
-        ? existing.locationNeighborhood.trim()
-        : null;
+    _initialCity = existing.locationCity.isNotEmpty
+        ? existing.locationCity
+        : (_selectedCity ?? '');
+    _initialDistrict = existing.locationDistrict.isNotEmpty
+        ? existing.locationDistrict
+        : (_selectedDistrict ?? '');
+    _initialNeighborhood = existing.locationNeighborhood.isNotEmpty
+        ? existing.locationNeighborhood
+        : (_selectedNeighborhood ?? '');
 
     if (_initialCity == null && existing.location.trim().isNotEmpty) {
       final parts = existing.location.trim().split(RegExp(r'\s+'));
@@ -232,7 +258,6 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     _qualificationCtl.dispose();
     _preferredCtl.dispose();
     _processCtl.dispose();
-    _workHoursCtl.dispose();
     _salaryCtl.dispose();
     _benefitsCtl.dispose();
     _companyCtl.dispose();
@@ -268,6 +293,23 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     }
   }
 
+  Future<void> _pickTime({required bool isStart}) async {
+    final current = isStart ? _startTimeOfDay : _endTimeOfDay;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: current ?? const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startTimeOfDay = picked;
+        } else {
+          _endTimeOfDay = picked;
+        }
+      });
+    }
+  }
+
   void _addInterviewQuestion() {
     if (_interviewQuestionCtls.length >= 5) return;
     setState(() {
@@ -281,6 +323,16 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       final controller = _interviewQuestionCtls.removeAt(index);
       controller.dispose();
     });
+  }
+
+  String _composeWorkHours() {
+    if (_selectedDays.isEmpty ||
+        _startTimeOfDay == null ||
+        _endTimeOfDay == null) {
+      return '';
+    }
+    final days = _weekDays.where((d) => _selectedDays.contains(d)).join(',');
+    return '$days ${_formatTime(_startTimeOfDay!)}~${_formatTime(_endTimeOfDay!)}';
   }
 
   Future<void> _submit() async {
@@ -299,6 +351,11 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
         _selectedDistrict == null ||
         _selectedNeighborhood == null) {
       _showSnack('근무지를 모두 선택해 주세요.');
+      return;
+    }
+    final workHoursText = _composeWorkHours();
+    if (workHoursText.isEmpty) {
+      _showSnack('근무 요일과 시간을 모두 선택해 주세요.');
       return;
     }
     final interviewQuestions = _interviewQuestionCtls
@@ -333,7 +390,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       locationCity: _selectedCity!,
       locationDistrict: _selectedDistrict!,
       locationNeighborhood: _selectedNeighborhood!,
-      workHours: _workHoursCtl.text.trim(),
+      workHours: workHoursText,
       salary: _salaryCtl.text.trim(),
       benefits: _benefitsCtl.text.trim(),
       companyName: _companyCtl.text.trim(),
@@ -380,18 +437,15 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     const decoration = InputDecoration(
       filled: true,
       fillColor: Colors.white,
-      border: OutlineInputBorder(borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     );
 
     if (_loadingRegions) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('근무지', style: TextStyle(fontWeight: FontWeight.w700)),
-          SizedBox(height: 12),
-          Center(child: CircularProgressIndicator()),
-        ],
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_cityOptions.isEmpty) {
@@ -405,7 +459,7 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE5E5EA)),
             ),
             child: const Text('지역 정보를 불러올 수 없습니다.'),
@@ -418,57 +472,49 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('근무지', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _selectedCity,
-                decoration: decoration,
-                items: _cityOptions
-                    .map((opt) => DropdownMenuItem<String>(
-                          value: opt,
-                          child: Text(opt),
-                        ))
-                    .toList(),
-                onChanged: (value) {
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedCity,
+          decoration: decoration.copyWith(hintText: '시 선택'),
+          items: _cityOptions
+              .map((opt) => DropdownMenuItem<String>(
+                    value: opt,
+                    child: Text(opt),
+                  ))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedCity = value;
+              _selectedDistrict = null;
+              _selectedNeighborhood = null;
+            });
+          },
+          validator: (v) => _required(v, '시를 선택해 주세요'),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedDistrict,
+          decoration: decoration.copyWith(hintText: '구 선택'),
+          items: _selectedDistrictOptions
+              .map((opt) => DropdownMenuItem<String>(
+                    value: opt,
+                    child: Text(opt),
+                  ))
+              .toList(),
+          onChanged: _selectedCity == null
+              ? null
+              : (value) {
                   setState(() {
-                    _selectedCity = value;
-                    _selectedDistrict = null;
+                    _selectedDistrict = value;
                     _selectedNeighborhood = null;
                   });
                 },
-                validator: (v) => _required(v, '시를 선택해 주세요'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _selectedDistrict,
-                decoration: decoration,
-                items: _selectedDistrictOptions
-                    .map((opt) => DropdownMenuItem<String>(
-                          value: opt,
-                          child: Text(opt),
-                        ))
-                    .toList(),
-                onChanged: _selectedCity == null
-                    ? null
-                    : (value) {
-                        setState(() {
-                          _selectedDistrict = value;
-                          _selectedNeighborhood = null;
-                        });
-                      },
-                validator: (v) => _required(v, '구를 선택해 주세요'),
-              ),
-            ),
-          ],
+          validator: (v) => _required(v, '구를 선택해 주세요'),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _selectedNeighborhood,
-          decoration: decoration,
+          decoration: decoration.copyWith(hintText: '동 선택'),
           items: _selectedNeighborhoodOptions
               .map((opt) => DropdownMenuItem<String>(
                     value: opt,
@@ -488,6 +534,81 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
     );
   }
 
+  Widget _buildWorkScheduleSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('근무 요일', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _weekDays
+              .map((day) => ChoiceChip(
+                    label: Text(day),
+                    selected: _selectedDays.contains(day),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedDays.add(day);
+                        } else {
+                          _selectedDays.remove(day);
+                        }
+                      });
+                    },
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    labelStyle: TextStyle(
+                      color: _selectedDays.contains(day)
+                          ? Colors.white
+                          : Colors.black87,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 20),
+        const Text('근무 시간', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _TimeSelector(
+                label: '시작 시간',
+                time: _startTimeOfDay,
+                onTap: () => _pickTime(isStart: true),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _TimeSelector(
+                label: '종료 시간',
+                time: _endTimeOfDay,
+                onTap: () => _pickTime(isStart: false),
+              ),
+            ),
+          ],
+        ),
+        if (_startTimeOfDay != null && _endTimeOfDay != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              '선택된 시간: ${_formatTime(_startTimeOfDay!)} ~ ${_formatTime(_endTimeOfDay!)}',
+              style: const TextStyle(color: AppColors.subtext),
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
   @override
   Widget build(BuildContext context) {
     return CompanyRouteGuard(
@@ -501,233 +622,245 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _SectionTitle('기본 정보'),
-                _Gap(),
-                _LabeledField(
-                  label: '공고 제목',
-                  controller: _titleCtl,
-                  validator: (v) => _required(v, '공고 제목을 입력해 주세요'),
+                _SectionCard(
+                  title: '기본 정보',
+                  children: [
+                    _LabeledTextField(
+                      label: '공고 제목',
+                      controller: _titleCtl,
+                      validator: (v) => _required(v, '공고 제목을 입력해 주세요'),
+                    ),
+                    _LabeledDropdown(
+                      label: '직무 대분류',
+                      controller: _categoryCtl,
+                      options: _majorCategories,
+                      validator: (v) => _required(v, '직무 대분류를 선택해 주세요'),
+                    ),
+                    _LabeledDropdown(
+                      label: '직무 소분류',
+                      controller: _subCategoryCtl,
+                      options: _subCategories,
+                      validator: (v) => _required(v, '직무 소분류를 선택해 주세요'),
+                    ),
+                    _LabeledDropdown(
+                      label: '고용 형태',
+                      controller: _employmentTypeCtl,
+                      options: _employmentTypes,
+                      validator: (v) => _required(v, '고용 형태를 선택해 주세요'),
+                    ),
+                    _LabeledDropdown(
+                      label: '경력 구분',
+                      controller: _experienceCtl,
+                      options: _experienceLevels,
+                      validator: (v) => _required(v, '경력 구분을 선택해 주세요'),
+                    ),
+                    _LabeledDropdown(
+                      label: '학력 요건',
+                      controller: _educationCtl,
+                      options: _educationLevels,
+                      validator: (v) => _required(v, '학력을 선택해 주세요'),
+                    ),
+                  ],
                 ),
-                _Gap(),
-                _DropdownField(
-                  label: '직무 대분류',
-                  controller: _categoryCtl,
-                  options: _majorCategories,
-                  validator: (v) => _required(v, '직무 대분류를 선택해 주세요'),
+                _SectionCard(
+                  title: '주요 내용',
+                  children: [
+                    _LabeledTextField(
+                      label: '담당 업무',
+                      controller: _descriptionCtl,
+                      maxLines: 4,
+                      validator: (v) => _required(v, '담당 업무를 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '자격 요건',
+                      controller: _qualificationCtl,
+                      maxLines: 4,
+                      validator: (v) => _required(v, '자격 요건을 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '우대 사항',
+                      controller: _preferredCtl,
+                      maxLines: 3,
+                    ),
+                    _LabeledTextField(
+                      label: '전형 절차',
+                      controller: _processCtl,
+                      maxLines: 3,
+                    ),
+                  ],
                 ),
-                _Gap(),
-                _DropdownField(
-                  label: '직무 소분류',
-                  controller: _subCategoryCtl,
-                  options: _subCategories,
-                  validator: (v) => _required(v, '직무 소분류를 선택해 주세요'),
-                ),
-                _Gap(),
-                _DropdownField(
-                  label: '고용 형태',
-                  controller: _employmentTypeCtl,
-                  options: _employmentTypes,
-                  validator: (v) => _required(v, '고용 형태를 선택해 주세요'),
-                ),
-                _Gap(),
-                _DropdownField(
-                  label: '경력 구분',
-                  controller: _experienceCtl,
-                  options: _experienceLevels,
-                  validator: (v) => _required(v, '경력 구분을 선택해 주세요'),
-                ),
-                _Gap(),
-                _DropdownField(
-                  label: '학력 요건',
-                  controller: _educationCtl,
-                  options: _educationLevels,
-                  validator: (v) => _required(v, '학력을 선택해 주세요'),
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('주요 내용'),
-                _Gap(),
-                _LabeledField(
-                  label: '담당 업무',
-                  controller: _descriptionCtl,
-                  maxLines: 4,
-                  validator: (v) => _required(v, '담당 업무를 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '자격 요건',
-                  controller: _qualificationCtl,
-                  maxLines: 4,
-                  validator: (v) => _required(v, '자격 요건을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '우대 사항',
-                  controller: _preferredCtl,
-                  maxLines: 3,
-                  validator: null,
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '전형 절차',
-                  controller: _processCtl,
-                  maxLines: 3,
-                  validator: null,
-                ),
-                _Gap(),
-                const _SectionTitle('면접 질문 (비공개)'),
-                const SizedBox(height: 8),
-                const Text(
-                  '면접관이 참고할 질문을 최소 3개, 최대 5개까지 입력하세요. 지원자에게는 공개되지 않습니다.',
-                  style: TextStyle(color: AppColors.subtext, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                ...List.generate(_interviewQuestionCtls.length, (index) {
-                  final canRemove = _interviewQuestionCtls.length > 3;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _interviewQuestionCtls[index],
-                            validator: (v) =>
-                                _required(v, '면접 질문 ${index + 1}을 입력해 주세요'),
-                            decoration: InputDecoration(
-                              labelText: '면접 질문 ${index + 1}',
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: const OutlineInputBorder(
-                                  borderSide: BorderSide.none),
+                _SectionCard(
+                  title: '면접 질문 (비공개)',
+                  subtitle:
+                      '면접관이 참고할 질문을 최소 3개, 최대 5개까지 입력하세요. 지원자에게는 공개되지 않습니다.',
+                  children: [
+                    ...List.generate(_interviewQuestionCtls.length, (index) {
+                      final canRemove = _interviewQuestionCtls.length > 3;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _interviewQuestionCtls[index],
+                                validator: (v) =>
+                                    _required(v, '면접 질문 ${index + 1}을 입력해 주세요'),
+                                decoration:
+                                    _fieldDecoration('면접 질문 ${index + 1} 입력'),
+                              ),
                             ),
+                            if (canRemove)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: _IconButton(
+                                  icon: Icons.remove_circle_outline,
+                                  onPressed: () =>
+                                      _removeInterviewQuestion(index),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: _interviewQuestionCtls.length >= 5
+                            ? null
+                            : _addInterviewQuestion,
+                        icon: const Icon(Icons.add),
+                        label: const Text('질문 추가'),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        if (canRemove)
-                          IconButton(
-                            tooltip: '질문 삭제',
-                            onPressed: () => _removeInterviewQuestion(index),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                      ],
-                    ),
-                  );
-                }),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _interviewQuestionCtls.length >= 5
-                        ? null
-                        : _addInterviewQuestion,
-                    icon: const Icon(Icons.add),
-                    label: const Text('질문 추가'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('근무 조건'),
-                _Gap(),
-                _buildRegionDropdowns(),
-                _Gap(),
-                _LabeledField(
-                  label: '근무 요일/시간',
-                  controller: _workHoursCtl,
-                  validator: (v) => _required(v, '근무 요일/시간을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '급여 조건',
-                  controller: _salaryCtl,
-                  validator: (v) => _required(v, '급여 조건을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '복리후생',
-                  controller: _benefitsCtl,
-                  maxLines: 3,
-                  validator: null,
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('기업 정보'),
-                _Gap(),
-                _LabeledField(
-                  label: '회사명',
-                  controller: _companyCtl,
-                  validator: (v) => _required(v, '회사명을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '회사 홈페이지 (선택)',
-                  controller: _websiteCtl,
-                  validator: null,
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '담당자명',
-                  controller: _contactNameCtl,
-                  validator: (v) => _required(v, '담당자명을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '담당자 이메일',
-                  controller: _contactEmailCtl,
-                  validator: (v) => _required(v, '담당자 이메일을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '담당자 전화번호',
-                  controller: _contactPhoneCtl,
-                  validator: (v) => _required(v, '담당자 전화번호를 입력해 주세요'),
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('지원 정보'),
-                _Gap(),
-                _LabeledField(
-                  label: '지원 방법',
-                  controller: _applyMethodCtl,
-                  validator: (v) => _required(v, '지원 방법을 입력해 주세요'),
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '제출 서류 (쉼표로 구분)',
-                  controller: _attachmentsCtl,
-                  validator: null,
-                ),
-                _Gap(),
-                _LabeledField(
-                  label: '기타 안내',
-                  controller: _additionalNotesCtl,
-                  maxLines: 3,
-                  validator: null,
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('모집 기간'),
-                _Gap(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DatePickerField(
-                        label: '시작일',
-                        date: _startDate,
-                        onTap: () => _pickDate(isStart: true),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _DatePickerField(
-                        label: '마감일',
-                        date: _deadline,
-                        onTap: () => _pickDate(isStart: false),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+                _SectionCard(
+                  title: '근무 조건',
+                  children: [
+                    _buildRegionDropdowns(),
+                    const SizedBox(height: 20),
+                    _buildWorkScheduleSelector(),
+                    const SizedBox(height: 20),
+                    _LabeledTextField(
+                      label: '급여 조건',
+                      controller: _salaryCtl,
+                      validator: (v) => _required(v, '급여 조건을 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '복지/혜택',
+                      controller: _benefitsCtl,
+                    ),
+                  ],
+                ),
+                _SectionCard(
+                  title: '기업 정보',
+                  children: [
+                    _LabeledTextField(
+                      label: '기업명',
+                      controller: _companyCtl,
+                      validator: (v) => _required(v, '기업명을 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '회사 홈페이지',
+                      controller: _websiteCtl,
+                    ),
+                  ],
+                ),
+                _SectionCard(
+                  title: '지원 정보',
+                  children: [
+                    _LabeledTextField(
+                      label: '담당자 이름',
+                      controller: _contactNameCtl,
+                      validator: (v) => _required(v, '담당자 이름을 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '담당자 이메일',
+                      controller: _contactEmailCtl,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) => _required(v, '담당자 이메일을 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '담당자 연락처',
+                      controller: _contactPhoneCtl,
+                      keyboardType: TextInputType.phone,
+                      validator: (v) => _required(v, '담당자 연락처를 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '지원 방법',
+                      controller: _applyMethodCtl,
+                      validator: (v) => _required(v, '지원 방법을 입력해 주세요'),
+                    ),
+                    _LabeledTextField(
+                      label: '필수/선택 제출 서류',
+                      controller: _attachmentsCtl,
+                      hintText: '쉼표로 구분해 입력하세요',
+                    ),
+                  ],
+                ),
+                _SectionCard(
+                  title: '기타',
+                  children: [
+                    _LabeledTextField(
+                      label: '추가 안내',
+                      controller: _additionalNotesCtl,
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+                _SectionCard(
+                  title: '모집 기간',
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DatePickerField(
+                            label: '모집 시작일',
+                            date: _startDate,
+                            onTap: () => _pickDate(isStart: true),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _DatePickerField(
+                            label: '모집 마감일',
+                            date: _deadline,
+                            onTap: () => _pickDate(isStart: false),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _submitting ? null : _submit,
-                    child: Text(_submitting ? '저장 중...' : '등록하기'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('저장하기', style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ],
@@ -739,94 +872,17 @@ class _JobPostFormPageState extends State<JobPostFormPage> {
   }
 
   String? _required(String? value, String message) {
-    if (value == null || value.trim().isEmpty) {
-      return message;
-    }
+    if (value == null || value.trim().isEmpty) return message;
     return null;
   }
 
   List<String> _splitInput(String input) {
+    if (input.trim().isEmpty) return [];
     return input
         .split(',')
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-  }
-}
-
-class _LabeledField extends StatelessWidget {
-  const _LabeledField({
-    required this.label,
-    required this.controller,
-    this.validator,
-    this.maxLines = 1,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final String? Function(String?)? validator;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          validator: validator,
-          maxLines: maxLines,
-          decoration: const InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderSide: BorderSide.none),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  const _DropdownField({
-    required this.label,
-    required this.controller,
-    required this.options,
-    this.validator,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final List<String> options;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: controller.text.isNotEmpty ? controller.text : null,
-          decoration: const InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderSide: BorderSide.none),
-          ),
-          items: options
-              .map((opt) => DropdownMenuItem<String>(
-                    value: opt,
-                    child: Text(opt),
-                  ))
-              .toList(),
-          onChanged: (value) => controller.text = value ?? '',
-          validator: validator,
-        ),
-      ],
-    );
   }
 }
 
@@ -857,7 +913,7 @@ class _DatePickerField extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE5E5EA)),
             ),
             child: Row(
@@ -880,26 +936,222 @@ class _DatePickerField extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title);
+class _LabeledTextField extends StatelessWidget {
+  const _LabeledTextField({
+    required this.label,
+    required this.controller,
+    this.validator,
+    this.maxLines = 1,
+    this.keyboardType,
+    this.hintText,
+  });
 
-  final String title;
+  final String label;
+  final TextEditingController controller;
+  final String? Function(String?)? validator;
+  final int maxLines;
+  final TextInputType? keyboardType;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w800,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: controller,
+            validator: validator,
+            maxLines: maxLines,
+            keyboardType: keyboardType,
+            decoration: _fieldDecoration(hintText ?? '입력해 주세요'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Gap extends StatelessWidget {
+class _LabeledDropdown extends StatelessWidget {
+  const _LabeledDropdown({
+    required this.label,
+    required this.controller,
+    required this.options,
+    this.validator,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final List<String> options;
+  final String? Function(String?)? validator;
+
   @override
-  Widget build(BuildContext context) => const SizedBox(height: 12);
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: controller.text.isEmpty ? null : controller.text,
+            decoration: _fieldDecoration('선택해 주세요'),
+            items: options
+                .map((opt) => DropdownMenuItem<String>(
+                      value: opt,
+                      child: Text(opt),
+                    ))
+                .toList(),
+            onChanged: (value) => controller.text = value ?? '',
+            validator: validator,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              style: const TextStyle(color: AppColors.subtext, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _TimeSelector extends StatelessWidget {
+  const _TimeSelector({
+    required this.label,
+    required this.time,
+    required this.onTap,
+  });
+
+  final String label;
+  final TimeOfDay? time;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = time == null ? '시간 선택' : _format(time!);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E5EA)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: time == null ? AppColors.subtext : Colors.black,
+                  ),
+                ),
+                const Icon(Icons.access_time,
+                    color: AppColors.subtext, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _format(TimeOfDay time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+}
+
+class _IconButton extends StatelessWidget {
+  const _IconButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, color: Colors.redAccent),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _fieldDecoration(String hint) {
+  return InputDecoration(
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+  );
 }
 
 const _majorCategories = [
@@ -946,3 +1198,4 @@ const _educationLevels = [
   '석사 이상',
   '박사 이상',
 ];
+const _weekDays = ['월', '화', '수', '목', '금', '토', '일'];
