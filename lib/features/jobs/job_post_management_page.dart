@@ -283,18 +283,18 @@ class _JobPostCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _InfoChip(
                 icon: Icons.schedule,
                 label: '시작 ${_formatDate(post.applicationStartDate)}',
               ),
-              const SizedBox(width: 8),
               _InfoChip(
                 icon: Icons.event_available_outlined,
                 label: '마감 ${_formatDate(post.applicationEndDate)}',
               ),
-              const SizedBox(width: 8),
               StreamBuilder<int>(
                 stream: service.watchApplicationCount(post.id),
                 builder: (context, snapshot) {
@@ -487,19 +487,21 @@ class _ApplicationsHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: headers
-            .map(
-              (label) => _TableCell(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF7B3EFF),
-                  ),
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: headers.map((label) {
+          return SizedBox(
+            width: 70, // 👈 고정 넓이로 세로 깨짐 방지
+            child: Center(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF7B3EFF),
                 ),
               ),
-            )
-            .toList(),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -538,13 +540,13 @@ class _ApplicationTile extends StatelessWidget {
               ),
               _TableCell(
                 child: Text(
-                  _formatDate(application.appliedAt),
+                  _formatMonthDay(application.appliedAt),
                   style: const TextStyle(color: AppColors.subtext),
                 ),
               ),
               _TableCell(
                 child: _ActionPill(
-                  label: application.resumeFileName ?? '확인',
+                  label: '확인',
                   onTap: application.resumeUrl != null
                       ? () => _launchResume(
                             application.resumeUrl!,
@@ -556,7 +558,7 @@ class _ApplicationTile extends StatelessWidget {
               ),
               _TableCell(
                 child: _ActionPill(
-                  label: application.coverLetterFileName ?? '확인',
+                  label: '확인',
                   onTap: application.coverLetterUrl != null
                       ? () => _launchResume(
                             application.coverLetterUrl!,
@@ -811,6 +813,10 @@ class _InfoChip extends StatelessWidget {
       backgroundColor: const Color(0xFFF3F5F9),
     );
   }
+}
+
+String _formatMonthDay(DateTime date) {
+  return '${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 }
 
 String _formatDate(DateTime date) {
