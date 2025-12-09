@@ -95,8 +95,11 @@ class _JobsListState extends State<_JobsList> {
   String? _selectedCategory;
   String _searchQuery = '';
   late final TextEditingController _searchController;
+  Map<String, Map<String, List<String>>> _regionTree =
+      const <String, Map<String, List<String>>>{};
   List<String> _standardRegions = const <String>[];
   List<String> _availableRegions = const <String>[];
+  Map<String, List<String>> _categoryTree = const <String, List<String>>{};
   List<String> _standardCategories = const <String>[];
   List<String> _availableCategories = const <String>[];
   List<JobPosting> _filteredItems = const <JobPosting>[];
@@ -218,6 +221,7 @@ class _JobsListState extends State<_JobsList> {
         const SizedBox(height: 24),
         _FilterPanel(
           regions: _availableRegions,
+          regionTree: _regionTree,
           selectedRegion: _selectedRegion,
           onRegionSelected: _onRegionSelected,
           searchController: _searchController,
@@ -235,8 +239,8 @@ class _JobsListState extends State<_JobsList> {
         ),
         if (_availableCategories.isNotEmpty) ...[
           const SizedBox(height: 16),
-          _CategorySelector(
-            categories: _availableCategories,
+          HierarchicalCategorySelector(
+            categoryTree: _categoryTree,
             selectedCategory: _selectedCategory,
             onSelected: _onCategorySelected,
             expanded: _showCategories,
@@ -344,8 +348,10 @@ class _JobsListState extends State<_JobsList> {
       final text = await rootBundle.loadString('assets/regions.json');
       final decoded = jsonDecode(text);
       if (decoded is Map<String, dynamic>) {
-        final flattened = _flattenRegions(decoded);
+        final parsedTree = _parseRegionTree(decoded);
+        final flattened = _flattenRegionTree(parsedTree);
         if (flattened.isNotEmpty) {
+          _regionTree = parsedTree;
           _standardRegions = flattened;
           _refreshFiltersFrom(widget.feed.items, regions: flattened);
           return;
@@ -377,7 +383,8 @@ class _JobsListState extends State<_JobsList> {
   }
 
   Future<void> _loadCategoryData() async {
-    final flattened = _flattenCategories(subCategoryMap);
+    _categoryTree = _normalizeCategoryTree(subCategoryMap);
+    final flattened = _flattenCategoryTree(_categoryTree);
     if (flattened.isNotEmpty) {
       _standardCategories = flattened;
       _refreshFiltersFrom(widget.feed.items, categories: flattened);
@@ -462,104 +469,120 @@ class _JobsListState extends State<_JobsList> {
     return values;
   }
 
-  List<String> _flattenRegions(Map<String, dynamic> data) {
-    final seen = <String>{};
-    final regions = <String>[];
+  Map<String, Map<String, List<String>>> _parseRegionTree(
+    Map<String, dynamic> data,
+  ) {
+    final result = <String, Map<String, List<String>>>{};
 
-    data.forEach((cityKey, districtsValue) {
+    data.forEach((cityKey, districtValue) {
       final city = cityKey.toString().trim();
       if (city.isEmpty) {
         return;
       }
-      if (seen.add(city)) {
-        regions.add(city);
-      }
 
-      if (districtsValue is Map<String, dynamic>) {
-        districtsValue.forEach((districtKey, neighborhoodsValue) {
+      final districts = <String, List<String>>{};
+      if (districtValue is Map<String, dynamic>) {
+        districtValue.forEach((districtKey, neighborhoodsValue) {
           final district = districtKey.toString().trim();
           if (district.isEmpty) {
             return;
           }
-          final districtLabel = '$city $district';
-          if (seen.add(districtLabel)) {
-            regions.add(districtLabel);
-          }
 
-          if (neighborhoodsValue is List<dynamic>) {
-            for (final neighborhood in neighborhoodsValue) {
-              final neighborhoodName = neighborhood.toString().trim();
-              if (neighborhoodName.isEmpty) {
-                continue;
-              }
-              final neighborhoodLabel = '$districtLabel $neighborhoodName';
-              if (seen.add(neighborhoodLabel)) {
-                regions.add(neighborhoodLabel);
-              }
-            }
+          if (neighborhoodsValue is List) {
+            final neighborhoods = neighborhoodsValue
+                .map((n) => n?.toString().trim())
+                .whereType<String>()
+                .where((value) => value.isNotEmpty)
+                .toList();
+            districts[district] = neighborhoods;
+          } else {
+            districts[district] = const <String>[];
           }
         });
       }
+      result[city] = districts;
+    });
+
+    return result;
+  }
+
+  List<String> _flattenRegionTree(
+    Map<String, Map<String, List<String>>> tree,
+  ) {
+    final seen = <String>{};
+    final regions = <String>[];
+
+    tree.forEach((city, districts) {
+      if (seen.add(city)) {
+        regions.add(city);
+      }
+
+      districts.forEach((district, neighborhoods) {
+        final districtLabel = '$city $district';
+        if (seen.add(districtLabel)) {
+          regions.add(districtLabel);
+        }
+
+        for (final neighborhood in neighborhoods) {
+          final neighborhoodLabel = '$districtLabel $neighborhood';
+          if (seen.add(neighborhoodLabel)) {
+            regions.add(neighborhoodLabel);
+          }
+        }
+      });
     });
 
     regions.sort();
     return regions;
   }
 
-  List<String> _flattenCategories(Map<String, dynamic> data) {
+  Map<String, List<String>> _normalizeCategoryTree(
+    Map<String, List<String>> source,
+  ) {
+    final normalized = <String, List<String>>{};
+
+    source.forEach((main, subs) {
+      final mainLabel = main.trim();
+      if (mainLabel.isEmpty) {
+        return;
+      }
+
+      final uniqueSubs = <String>{};
+      final cleanedSubs = <String>[];
+      for (final sub in subs) {
+        final label = sub.trim();
+        if (label.isEmpty || !uniqueSubs.add(label)) {
+          continue;
+        }
+        cleanedSubs.add(label);
+      }
+
+      if (cleanedSubs.isNotEmpty) {
+        normalized[mainLabel] = cleanedSubs;
+      }
+    });
+
+    return normalized;
+  }
+
+  List<String> _flattenCategoryTree(Map<String, List<String>> data) {
     final seen = <String>{};
     final categories = <String>[];
 
-    void addCategory(String value) {
-      final normalized = value.trim();
-      if (normalized.isEmpty) {
+    data.forEach((main, subs) {
+      final mainLabel = main.trim();
+      if (mainLabel.isEmpty) {
         return;
       }
-      if (seen.add(normalized)) {
-        categories.add(normalized);
-      }
-    }
-
-    void walk(String prefix, dynamic value) {
-      if (value is Map<String, dynamic>) {
-        value.forEach((key, nested) {
-          final label = prefix.isEmpty
-              ? key.toString().trim()
-              : '$prefix > ${key.toString().trim()}';
-          addCategory(label);
-          walk(label, nested);
-        });
-        return;
-      }
-
-      if (value is Iterable) {
-        for (final entry in value) {
-          if (entry == null) {
-            continue;
-          }
-          final label = prefix.isEmpty
-              ? entry.toString().trim()
-              : '$prefix > ${entry.toString().trim()}';
-          addCategory(label);
-          if (entry is Map<String, dynamic>) {
-            walk(label, entry);
-          }
+      for (final sub in subs) {
+        final subLabel = sub.trim();
+        if (subLabel.isEmpty) {
+          continue;
         }
-        return;
+        if (seen.add(subLabel)) {
+          categories.add(subLabel);
+        }
       }
-
-      if (value is String && value.trim().isNotEmpty) {
-        addCategory(prefix.isEmpty ? value : '$prefix > ${value.trim()}');
-      }
-    }
-
-    data.forEach((key, value) {
-      final root = key.toString().trim();
-      if (root.isEmpty) {
-        return;
-      }
-      addCategory(root);
-      walk(root, value);
     });
 
     categories.sort();
@@ -628,6 +651,7 @@ class _Header extends StatelessWidget {
 class _FilterPanel extends StatelessWidget {
   const _FilterPanel({
     required this.regions,
+    required this.regionTree,
     required this.selectedRegion,
     required this.onRegionSelected,
     required this.searchController,
@@ -636,6 +660,7 @@ class _FilterPanel extends StatelessWidget {
   });
 
   final List<String> regions;
+  final Map<String, Map<String, List<String>>> regionTree;
   final String? selectedRegion;
   final ValueChanged<String?> onRegionSelected;
   final TextEditingController searchController;
@@ -707,7 +732,7 @@ class _FilterPanel extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: regions.isEmpty ? null : () => _showRegionSheet(context),
+        onTap: regionTree.isEmpty ? null : () => _showRegionSheet(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
@@ -809,10 +834,9 @@ class _FilterPanel extends StatelessWidget {
     final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      builder: (context) => _SelectionSheet(
-        title: '지역 선택',
-        options: regions,
-        selectedValue: selectedRegion,
+      builder: (context) => RegionSelectorSheet(
+        regionTree: regionTree,
+        initialValue: selectedRegion,
       ),
     );
 
@@ -828,31 +852,71 @@ class _FilterPanel extends StatelessWidget {
   }
 }
 
-class _CategorySelector extends StatelessWidget {
-  const _CategorySelector({
-    required this.categories,
+class HierarchicalCategorySelector extends StatefulWidget {
+  const HierarchicalCategorySelector({
+    required this.categoryTree,
     required this.selectedCategory,
     required this.onSelected,
     required this.expanded,
     required this.onToggle,
   });
 
-  final List<String> categories;
+  final Map<String, List<String>> categoryTree;
   final String? selectedCategory;
   final ValueChanged<String?> onSelected;
   final bool expanded;
   final VoidCallback onToggle;
 
   @override
+  State<HierarchicalCategorySelector> createState() =>
+      _HierarchicalCategorySelectorState();
+}
+
+class _HierarchicalCategorySelectorState
+    extends State<HierarchicalCategorySelector> {
+  late String _activeMainCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeMainCategory = _resolveInitialMain();
+  }
+
+  @override
+  void didUpdateWidget(covariant HierarchicalCategorySelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.categoryTree != widget.categoryTree ||
+        oldWidget.selectedCategory != widget.selectedCategory) {
+      _activeMainCategory = _resolveInitialMain();
+    }
+  }
+
+  String _resolveInitialMain() {
+    if (widget.categoryTree.isEmpty) {
+      return '';
+    }
+
+    if (widget.selectedCategory != null) {
+      final entry = widget.categoryTree.entries.firstWhere(
+        (entry) => entry.value.contains(widget.selectedCategory),
+        orElse: () => widget.categoryTree.entries.first,
+      );
+      return entry.key;
+    }
+
+    return widget.categoryTree.keys.first;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (categories.isEmpty) {
+    if (widget.categoryTree.isEmpty) {
       return const SizedBox.shrink();
     }
 
     final selectedLabel =
-        (selectedCategory == null || selectedCategory!.isEmpty)
+        (widget.selectedCategory == null || widget.selectedCategory!.isEmpty)
             ? '전체'
-            : selectedCategory!;
+            : widget.selectedCategory!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -860,41 +924,33 @@ class _CategorySelector extends StatelessWidget {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onToggle,
+            onTap: widget.onToggle,
+            borderRadius: BorderRadius.circular(16),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(
                 children: [
+                  const Icon(Icons.list_alt, color: AppColors.text),
+                  const SizedBox(width: 10),
                   const Text(
-                    '직업 카테고리',
+                    '직무 카테고리',
                     style: TextStyle(
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F0F5),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      selectedLabel,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.subtext,
-                      ),
                     ),
                   ),
                   const Spacer(),
+                  Text(
+                    selectedLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: AppColors.subtext,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Icon(
-                    expanded
+                    widget.expanded
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     color: AppColors.subtext,
@@ -904,61 +960,52 @@ class _CategorySelector extends StatelessWidget {
             ),
           ),
         ),
-        if (expanded) ...[
+        const SizedBox(height: 10),
+        if (widget.expanded) ...[
+          const Divider(height: 1, color: Color(0xFFE1E1E5)),
           const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const minTileWidth = 140.0;
-              const tileHeight = 48.0;
-              const spacing = 12.0;
-
-              final crossAxisCount = math.max(
-                1,
-                (constraints.maxWidth / minTileWidth).floor(),
-              );
-              final horizontalSpacing = spacing * (crossAxisCount - 1);
-              final widthPerTile =
-                  (constraints.maxWidth - horizontalSpacing) / crossAxisCount;
-              final childAspectRatio = widthPerTile / tileHeight;
-
-              final options = <_CategoryOption>[
-                const _CategoryOption(label: '전체', value: null),
-                ...categories.map(
-                  (category) =>
-                      _CategoryOption(label: category, value: category),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final main in widget.categoryTree.keys)
+                _PillButton(
+                  label: main,
+                  selected: _activeMainCategory == main,
+                  onTap: () {
+                    setState(() {
+                      _activeMainCategory = main;
+                    });
+                  },
                 ),
-              ];
-
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: spacing,
-                  crossAxisSpacing: spacing,
-                  childAspectRatio: childAspectRatio,
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            '세부 카테고리',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _PillButton(
+                label: '전체',
+                selected: widget.selectedCategory == null,
+                onTap: () => widget.onSelected(null),
+              ),
+              for (final sub in widget.categoryTree[_activeMainCategory] ??
+                  const <String>[])
+                _PillButton(
+                  label: sub,
+                  selected: widget.selectedCategory == sub,
+                  onTap: () => widget.onSelected(sub),
                 ),
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  final isSelected = option.value == null
-                      ? selectedCategory == null
-                      : selectedCategory == option.value;
-                  return _CategoryTile(
-                    label: option.label,
-                    selected: isSelected,
-                    onTap: () {
-                      if (isSelected) {
-                        onSelected(null);
-                      } else {
-                        onSelected(option.value);
-                      }
-                    },
-                  );
-                },
-              );
-            },
+            ],
           ),
         ],
       ],
@@ -966,15 +1013,8 @@ class _CategorySelector extends StatelessWidget {
   }
 }
 
-class _CategoryOption {
-  const _CategoryOption({required this.label, required this.value});
-
-  final String label;
-  final String? value;
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
+class _PillButton extends StatelessWidget {
+  const _PillButton({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -990,24 +1030,21 @@ class _CategoryTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(999),
         child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: selected ? AppColors.mint.withOpacity(0.15) : Colors.white,
+            color: selected ? AppColors.mint.withOpacity(0.14) : Colors.white,
             border: Border.all(
               color: selected ? AppColors.mint : const Color(0xFFE1E1E5),
-              width: 1.1,
             ),
+            borderRadius: BorderRadius.circular(999),
           ),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             label,
-            textAlign: TextAlign.center,
             style: TextStyle(
-              fontWeight: FontWeight.w600,
               fontSize: 13,
+              fontWeight: FontWeight.w700,
               color: selected ? AppColors.text : AppColors.subtext,
             ),
           ),
@@ -1017,71 +1054,262 @@ class _CategoryTile extends StatelessWidget {
   }
 }
 
-class _SelectionSheet extends StatelessWidget {
-  const _SelectionSheet({
-    required this.title,
-    required this.options,
-    required this.selectedValue,
+class RegionSelectorSheet extends StatefulWidget {
+  const RegionSelectorSheet({
+    required this.regionTree,
+    required this.initialValue,
   });
 
-  final String title;
-  final List<String> options;
-  final String? selectedValue;
+  final Map<String, Map<String, List<String>>> regionTree;
+  final String? initialValue;
+
+  @override
+  State<RegionSelectorSheet> createState() => _RegionSelectorSheetState();
+}
+
+class _RegionSelectorSheetState extends State<RegionSelectorSheet> {
+  String? _selectedCity;
+  String? _selectedDistrict;
+  String? _selectedNeighborhood;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialSelection();
+  }
+
+  void _applyInitialSelection() {
+    final parts =
+        widget.initialValue?.split(' ').where((p) => p.isNotEmpty).toList() ??
+            const <String>[];
+
+    if (parts.isEmpty) {
+      return;
+    }
+
+    _selectedCity = parts.isNotEmpty ? parts.first : null;
+    _selectedDistrict = parts.length > 1 ? parts[1] : null;
+    _selectedNeighborhood = parts.length > 2
+        ? parts.sublist(2).join(' ').trim().isEmpty
+            ? null
+            : parts.sublist(2).join(' ')
+        : null;
+  }
+
+  String _composeSelection() {
+    if (_selectedCity == null) {
+      return '';
+    }
+    if (_selectedDistrict == null || _selectedDistrict!.isEmpty) {
+      return _selectedCity!;
+    }
+    if (_selectedNeighborhood == null || _selectedNeighborhood!.isEmpty) {
+      return '${_selectedCity!} ${_selectedDistrict!}';
+    }
+    return '${_selectedCity!} ${_selectedDistrict!} ${_selectedNeighborhood!}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final height = math.min(
-      MediaQuery.of(context).size.height * 0.6,
-      72.0 * (options.length + 1) + 96,
+      MediaQuery.of(context).size.height * 0.72,
+      640.0,
     );
+
+    final cities = widget.regionTree.keys.toList()..sort();
+    final districts =
+        widget.regionTree[_selectedCity]?.keys.toList() ?? const <String>[];
+    final neighborhoods = (_selectedCity != null && _selectedDistrict != null)
+        ? (widget.regionTree[_selectedCity!]?[_selectedDistrict!] ??
+            const <String>[])
+        : const <String>[];
 
     return SafeArea(
       child: SizedBox(
         height: height,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    '지역 선택',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(''),
+                    child: const Text('전체 지역'),
+                  ),
+                ],
+              ),
+              const Divider(height: 1),
+              const SizedBox(height: 14),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ColumnSelector(
+                        title: '광역시/도',
+                        options: cities,
+                        selected: _selectedCity,
+                        onSelected: (value) {
+                          setState(() {
+                            _selectedCity = value;
+                            _selectedDistrict = null;
+                            _selectedNeighborhood = null;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ColumnSelector(
+                        title: '시/군/구',
+                        options: districts,
+                        selected: _selectedDistrict,
+                        onSelected: (value) {
+                          setState(() {
+                            _selectedDistrict = value;
+                            _selectedNeighborhood = null;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ColumnSelector(
+                        title: '읍/면/동',
+                        options: neighborhoods,
+                        selected: _selectedNeighborhood,
+                        onSelected: (value) {
+                          setState(() {
+                            _selectedNeighborhood = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.separated(
-                itemCount: options.length + 1,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    final isSelected = selectedValue == null;
-                    return ListTile(
-                      title: const Text('전체 지역'),
-                      trailing: isSelected
-                          ? const Icon(Icons.check, color: AppColors.mint)
-                          : null,
-                      onTap: () => Navigator.of(context).pop(''),
-                    );
-                  }
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedCity = null;
+                          _selectedDistrict = null;
+                          _selectedNeighborhood = null;
+                        });
+                      },
+                      child: const Text('선택 초기화'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _selectedCity == null
+                          ? null
+                          : () {
+                              Navigator.of(context).pop(_composeSelection());
+                            },
+                      child: const Text('선택 완료'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                  final option = options[index - 1];
-                  final isSelected = option == selectedValue;
-                  return ListTile(
-                    title: Text(option),
-                    trailing: isSelected
-                        ? const Icon(Icons.check, color: AppColors.mint)
-                        : null,
-                    onTap: () => Navigator.of(context).pop(option),
-                  );
-                },
+class _ColumnSelector extends StatelessWidget {
+  const _ColumnSelector({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE1E1E5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
               ),
             ),
-          ],
-        ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE1E1E5)),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemBuilder: (context, index) {
+                final option = options[index];
+                final isSelected = option == selected;
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              option,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? AppColors.text
+                                    : AppColors.subtext,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check,
+                                color: AppColors.mint, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemCount: options.length,
+            ),
+          ),
+        ],
       ),
     );
   }
