@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../jobs/job_categories.dart';
 import '../jobs/job_detail_page.dart';
 import '../jobs/job_posting.dart';
 import '../jobs/job_posting_loader.dart';
@@ -92,7 +95,9 @@ class _JobsListState extends State<_JobsList> {
   String? _selectedCategory;
   String _searchQuery = '';
   late final TextEditingController _searchController;
+  List<String> _standardRegions = const <String>[];
   List<String> _availableRegions = const <String>[];
+  List<String> _standardCategories = const <String>[];
   List<String> _availableCategories = const <String>[];
   List<JobPosting> _filteredItems = const <JobPosting>[];
   bool _showCategories = false;
@@ -101,9 +106,9 @@ class _JobsListState extends State<_JobsList> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _availableRegions = _collectRegions(widget.feed.items);
-    _availableCategories = _collectCategories(widget.feed.items);
-    _filteredItems = _filterJobs(widget.feed.items);
+    _refreshFiltersFrom(widget.feed.items);
+    _loadRegionData();
+    _loadCategoryData();
   }
 
   @override
@@ -117,33 +122,7 @@ class _JobsListState extends State<_JobsList> {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.feed.items, oldWidget.feed.items) ||
         widget.feed.totalCount != oldWidget.feed.totalCount) {
-      final regions = _collectRegions(widget.feed.items);
-      final categories = _collectCategories(widget.feed.items);
-
-      var nextRegion = _selectedRegion;
-      if (nextRegion != null && !regions.contains(nextRegion)) {
-        nextRegion = null;
-      }
-
-      var nextCategory = _selectedCategory;
-      if (nextCategory != null && !categories.contains(nextCategory)) {
-        nextCategory = null;
-      }
-      final filtered = _filterJobs(
-        widget.feed.items,
-        regionFilter: nextRegion,
-        categoryFilter: nextCategory,
-      );
-      final totalPages = _pageCount(filtered.length);
-
-      setState(() {
-        _availableRegions = regions;
-        _availableCategories = categories;
-        _selectedRegion = nextRegion;
-        _selectedCategory = nextCategory;
-        _filteredItems = filtered;
-        _currentPage = math.min(_currentPage, totalPages);
-      });
+      _refreshFiltersFrom(widget.feed.items);
     }
   }
 
@@ -163,6 +142,8 @@ class _JobsListState extends State<_JobsList> {
     final filtered = _filterJobs(
       widget.feed.items,
       regionFilter: normalized?.isEmpty ?? true ? null : normalized,
+      categoryFilter: _selectedCategory,
+      searchFilter: _searchQuery,
     );
     final totalPages = _pageCount(filtered.length);
 
@@ -177,7 +158,9 @@ class _JobsListState extends State<_JobsList> {
     final normalized = category?.trim();
     final filtered = _filterJobs(
       widget.feed.items,
+      regionFilter: _selectedRegion,
       categoryFilter: normalized?.isEmpty ?? true ? null : normalized,
+      searchFilter: _searchQuery,
     );
     final totalPages = _pageCount(filtered.length);
 
@@ -192,6 +175,8 @@ class _JobsListState extends State<_JobsList> {
     final query = value.trim();
     final filtered = _filterJobs(
       widget.feed.items,
+      regionFilter: _selectedRegion,
+      categoryFilter: _selectedCategory,
       searchFilter: query,
     );
     final totalPages = _pageCount(filtered.length);
@@ -300,18 +285,22 @@ class _JobsListState extends State<_JobsList> {
         return false;
       }
       if (region != null && region.isNotEmpty) {
-        final regions = _splitMultiValue(job.region);
-        if (regions.isEmpty) {
-          if (!job.region.toLowerCase().contains(region.toLowerCase())) {
-            return false;
-          }
-        } else if (!regions.contains(region)) {
+        final regionText =
+            (job.regionLabel.isNotEmpty ? job.regionLabel : job.region)
+                .toLowerCase();
+        if (!regionText.contains(region.toLowerCase())) {
           return false;
         }
       }
 
       if (category != null && category.isNotEmpty) {
-        if (job.occupations.isEmpty || !job.occupations.contains(category)) {
+        final normalized = category.toLowerCase();
+        final lastSegment = category.split('>').last.trim().toLowerCase();
+        final hasCategory = job.occupations.any((occupation) {
+          final value = occupation.toLowerCase();
+          return value.contains(normalized) || value.contains(lastSegment);
+        });
+        if (!hasCategory) {
           return false;
         }
       }
@@ -319,7 +308,7 @@ class _JobsListState extends State<_JobsList> {
       if (trimmedQuery.isNotEmpty) {
         if (!job.title.toLowerCase().contains(trimmedQuery) &&
             !job.company.toLowerCase().contains(trimmedQuery) &&
-            !job.region.toLowerCase().contains(trimmedQuery)) {
+            !job.regionLabel.toLowerCase().contains(trimmedQuery)) {
           return false;
         }
       }
@@ -350,6 +339,25 @@ class _JobsListState extends State<_JobsList> {
     return regions;
   }
 
+  Future<void> _loadRegionData() async {
+    try {
+      final text = await rootBundle.loadString('assets/regions.json');
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        final flattened = _flattenRegions(decoded);
+        if (flattened.isNotEmpty) {
+          _standardRegions = flattened;
+          _refreshFiltersFrom(widget.feed.items, regions: flattened);
+          return;
+        }
+      }
+    } catch (_) {
+      // Ignore and fall back to collected regions.
+    }
+
+    _refreshFiltersFrom(widget.feed.items);
+  }
+
   List<String> _collectCategories(List<JobPosting> items) {
     final seen = <String>{};
     final categories = <String>[];
@@ -366,6 +374,68 @@ class _JobsListState extends State<_JobsList> {
     }
     categories.sort();
     return categories;
+  }
+
+  Future<void> _loadCategoryData() async {
+    final flattened = _flattenCategories(subCategoryMap);
+    if (flattened.isNotEmpty) {
+      _standardCategories = flattened;
+      _refreshFiltersFrom(widget.feed.items, categories: flattened);
+      return;
+    }
+
+    _refreshFiltersFrom(widget.feed.items);
+  }
+
+  void _refreshFiltersFrom(
+    List<JobPosting> items, {
+    List<String>? regions,
+    List<String>? categories,
+  }) {
+    if (!mounted) {
+      return;
+    }
+    final resolvedRegions = regions ?? _resolveRegions(items);
+    final resolvedCategories = categories ?? _resolveCategories(items);
+
+    final nextRegion =
+        _selectedRegion != null && resolvedRegions.contains(_selectedRegion!)
+            ? _selectedRegion
+            : null;
+    final nextCategory = _selectedCategory != null &&
+            resolvedCategories.contains(_selectedCategory!)
+        ? _selectedCategory
+        : null;
+
+    final filtered = _filterJobs(
+      items,
+      regionFilter: nextRegion,
+      categoryFilter: nextCategory,
+    );
+    final totalPages = _pageCount(filtered.length);
+
+    setState(() {
+      _availableRegions = resolvedRegions;
+      _availableCategories = resolvedCategories;
+      _selectedRegion = nextRegion;
+      _selectedCategory = nextCategory;
+      _filteredItems = filtered;
+      _currentPage = math.min(_currentPage, totalPages);
+    });
+  }
+
+  List<String> _resolveRegions(List<JobPosting> items) {
+    if (_standardRegions.isNotEmpty) {
+      return _standardRegions;
+    }
+    return _collectRegions(items);
+  }
+
+  List<String> _resolveCategories(List<JobPosting> items) {
+    if (_standardCategories.isNotEmpty) {
+      return _standardCategories;
+    }
+    return _collectCategories(items);
   }
 
   List<String> _splitMultiValue(String? source) {
@@ -390,6 +460,110 @@ class _JobsListState extends State<_JobsList> {
       }
     }
     return values;
+  }
+
+  List<String> _flattenRegions(Map<String, dynamic> data) {
+    final seen = <String>{};
+    final regions = <String>[];
+
+    data.forEach((cityKey, districtsValue) {
+      final city = cityKey.toString().trim();
+      if (city.isEmpty) {
+        return;
+      }
+      if (seen.add(city)) {
+        regions.add(city);
+      }
+
+      if (districtsValue is Map<String, dynamic>) {
+        districtsValue.forEach((districtKey, neighborhoodsValue) {
+          final district = districtKey.toString().trim();
+          if (district.isEmpty) {
+            return;
+          }
+          final districtLabel = '$city $district';
+          if (seen.add(districtLabel)) {
+            regions.add(districtLabel);
+          }
+
+          if (neighborhoodsValue is List<dynamic>) {
+            for (final neighborhood in neighborhoodsValue) {
+              final neighborhoodName = neighborhood.toString().trim();
+              if (neighborhoodName.isEmpty) {
+                continue;
+              }
+              final neighborhoodLabel = '$districtLabel $neighborhoodName';
+              if (seen.add(neighborhoodLabel)) {
+                regions.add(neighborhoodLabel);
+              }
+            }
+          }
+        });
+      }
+    });
+
+    regions.sort();
+    return regions;
+  }
+
+  List<String> _flattenCategories(Map<String, dynamic> data) {
+    final seen = <String>{};
+    final categories = <String>[];
+
+    void addCategory(String value) {
+      final normalized = value.trim();
+      if (normalized.isEmpty) {
+        return;
+      }
+      if (seen.add(normalized)) {
+        categories.add(normalized);
+      }
+    }
+
+    void walk(String prefix, dynamic value) {
+      if (value is Map<String, dynamic>) {
+        value.forEach((key, nested) {
+          final label = prefix.isEmpty
+              ? key.toString().trim()
+              : '$prefix > ${key.toString().trim()}';
+          addCategory(label);
+          walk(label, nested);
+        });
+        return;
+      }
+
+      if (value is Iterable) {
+        for (final entry in value) {
+          if (entry == null) {
+            continue;
+          }
+          final label = prefix.isEmpty
+              ? entry.toString().trim()
+              : '$prefix > ${entry.toString().trim()}';
+          addCategory(label);
+          if (entry is Map<String, dynamic>) {
+            walk(label, entry);
+          }
+        }
+        return;
+      }
+
+      if (value is String && value.trim().isNotEmpty) {
+        addCategory(prefix.isEmpty ? value : '$prefix > ${value.trim()}');
+      }
+    }
+
+    data.forEach((key, value) {
+      final root = key.toString().trim();
+      if (root.isEmpty) {
+        return;
+      }
+      addCategory(root);
+      walk(root, value);
+    });
+
+    categories.sort();
+    return categories;
   }
 }
 
