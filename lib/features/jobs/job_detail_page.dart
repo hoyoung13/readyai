@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -60,7 +61,7 @@ class JobDetailPage extends StatelessWidget {
               ),
             const SizedBox(height: 24),
             if (job.summaryItems.isNotEmpty)
-              _InfoBlock(
+              ModernSectionCard(
                 title: '공고 요약',
                 separated: true,
                 children: job.summaryItems
@@ -74,7 +75,7 @@ class JobDetailPage extends StatelessWidget {
               ),
             if (job.summaryItems.isNotEmpty) const SizedBox(height: 16),
             if (hasApplicationPeriod)
-              _InfoBlock(
+              ModernSectionCard(
                 title: '접수 기간',
                 separated: true,
                 children: [
@@ -88,7 +89,7 @@ class JobDetailPage extends StatelessWidget {
                 ],
               ),
             if (hasApplicationPeriod) const SizedBox(height: 16),
-            _InfoBlock(
+            ModernSectionCard(
               title: '기본 정보',
               separated: true,
               children: [
@@ -106,18 +107,18 @@ class JobDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (trimmedDescription.isNotEmpty)
-              _InfoBlock(
+              ModernSectionCard(
                 title: '상세 설명',
                 children: [
                   Text(
                     trimmedDescription,
-                    style: const TextStyle(height: 1.5),
+                    style: const TextStyle(height: 1.6),
                   ),
                 ],
               ),
             if (trimmedDescription.isNotEmpty) const SizedBox(height: 16),
             if (job.detailRows.isNotEmpty)
-              _InfoBlock(
+              ModernSectionCard(
                 title: '상세 정보',
                 separated: true,
                 children: job.detailRows
@@ -137,7 +138,7 @@ class JobDetailPage extends StatelessWidget {
                             const SizedBox(height: 6),
                             Text(
                               row.description,
-                              style: const TextStyle(height: 1.5),
+                              style: const TextStyle(height: 1.6),
                             ),
                           ],
                         ),
@@ -147,27 +148,27 @@ class JobDetailPage extends StatelessWidget {
               ),
             if (job.detailRows.isNotEmpty) const SizedBox(height: 16),
             if (job.tags.isNotEmpty)
-              _InfoBlock(
+              ModernSectionCard(
                 title: '복리후생 / 태그',
                 children: [
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: job.tags
-                        .map((tag) => _BenefitChip(label: tag))
+                        .map((tag) => ModernTag(label: tag))
                         .toList(growable: false),
                   ),
                 ],
               ),
             if (job.tags.isNotEmpty) const SizedBox(height: 16),
-            _InfoBlock(
+            ModernSectionCard(
               title: '안내',
               children: [
                 Text(
                   trimmedNotice.isNotEmpty
                       ? trimmedNotice
                       : '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
-                  style: const TextStyle(height: 1.5),
+                  style: const TextStyle(height: 1.6),
                 ),
                 if (trimmedNotice.isNotEmpty) const SizedBox(height: 8),
               ],
@@ -619,99 +620,130 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initial = (job.companyLabel.isNotEmpty)
+        ? job.companyLabel.characters.first.toUpperCase()
+        : '?';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.business_center_outlined,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.companyLabel,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.subtext,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          fontSize: 20,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      job.title,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        height: 1.25,
-                      ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          job.title,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          job.companyLabel,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.subtext,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              StreamBuilder<JobActivity?>(
-                stream: activityService.watch(job),
-                builder: (context, snapshot) {
-                  final scrapped = snapshot.data?.scrapped ?? false;
-                  return IconButton(
-                    onPressed: () => onToggleScrap(scrapped),
-                    icon: Icon(
-                      scrapped ? Icons.star : Icons.star_outline,
-                      color: scrapped ? Colors.amber : AppColors.subtext,
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoTag(
+                    icon: Icons.place_outlined,
+                    label: job.regionLabel,
+                  ),
+                  if (job.prettyPostedDate != null)
+                    _InfoTag(
+                      icon: Icons.event_note,
+                      label: '${job.prettyPostedDate} 등록',
                     ),
-                    tooltip: scrapped ? '스크랩 취소' : '스크랩',
-                  );
-                },
+                  if (job.occupations.isNotEmpty)
+                    _InfoTag(
+                      icon: Icons.work_outline,
+                      label: job.occupations.join(', '),
+                    ),
+                  ...job.tags.map((tag) => ModernTag(label: tag)),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _InfoTag(
-                icon: Icons.place_outlined,
-                label: job.regionLabel,
-              ),
-              if (job.prettyPostedDate != null)
-                _InfoTag(
-                  icon: Icons.event_note,
-                  label: '${job.prettyPostedDate} 등록',
-                ),
-              if (job.occupations.isNotEmpty)
-                _InfoTag(
-                  icon: Icons.work_outline,
-                  label: job.occupations.join(', '),
-                ),
-            ],
+          Positioned(
+            top: 0,
+            right: 0,
+            child: StreamBuilder<JobActivity?>(
+              stream: activityService.watch(job),
+              builder: (context, snapshot) {
+                final scrapped = snapshot.data?.scrapped ?? false;
+                return Container(
+                  decoration: BoxDecoration(
+                    color: scrapped
+                        ? AppColors.primary.withOpacity(0.12)
+                        : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: scrapped
+                          ? AppColors.primary.withOpacity(0.25)
+                          : const Color(0xFFE5E5E5),
+                    ),
+                  ),
+                  child: IconButton(
+                    onPressed: () => onToggleScrap(scrapped),
+                    icon: Icon(
+                      scrapped ? Icons.star : Icons.star_outline,
+                      color: scrapped ? AppColors.primary : AppColors.subtext,
+                    ),
+                    tooltip: scrapped ? '스크랩 취소' : '스크랩',
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -848,19 +880,19 @@ class _InfoTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.primarySoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE6E6E6)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppColors.primary),
+          Icon(icon, size: 16, color: AppColors.subtext),
           const SizedBox(width: 6),
           Text(
             label,
             style: const TextStyle(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.text,
             ),
           ),
@@ -870,15 +902,18 @@ class _InfoTag extends StatelessWidget {
   }
 }
 
-class _InfoBlock extends StatelessWidget {
-  const _InfoBlock({
+class ModernSectionCard extends StatelessWidget {
+  const ModernSectionCard({
+    super.key,
     required this.title,
     required this.children,
+    this.icon,
     this.separated = false,
   });
 
   final String title;
   final List<Widget> children;
+  final IconData? icon;
   final bool separated;
 
   List<Widget> get _spacedChildren {
@@ -892,7 +927,7 @@ class _InfoBlock extends StatelessWidget {
       if (i != children.length - 1) {
         widgets.add(
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 10),
+            padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(
               height: 1,
               thickness: 1,
@@ -912,10 +947,10 @@ class _InfoBlock extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
@@ -924,14 +959,23 @@ class _InfoBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 20, color: AppColors.text),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           ..._spacedChildren,
         ],
       ),
@@ -996,17 +1040,28 @@ class _BenefitChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ModernTag(label: label);
+  }
+}
+
+class ModernTag extends StatelessWidget {
+  const ModernTag({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.primarySoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE6E6E6)),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: AppColors.text,
         ),
       ),
