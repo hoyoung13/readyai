@@ -169,38 +169,6 @@ class BoardTab extends StatelessWidget {
               color: const Color(0xFF0F172A),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.flag_outlined, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        '신고 및 커뮤니티 가이드',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '게시글·댓글 신고가 접수되면 운영진이 즉시 검토해 안전한 커뮤니티를 유지합니다.',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('가이드 보기'),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 28),
           const SectionHeader(title: '실시간 인기 글'),
