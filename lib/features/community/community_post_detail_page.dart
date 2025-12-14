@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import '../tabs/tabs_shared.dart';
 import 'community_comment.dart';
 import 'community_post.dart';
@@ -32,11 +32,39 @@ class CommunityPostDetailPage extends StatefulWidget {
 class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
   final CommunityPostService _service = CommunityPostService();
   final TextEditingController _commentController = TextEditingController();
+  StreamSubscription<User?>? _authSub;
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      setState(() => _isAdmin = false);
+      if (user == null) return;
+      _loadUserRole(user);
+    });
+  }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserRole(User user) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final role = snapshot.data()?['role'] as String?;
+      if (!mounted) return;
+      setState(() => _isAdmin = role == 'admin');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isAdmin = false);
+    }
   }
 
   @override
@@ -62,7 +90,14 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
                     ),
                   ),
                   actions: [
-                    if (post != null && user?.uid != post.authorId)
+                    if (post != null && _isAdmin)
+                      IconButton(
+                        onPressed: () => _handleDelete(
+                            user: user, post: post, isAdmin: _isAdmin),
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: '게시글 삭제',
+                      )
+                    else if (post != null && user?.uid != post.authorId)
                       IconButton(
                         onPressed: () => _handleReport(user, post),
                         icon: Image.asset(
@@ -216,6 +251,61 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
     }
   }
 
+  Future<void> _handleDelete({
+    required User? user,
+    required CommunityPost post,
+    required bool isAdmin,
+  }) async {
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 이용해 주세요.')),
+      );
+      return;
+    }
+
+    final isAuthor = user.uid == post.authorId;
+    if (!isAuthor && !isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제 권한이 없습니다.')),
+      );
+      return;
+    }
+
+    final requiresReason = isAdmin && !isAuthor;
+    String blockedReason = '작성자에 의해 삭제되었습니다.';
+
+    if (requiresReason) {
+      final reason = await _showDeleteReasonDialog();
+      if (reason == null) return;
+      blockedReason =
+          reason.trim().isNotEmpty ? reason.trim() : '관리자에 의해 삭제되었습니다.';
+    }
+
+    try {
+      await _service.setVisibility(
+        postId: post.id,
+        visible: false,
+        blockedReason: blockedReason,
+        deletedByAdmin: requiresReason,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('게시글을 삭제했어요.')),
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('삭제에 실패했습니다: ${error.message}')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('삭제에 실패했습니다: $error')),
+      );
+    }
+  }
+
   Future<void> _handleReport(User? user, CommunityPost post) async {
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -251,6 +341,38 @@ class _CommunityPostDetailPageState extends State<CommunityPostDetailPage> {
         SnackBar(content: Text('신고에 실패했습니다: $error')),
       );
     }
+  }
+
+  Future<String?> _showDeleteReasonDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('삭제 사유 입력'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: '삭제 사유를 입력해 주세요.',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   Future<String?> _showReportReasonDialog() async {

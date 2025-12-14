@@ -289,31 +289,10 @@ class _ContentModerationPageState extends State<ContentModerationPage>
                           label: const Text('숨김'),
                         ),
                         OutlinedButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => _updateJobVisibility(
-                                    post.id,
-                                    false,
-                                    '삭제 처리',
-                                  ),
+                          onPressed:
+                              _busy ? null : () => _deleteJobPost(post.id),
                           icon: const Icon(Icons.delete_outline),
                           label: const Text('삭제'),
-                        ),
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.red.shade600,
-                          ),
-                          onPressed: _busy
-                              ? null
-                              : () => _promptBlindReason(
-                                    onSubmit: (reason) => _updateJobVisibility(
-                                      post.id,
-                                      false,
-                                      reason,
-                                    ),
-                                  ),
-                          icon: const Icon(Icons.shield_outlined),
-                          label: const Text('블라인드'),
                         ),
                         if (!post.visible)
                           TextButton(
@@ -362,6 +341,24 @@ class _ContentModerationPageState extends State<ContentModerationPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('처리 중 오류가 발생했습니다. $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteJobPost(String postId) async {
+    setState(() => _busy = true);
+    try {
+      await _jobPostingService.delete(postId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('채용공고를 삭제했습니다.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('삭제 중 오류가 발생했습니다. $e')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
