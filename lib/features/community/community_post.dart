@@ -17,6 +17,7 @@ class CommunityPost {
     required this.updatedAt,
     required this.likeCount,
     required this.commentCount,
+    required this.reportCount,
   });
 
   final String id;
@@ -34,6 +35,7 @@ class CommunityPost {
   final DateTime? updatedAt;
   final int likeCount;
   final int commentCount;
+  final int reportCount;
 
   factory CommunityPost.fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -55,6 +57,7 @@ class CommunityPost {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       likeCount: data['likeCount'] as int? ?? 0,
       commentCount: data['commentCount'] as int? ?? 0,
+      reportCount: data['reportCount'] as int? ?? 0,
     );
   }
 }
