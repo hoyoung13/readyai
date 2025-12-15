@@ -35,23 +35,19 @@ class JobDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmedDescription = job.description.trim();
     final trimmedNotice = job.notice.trim();
-    final hasApplicationPeriod =
-        job.applicationStartDateText.trim().isNotEmpty ||
-            job.applicationEndDateText.trim().isNotEmpty;
     final jobRoleRow = _findDetailRow(['자격', '요건', '필수']);
     final preferredRow = _findDetailRow(['우대']);
-    final welfareRow = _findDetailRow(['복지', '혜택', '복리후생']);
 
     final summaryItems = <JobSummaryItem>[...job.summaryItems];
-    if (hasApplicationPeriod) {
-      summaryItems.add(JobSummaryItem(
-        label: '모집기간',
-        value: _formatApplicationPeriod(
-          job.applicationStartDateText,
-          job.applicationEndDateText,
-        ),
-      ));
-    }
+    final summaryLabels = summaryItems.map((item) => item.label).toSet();
+    final remainingDetailRows = job.detailRows
+        .where(
+          (row) =>
+              row != jobRoleRow &&
+              row != preferredRow &&
+              !summaryLabels.contains(row.title),
+        )
+        .toList(growable: false);
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -65,19 +61,25 @@ class JobDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            JobHeader(
-              job: job,
-              activityService: _activityService,
-              onToggleScrap: (scrapped) =>
-                  _handleToggleScrap(context, scrapped),
-              onOpenLink: () => _launchDetail(job.url, context),
+            ModernSectionCard(
+              title: '',
+              children: [
+                JobHeader(
+                  job: job,
+                  activityService: _activityService,
+                  onToggleScrap: (scrapped) =>
+                      _handleToggleScrap(context, scrapped),
+                  onOpenLink: () => _launchDetail(job.url, context),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            if (summaryItems.isNotEmpty)
+            if (summaryItems.isNotEmpty) ...[
+              const SizedBox(height: 16),
               JobSummaryCard(summaryItems: summaryItems),
-            const SizedBox(height: 16),
-            if (trimmedDescription.isNotEmpty)
-              SectionCard(
+            ],
+            if (trimmedDescription.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ModernSectionCard(
                 title: '담당 업무',
                 children: [
                   Text(
@@ -86,9 +88,10 @@ class JobDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
+            ],
             if (jobRoleRow != null) ...[
-              const SizedBox(height: 12),
-              SectionCard(
+              const SizedBox(height: 16),
+              ModernSectionCard(
                 title: jobRoleRow.title,
                 children: [
                   Text(
@@ -99,8 +102,8 @@ class JobDetailPage extends StatelessWidget {
               ),
             ],
             if (preferredRow != null) ...[
-              const SizedBox(height: 12),
-              SectionCard(
+              const SizedBox(height: 16),
+              ModernSectionCard(
                 title: preferredRow.title,
                 children: [
                   Text(
@@ -110,17 +113,84 @@ class JobDetailPage extends StatelessWidget {
                 ],
               ),
             ],
-            if (job.tags.isNotEmpty || welfareRow != null) ...[
-              const SizedBox(height: 12),
-              SectionCard(
-                title: '복지/혜택',
-                children: [
-                  if (welfareRow != null) ...[
-                    Text(
-                      welfareRow.description,
+            const SizedBox(height: 16),
+            ModernSectionCard(
+              title: '기본 조건',
+              separated: true,
+              children: [
+                _InfoRow(label: '고용 형태', value: job.employmentTypeSafe),
+                _InfoRow(label: '경력', value: job.experienceLevelSafe),
+                _InfoRow(label: '학력', value: job.educationSafe),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ModernSectionCard(
+              title: '근무 조건',
+              separated: true,
+              children: [
+                _InfoRow(label: '근무지', value: job.regionLabel),
+                _InfoRow(label: '근무시간', value: job.workHoursSafe),
+                _InfoRow(label: '급여', value: job.salarySafe),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ModernSectionCard(
+              title: '지원 정보',
+              separated: true,
+              children: [
+                _InfoRow(label: '전형 절차', value: job.processSafe),
+                _InfoRow(label: '지원 방법', value: job.applyMethodSafe),
+                _InfoRow(
+                  label: '제출 서류',
+                  value: job.attachmentsSafe.join(', '),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ModernSectionCard(
+              title: '기업 정보',
+              separated: true,
+              children: [
+                _InfoRow(label: '기업명', value: job.companyLabel),
+                _InfoRow(label: '근무지', value: job.regionLabel),
+                if (job.companyWebsiteSafe.isNotEmpty)
+                  _LinkRow(
+                    label: '홈페이지',
+                    url: job.companyWebsiteSafe,
+                    onTap: () => _launchDetail(job.companyWebsiteSafe, context),
+                  ),
+                _InfoRow(label: '담당자', value: job.contactNameSafe),
+                _InfoRow(label: '이메일', value: job.contactEmailSafe),
+                _InfoRow(label: '연락처', value: job.contactPhoneSafe),
+                if (trimmedNotice.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      trimmedNotice,
                       style: const TextStyle(height: 1.6),
                     ),
-                    const SizedBox(height: 12),
+                  ),
+                if (trimmedNotice.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
+                      style: TextStyle(height: 1.6),
+                    ),
+                  ),
+              ],
+            ),
+            if (job.benefitsSafe.isNotEmpty || job.tags.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ModernSectionCard(
+                title: '복지/혜택',
+                children: [
+                  if (job.benefitsSafe.isNotEmpty) ...[
+                    Text(
+                      job.benefitsSafe,
+                      style: const TextStyle(height: 1.6),
+                    ),
+                    if (job.tags.isNotEmpty) const SizedBox(height: 16),
                   ],
                   if (job.tags.isNotEmpty)
                     Wrap(
@@ -133,102 +203,48 @@ class JobDetailPage extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 12),
-            SectionCard(
-              title: '기업 정보',
+            const SizedBox(height: 16),
+            ModernSectionCard(
+              title: '모집 기간',
               children: [
-                _InfoRow(label: '기업명', value: job.companyLabel),
-                _InfoRow(label: '근무지역', value: job.regionLabel),
-                if (job.prettyPostedDate != null)
-                  _InfoRow(label: '등록일', value: job.prettyPostedDate!),
-                if (hasApplicationPeriod)
-                  _InfoRow(
-                    label: '모집기간',
-                    value: _formatApplicationPeriod(
-                      job.applicationStartDateText,
-                      job.applicationEndDateText,
-                    ),
+                Text(
+                  _formatApplicationPeriod(
+                    job.applicationStartDateText,
+                    job.applicationEndDateText,
                   ),
-                if (job.url.trim().isNotEmpty)
-                  GestureDetector(
-                    onTap: () => _launchDetail(job.url, context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
+                  style:
+                      const TextStyle(height: 1.6, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            if (remainingDetailRows.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ModernSectionCard(
+                title: '추가 정보',
+                separated: true,
+                children: remainingDetailRows
+                    .map(
+                      (row) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(
-                            width: 82,
-                            child: Text(
-                              '홈페이지',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.text,
-                                fontSize: 14,
-                              ),
+                          Text(
+                            row.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              job.url,
-                              style: const TextStyle(
-                                decoration: TextDecoration.underline,
-                                color: AppColors.primary,
-                              ),
-                            ),
+                          const SizedBox(height: 6),
+                          Text(
+                            row.description,
+                            style: const TextStyle(height: 1.6),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                if (trimmedNotice.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      trimmedNotice,
-                      style: const TextStyle(height: 1.5),
-                    ),
-                  ),
-                if (trimmedNotice.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text(
-                      '본 정보는 공공데이터포털 "기획재정부_공공기관 채용정보 조회서비스"를 통해 수집되었습니다.',
-                      style: TextStyle(height: 1.5),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (job.detailRows.isNotEmpty)
-              SectionCard(
-                title: '추가 정보',
-                children: job.detailRows
-                    .where((row) => !summaryItems.any(
-                          (item) => item.label == row.title,
-                        ))
-                    .map((row) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                row.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                row.description,
-                                style: const TextStyle(height: 1.6),
-                              ),
-                            ],
-                          ),
-                        ))
+                    )
                     .toList(),
               ),
+            ],
             const SizedBox(height: 16),
           ],
         ),
@@ -702,111 +718,102 @@ class JobHeader extends StatelessWidget {
     final initial = (job.companyLabel.isNotEmpty)
         ? job.companyLabel.characters.first.toUpperCase()
         : '?';
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0,
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                        fontSize: 20,
-                      ),
-                    ),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    fontSize: 20,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        job.title,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        job.companyLabel,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.subtext,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        job.regionLabel,
-                        style: const TextStyle(color: AppColors.subtext),
-                      ),
-                    ],
-                  ),
-                ),
-                StreamBuilder<JobActivity?>(
-                  stream: activityService.watch(job),
-                  builder: (context, snapshot) {
-                    final scrapped = snapshot.data?.scrapped ?? false;
-                    return IconButton(
-                      onPressed: () => onToggleScrap(scrapped),
-                      icon: Icon(
-                        scrapped ? Icons.star : Icons.star_border,
-                        color: scrapped ? AppColors.primary : AppColors.subtext,
-                      ),
-                      tooltip: scrapped ? '스크랩 취소' : '스크랩',
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (job.prettyPostedDate != null)
-                  _InfoTag(
-                    icon: Icons.calendar_today_outlined,
-                    label: job.prettyPostedDate!,
-                  ),
-                if (job.tags.isNotEmpty)
-                  _InfoTag(
-                    icon: Icons.label_outline,
-                    label: job.tagsSummary,
-                  ),
-                if (job.hasUrl)
-                  InkWell(
-                    onTap: onOpenLink,
-                    child: const _InfoTag(
-                      icon: Icons.open_in_new,
-                      label: '상세 보기',
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    job.title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    job.companyLabel,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.subtext,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    job.regionLabel,
+                    style: const TextStyle(color: AppColors.subtext),
+                  ),
+                ],
+              ),
+            ),
+            StreamBuilder<JobActivity?>(
+              stream: activityService.watch(job),
+              builder: (context, snapshot) {
+                final scrapped = snapshot.data?.scrapped ?? false;
+                return IconButton(
+                  onPressed: () => onToggleScrap(scrapped),
+                  icon: Icon(
+                    scrapped ? Icons.star : Icons.star_border,
+                    color: scrapped ? AppColors.primary : AppColors.subtext,
+                  ),
+                  tooltip: scrapped ? '스크랩 취소' : '스크랩',
+                );
+              },
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (job.prettyPostedDate != null)
+              _InfoTag(
+                icon: Icons.calendar_today_outlined,
+                label: job.prettyPostedDate!,
+              ),
+            if (job.tags.isNotEmpty)
+              _InfoTag(
+                icon: Icons.label_outline,
+                label: job.tagsSummary,
+              ),
+            if (job.hasUrl)
+              InkWell(
+                onTap: onOpenLink,
+                child: const _InfoTag(
+                  icon: Icons.open_in_new,
+                  label: '상세 보기',
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -818,11 +825,11 @@ class JobSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return ModernSectionCard(
       title: '요약 정보',
       children: [
         Wrap(
-          runSpacing: 10,
+          runSpacing: 12,
           spacing: 12,
           children: summaryItems
               .map(
@@ -834,44 +841,6 @@ class JobSummaryCard extends StatelessWidget {
               .toList(growable: false),
         ),
       ],
-    );
-  }
-}
-
-class SectionCard extends StatelessWidget {
-  const SectionCard({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...children,
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1024,6 +993,7 @@ class ModernSectionCard extends StatelessWidget {
   final List<Widget> children;
   final IconData? icon;
   final bool separated;
+  bool get _showHeader => title.trim().isNotEmpty || icon != null;
 
   List<Widget> get _spacedChildren {
     if (!separated || children.length <= 1) {
@@ -1068,23 +1038,25 @@ class ModernSectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 20, color: AppColors.text),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+          if (_showHeader) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 20, color: AppColors.text),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           ..._spacedChildren,
         ],
       ),
@@ -1097,6 +1069,52 @@ class _InfoRow extends StatelessWidget {
 
   final String label;
   final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayValue = value.trim().isEmpty ? '정보 없음' : value;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 82,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              displayValue,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({
+    required this.label,
+    required this.url,
+    required this.onTap,
+  });
+
+  final String label;
+  final String url;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1118,17 +1136,75 @@ class _InfoRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                height: 1.4,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Text(
+                url,
+                style: const TextStyle(
+                  decoration: TextDecoration.underline,
+                  color: AppColors.primary,
+                  height: 1.6,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+extension _JobPostingExtraFields on JobPosting {
+  String get employmentTypeSafe =>
+      _readExtraString((dynamic self) => self.employmentType);
+  String get experienceLevelSafe =>
+      _readExtraString((dynamic self) => self.experienceLevel);
+  String get educationSafe =>
+      _readExtraString((dynamic self) => self.education);
+  String get workHoursSafe =>
+      _readExtraString((dynamic self) => self.workHours);
+  String get salarySafe => _readExtraString((dynamic self) => self.salary);
+  String get processSafe => _readExtraString((dynamic self) => self.process);
+  String get applyMethodSafe {
+    final value = _readExtraString((dynamic self) => self.applyMethod);
+    if (value.isNotEmpty) return value;
+    return url.trim();
+  }
+
+  List<String> get attachmentsSafe =>
+      _readExtraList((dynamic self) => self.attachments as Iterable?);
+  String get benefitsSafe => _readExtraString((dynamic self) => self.benefits);
+  String get companyWebsiteSafe =>
+      _readExtraString((dynamic self) => self.companyWebsite);
+  String get contactNameSafe =>
+      _readExtraString((dynamic self) => self.contactName);
+  String get contactEmailSafe =>
+      _readExtraString((dynamic self) => self.contactEmail);
+  String get contactPhoneSafe =>
+      _readExtraString((dynamic self) => self.contactPhone);
+
+  String _readExtraString(String Function(dynamic) accessor) {
+    try {
+      final value = accessor(this);
+      if (value is String) {
+        return value.trim();
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  List<String> _readExtraList(Iterable? Function(dynamic) accessor) {
+    try {
+      final value = accessor(this);
+      if (value != null) {
+        return value
+            .map((e) => (e ?? '').toString().trim())
+            .where((element) => element.isNotEmpty)
+            .toList(growable: false);
+      }
+    } catch (_) {}
+    return const [];
   }
 }
 
