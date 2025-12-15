@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:ai/features/common/pdf_viewer_page.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/services/azure_face_service.dart';
 import 'package:ai/features/camera/services/interview_video_storage_service.dart';
@@ -23,6 +24,10 @@ class JobInterviewEvaluationArgs {
     this.job,
     this.resumeFile,
     this.coverLetterFile,
+    this.resumeUrl,
+    this.resumeFileName,
+    this.coverLetterUrl,
+    this.coverLetterFileName,
     this.portfolioUrl,
     this.existingSummary,
     this.jobTitle,
@@ -49,6 +54,10 @@ class JobInterviewEvaluationArgs {
       jobPostId: application.jobPostId,
       applicantUid: application.applicantUid,
       applicantName: application.applicantName,
+      resumeUrl: application.resumeUrl,
+      resumeFileName: application.resumeFileName,
+      coverLetterUrl: application.coverLetterUrl,
+      coverLetterFileName: application.coverLetterFileName,
       isEmployerView: true,
     );
   }
@@ -58,6 +67,10 @@ class JobInterviewEvaluationArgs {
   final List<String> questions;
   final PlatformFile? resumeFile;
   final PlatformFile? coverLetterFile;
+  final String? resumeUrl;
+  final String? resumeFileName;
+  final String? coverLetterUrl;
+  final String? coverLetterFileName;
   final String? portfolioUrl;
   final String? existingSummary;
   final String? jobTitle;
@@ -234,6 +247,21 @@ class _JobInterviewEvaluationPageState
     }
   }
 
+  void _openPdf(String title, String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('파일 링크가 없습니다.')),
+      );
+      return;
+    }
+
+    context.push(
+      '/pdf-viewer',
+      extra: PdfViewerArgs(title: title, pdfUrl: trimmed),
+    );
+  }
+
   Future<void> _updateApplicationStatus(String status) async {
     final jobPostId = widget.args.jobPostId;
     final applicationId = widget.args.applicationId;
@@ -405,6 +433,44 @@ class _JobInterviewEvaluationPageState
     final showApplyButton = widget.args.canSubmitApplication;
     final summaryText =
         widget.args.existingSummary ?? _buildInterviewSummary(_result);
+    final resumeUrl = widget.args.resumeUrl;
+    final coverLetterUrl = widget.args.coverLetterUrl;
+
+    final attachmentButtons = <Widget>[];
+    if (resumeUrl != null && resumeUrl.trim().isNotEmpty) {
+      attachmentButtons.add(
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _openPdf('이력서', resumeUrl),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: Text(widget.args.resumeFileName ?? '이력서 보기'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (coverLetterUrl != null && coverLetterUrl.trim().isNotEmpty) {
+      if (attachmentButtons.isNotEmpty) {
+        attachmentButtons.add(const SizedBox(height: 10));
+      }
+      attachmentButtons.add(
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _openPdf('자기소개서', coverLetterUrl),
+            icon: const Icon(Icons.description_outlined),
+            label: Text(widget.args.coverLetterFileName ?? '자기소개서 보기'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -458,6 +524,16 @@ class _JobInterviewEvaluationPageState
                     style: const TextStyle(height: 1.6),
                   ),
                 ),
+              if (attachmentButtons.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _InfoSection(
+                  title: '첨부 파일',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: attachmentButtons,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               if (widget.args.portfolioUrl != null &&
                   widget.args.portfolioUrl!.trim().isNotEmpty)

@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   firebase_storage
   flutter_tts
+  pdfx
   permission_handler_windows
   printing
   url_launcher_windows

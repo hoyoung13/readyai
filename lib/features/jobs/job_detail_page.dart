@@ -394,15 +394,7 @@ class JobDetailPage extends StatelessWidget {
         withData: true,
         allowMultiple: false,
         type: FileType.custom,
-        allowedExtensions: const [
-          'pdf',
-          'doc',
-          'docx',
-          'ppt',
-          'pptx',
-          'hwp',
-          'hwpx',
-        ],
+        allowedExtensions: const ['pdf'],
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -469,13 +461,18 @@ class JobDetailPage extends StatelessWidget {
                       const SizedBox(height: 12),
                       _AttachmentPickerTile(
                         title: '자기소개서 파일 첨부',
-                        description: '경험과 강점을 담은 파일을 추가로 제출해 주세요.',
+                        description: 'PDF 형식의 파일만 업로드해 주세요. (최대 20MB)',
                         fileName: coverLetterFile?.name,
                         onTap: () => pickAttachment(
                           isResume: false,
                           scope: context,
                           setState: setState,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '※ PDF 형식의 파일만 업로드할 수 있습니다.',
+                        style: TextStyle(color: AppColors.subtext),
                       ),
                       const SizedBox(height: 12),
                       TextField(

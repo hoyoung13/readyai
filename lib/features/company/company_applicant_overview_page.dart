@@ -10,9 +10,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:ai/features/common/pdf_viewer_page.dart';
 
 class CompanyApplicantOverviewPage extends StatefulWidget {
   const CompanyApplicantOverviewPage({super.key});
@@ -296,14 +295,17 @@ class _ApplicantList extends StatelessWidget {
                                     DataCell(
                                       Center(
                                         child: _TableActionButton(
-                                          label: '다운로드',
+                                          label: '보기',
                                           onPressed:
                                               application.resumeUrl == null
                                                   ? null
-                                                  : () => _launchUrl(
-                                                        application.resumeUrl!,
-                                                        context,
-                                                        openFile: false,
+                                                  : () => context.push(
+                                                        '/pdf-viewer',
+                                                        extra: PdfViewerArgs(
+                                                          title: '이력서',
+                                                          pdfUrl: application
+                                                              .resumeUrl!,
+                                                        ),
                                                       ),
                                         ),
                                       ),
@@ -311,15 +313,17 @@ class _ApplicantList extends StatelessWidget {
                                     DataCell(
                                       Center(
                                         child: _TableActionButton(
-                                          label: '다운로드',
+                                          label: '보기',
                                           onPressed:
                                               application.coverLetterUrl == null
                                                   ? null
-                                                  : () => _launchUrl(
-                                                        application
-                                                            .coverLetterUrl!,
-                                                        context,
-                                                        openFile: false,
+                                                  : () => context.push(
+                                                        '/pdf-viewer',
+                                                        extra: PdfViewerArgs(
+                                                          title: '자기소개서',
+                                                          pdfUrl: application
+                                                              .coverLetterUrl!,
+                                                        ),
                                                       ),
                                         ),
                                       ),
@@ -464,81 +468,6 @@ class _TableActionButton extends StatelessWidget {
           child: Text(label),
         ),
       ),
-    );
-  }
-}
-
-String sanitizeFileName(String raw) {
-  final noParams = raw.split('?').first;
-  final last = noParams.split('/').last;
-  return last.replaceAll(RegExp(r'[\/\\]'), '_');
-}
-
-Future<void> showDownloadNotification(String fileName) async {
-  const notificationDetails = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'download_channel',
-      'Downloads',
-      channelDescription: 'Download status notifications',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-    ),
-  );
-
-  await flutterLocalNotificationsPlugin.show(
-    0,
-    '다운로드 완료',
-    '$fileName 이(가) 다운로드되었습니다.',
-    notificationDetails,
-  );
-}
-
-Future<void> _launchUrl(
-  String url,
-  BuildContext context, {
-  bool openFile = true,
-}) async {
-  final messenger = ScaffoldMessenger.of(context);
-
-  try {
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('잘못된 링크입니다.')),
-      );
-      return;
-    }
-
-    messenger.showSnackBar(
-      const SnackBar(content: Text('파일을 다운로드 중입니다...')),
-    );
-
-    final ref = FirebaseStorage.instance.refFromURL(url);
-    final directory = await getApplicationDocumentsDirectory();
-
-    final fileName = sanitizeFileName(uri.pathSegments.last);
-    final file = File('${directory.path}/$fileName');
-
-    await ref.writeToFile(file);
-
-    await showDownloadNotification(fileName);
-
-    messenger.hideCurrentSnackBar();
-
-    if (openFile) {
-      final result = await OpenFilex.open(file.path);
-      if (result.type != ResultType.done) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('파일을 열 수 없습니다: ${result.message}')),
-        );
-      }
-    }
-  } catch (e, stack) {
-    print(' STORAGE DOWNLOAD ERROR: $e');
-    print(stack);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(content: Text('파일을 처리하는 중 오류가 발생했습니다: $e')),
     );
   }
 }

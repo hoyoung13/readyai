@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ai/features/common/pdf_viewer_page.dart';
 import '../tabs/tabs_shared.dart';
 import 'company_route_guard.dart';
 import 'job_post_form_page.dart';
@@ -264,21 +265,31 @@ class _JobPostCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: () async {
-                  final updated = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => JobPostFormPage(existing: post),
-                    ),
-                  );
-                  if (updated == true && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('공고를 업데이트했습니다.')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: '수정',
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      final updated = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => JobPostFormPage(existing: post),
+                        ),
+                      );
+                      if (updated == true && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('공고를 업데이트했습니다.')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: '수정',
+                  ),
+                  IconButton(
+                    onPressed: () => _confirmDelete(context),
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: '삭제',
+                  ),
+                ],
               ),
             ],
           ),
@@ -310,6 +321,44 @@ class _JobPostCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('공고를 삭제할까요?'),
+          content: Text('"${post.title}" 공고와 관련된 데이터가 삭제됩니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !context.mounted) return;
+
+    try {
+      await service.delete(post.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('공고를 삭제했습니다.')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('공고 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.')),
+      );
+    }
   }
 }
 
@@ -590,18 +639,16 @@ class _ApplicationTile extends StatelessWidget {
     BuildContext context, {
     required String fileName,
   }) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    if (!await canLaunchUrl(uri)) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('링크를 열 수 없습니다.')),
+        const SnackBar(content: Text('파일 링크가 없습니다.')),
       );
       return;
     }
-    await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$fileName 다운로드가 완료되었습니다.')),
+    context.push(
+      '/pdf-viewer',
+      extra: PdfViewerArgs(title: fileName, pdfUrl: trimmed),
     );
   }
 
