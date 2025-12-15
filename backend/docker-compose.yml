@@ -1,0 +1,13 @@
+version: '3.9'
+services:
+  resume-ai:
+    build: .
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - FIREBASE_BUCKET=${FIREBASE_BUCKET:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app:ro
+    restart: unless-stopped
