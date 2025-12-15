@@ -1,3 +1,8 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ai/features/profile/resume/data/resume_repository.dart';
@@ -12,13 +17,10 @@ class ResumeDashboardPage extends StatefulWidget {
 }
 
 class _ResumeDashboardPageState extends State<ResumeDashboardPage> {
-  static const _profileSummary = ResumeProfileSummary(
-    name: '부천대',
-    description: '남자, 2025년생',
-  );
-
-  List<Resume> _resumes = const [];
+  final _repository = ResumeRepository.instance();
+  List<ResumeFile> _resumes = const [];
   bool _isLoading = true;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -27,53 +29,73 @@ class _ResumeDashboardPageState extends State<ResumeDashboardPage> {
   }
 
   Future<void> _loadResumes() async {
-    final repository = await ResumeRepository.instance();
-    final resumes = await repository.fetchAll();
-    if (!mounted) {
+    final userId = _repository.currentUserId();
+    if (userId == null) {
+      setState(() {
+        _isLoading = false;
+        _resumes = const [];
+      });
       return;
     }
+    final resumes = await _repository.fetchAll(userId);
+    if (!mounted) return;
     setState(() {
       _resumes = resumes;
       _isLoading = false;
     });
   }
 
-  Future<void> _handleCreateResume() async {
-    final saved = await context.push<bool>(
-      '/profile/resume/new',
-      extra: _profileSummary,
+  Future<void> _pickAndUpload() async {
+    if (_isUploading) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'hwp'],
+      withData: kIsWeb,
     );
 
-    if (saved == true && mounted) {
-      await _loadResumes();
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이력서가 저장되었습니다.')),
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.single;
+    final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+    final extension = (file.extension ?? '').toLowerCase();
+    final fileType =
+        extension == 'hwp' ? ResumeFileType.hwp : ResumeFileType.pdf;
+
+    setState(() => _isUploading = true);
+
+    try {
+      await _repository.uploadResumeFile(
+        userId: user.uid,
+        filename: file.name,
+        bytes: Uint8List.fromList(bytes),
+        fileType: fileType,
       );
+      await _loadResumes();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이력서가 업로드되었습니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('업로드에 실패했습니다: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Widget resumeListContent;
-    if (_isLoading) {
-      resumeListContent = const Center(child: CircularProgressIndicator());
-    } else if (_resumes.isEmpty) {
-      resumeListContent = const _ResumeEmptyState();
-    } else {
-      resumeListContent = Column(
-        children: _resumes
-            .map(
-              (resume) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ResumePreviewTile(resume: resume),
-              ),
-            )
-            .toList(),
-      );
-    }
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -81,215 +103,108 @@ class _ResumeDashboardPageState extends State<ResumeDashboardPage> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.text,
         elevation: 0.5,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        children: [
-          const ResumeProfileHeaderCard(summary: _profileSummary),
-          const SizedBox(height: 18),
-          resumeListContent,
-          const SizedBox(height: 8),
-          _ResumeActions(
-            onCreate: _handleCreateResume,
-            onTemplates: () {},
+        actions: [
+          TextButton.icon(
+            onPressed: _isUploading ? null : _pickAndUpload,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('업로드'),
           ),
         ],
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_resumes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: _ResumeEmptyState(onUpload: _pickAndUpload),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadResumes,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        itemBuilder: (_, index) => _ResumeFileTile(
+          resume: _resumes[index],
+          onView: () =>
+              context.push('/profile/resume/view', extra: _resumes[index]),
+        ),
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemCount: _resumes.length,
       ),
     );
   }
 }
 
-class ResumeProfileSummary {
-  const ResumeProfileSummary({
-    required this.name,
-    required this.description,
-  });
+class _ResumeFileTile extends StatelessWidget {
+  const _ResumeFileTile({required this.resume, required this.onView});
 
-  final String name;
-  final String description;
-}
-
-class ResumeProfileHeaderCard extends StatelessWidget {
-  const ResumeProfileHeaderCard({required this.summary, super.key});
-
-  final ResumeProfileSummary summary;
+  final ResumeFile resume;
+  final VoidCallback onView;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF9B748), Color(0xFFED4C92)],
-              ),
-            ),
-            child: const Icon(
-              Icons.person_outline,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  summary.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  summary.description,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.subtext,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResumePreviewTile extends StatelessWidget {
-  const _ResumePreviewTile({required this.resume});
-
-  final Resume resume;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusLabel =
-        resume.completionStatus == ResumeCompletionStatus.completed
-            ? '작성 완료'
-            : '작성 미완료';
-    final statusColor =
-        resume.completionStatus == ResumeCompletionStatus.completed
-            ? const Color(0xFF6D5CFF)
-            : AppColors.subtext;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1E1E5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  resume.title,
+                  resume.filename,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: statusColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    _InfoChip(label: resume.fileType.name.toUpperCase()),
                     const SizedBox(width: 8),
                     Text(
-                      '수정일자 ${resume.formattedDate}',
+                      '업로드일 ${resume.formattedDate}',
                       style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.subtext,
-                      ),
+                          fontSize: 13, color: AppColors.subtext),
                     ),
+                    if (resume.formattedSize.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        resume.formattedSize,
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.subtext),
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (resume.name.isNotEmpty || resume.phone.isNotEmpty)
-                  Text(
-                    '${resume.name}${resume.name.isNotEmpty && resume.phone.isNotEmpty ? ' · ' : ''}${resume.phone}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.subtext,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                if (resume.email.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      resume.email,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.subtext,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                '공개 여부',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.subtext,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Icon(
-                resume.isPublic
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
-                color: resume.isPublic
-                    ? const Color(0xFF6D5CFF)
-                    : AppColors.subtext,
-                size: 20,
-              ),
-            ],
+          const SizedBox(width: 12),
+          FilledButton(
+            onPressed: onView,
+            child: const Text('보기'),
           ),
         ],
       ),
@@ -297,56 +212,35 @@ class _ResumePreviewTile extends StatelessWidget {
   }
 }
 
-class _ResumeActions extends StatelessWidget {
-  const _ResumeActions({
-    required this.onCreate,
-    required this.onTemplates,
-  });
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.label});
 
-  final VoidCallback onCreate;
-  final VoidCallback onTemplates;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1E1E5)),
+        color: const Color(0xFFF4F5FB),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OutlinedButton.icon(
-            onPressed: onCreate,
-            icon: const Icon(Icons.add),
-            label: const Text('새 이력서 작성'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              textStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: onTemplates,
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6D5CFF),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: const Text('이력서 양식 보러가기'),
-          ),
-        ],
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.text,
+        ),
       ),
     );
   }
 }
 
 class _ResumeEmptyState extends StatelessWidget {
-  const _ResumeEmptyState();
+  const _ResumeEmptyState({required this.onUpload});
+
+  final VoidCallback onUpload;
 
   @override
   Widget build(BuildContext context) {
@@ -360,20 +254,25 @@ class _ResumeEmptyState extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(
-            Icons.description_outlined,
+        children: [
+          const Icon(
+            Icons.upload_file_outlined,
             color: AppColors.subtext,
             size: 40,
           ),
-          SizedBox(height: 16),
-          Text(
-            '아직 등록된 이력서가 없어요.',
+          const SizedBox(height: 16),
+          const Text(
+            '업로드된 이력서가 없습니다.',
             style: TextStyle(
               fontSize: 15,
               color: AppColors.subtext,
               fontWeight: FontWeight.w600,
             ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: onUpload,
+            child: const Text('이력서 업로드'),
           ),
         ],
       ),

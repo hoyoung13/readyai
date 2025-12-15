@@ -18,8 +18,9 @@ import 'package:ai/features/profile/interview_replay_page.dart';
 import 'package:ai/features/profile/interview_folder_page.dart';
 import 'package:ai/features/profile/interview_video_page.dart';
 import 'package:ai/features/profile/job_activity_page.dart';
+import 'package:ai/features/profile/resume/models/resume.dart';
 import 'package:ai/features/profile/resume/resume_dashboard_page.dart';
-import 'package:ai/features/profile/resume/resume_editor_page.dart';
+import 'package:ai/features/profile/resume/resume_file_viewer_page.dart';
 import 'package:ai/features/profile/profile_edit_page.dart';
 import 'package:ai/features/community/community_board_page.dart';
 import 'package:ai/features/community/community_post_compose_page.dart';
@@ -142,11 +143,14 @@ final router = GoRouter(
       ),
     ),
     GoRoute(
-      path: '/profile/resume/new',
+      path: '/profile/resume/view',
       builder: (_, state) {
         final extra = state.extra;
-        return ResumeEditorPage(
-          summary: extra is ResumeProfileSummary ? extra : null,
+        if (extra is ResumeFile) {
+          return ResumeFileViewerPage(resume: extra);
+        }
+        return const Scaffold(
+          body: Center(child: Text('이력서를 불러오지 못했습니다.')),
         );
       },
     ),
