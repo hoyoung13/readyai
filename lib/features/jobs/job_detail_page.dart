@@ -378,7 +378,6 @@ class JobDetailPage extends StatelessWidget {
   }
 
   Future<void> _handleApply(BuildContext context) async {
-    final parentContext = context;
     final postId = job.postId;
     final ownerUid = job.ownerUid;
     final user = FirebaseAuth.instance.currentUser;
@@ -397,171 +396,28 @@ class JobDetailPage extends StatelessWidget {
       _launchDetail(job.url, context);
       return;
     }
+    final result = await showModalBottomSheet<_ApplySheetResult>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _ApplySheet(),
+    );
 
-    PlatformFile? resumeFile;
-    PlatformFile? coverLetterFile;
-    final portfolioController = TextEditingController();
-
-    Future<void> pickAttachment(
-        {required bool isResume,
-        required BuildContext scope,
-        required void Function(void Function()) setState}) async {
-      final result = await FilePicker.platform.pickFiles(
-        withData: true,
-        allowMultiple: false,
-        type: FileType.custom,
-        allowedExtensions: const ['pdf'],
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        if (!scope.mounted) {
-          return;
-        }
-        setState(() {
-          if (isResume) {
-            resumeFile = result.files.first;
-          } else {
-            coverLetterFile = result.files.first;
-          }
-        });
-      }
+    if (result == null) {
+      return;
     }
 
-    try {
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (sheetContext) {
-          final viewInsets = MediaQuery.of(sheetContext).viewInsets.bottom;
-          final viewPadding = MediaQuery.of(sheetContext).padding.bottom;
-          var submitting = false;
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              bottom: 20 + viewInsets + viewPadding,
-              top: 20,
-            ),
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                return SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'AI 지원 준비',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '필수 서류를 첨부하고 카메라 AI 질문 면접을 시작하세요. 면접 평가 페이지에서 최종 지원을 완료할 수 있습니다.',
-                        style: TextStyle(color: AppColors.subtext),
-                      ),
-                      const SizedBox(height: 16),
-                      _AttachmentPickerTile(
-                        title: '이력서 파일 첨부',
-                        description: 'PDF, DOC, PPT 등 최대 20MB 파일을 올려주세요.',
-                        fileName: resumeFile?.name,
-                        onTap: () => pickAttachment(
-                          isResume: true,
-                          scope: context,
-                          setState: setState,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _AttachmentPickerTile(
-                        title: '자기소개서 파일 첨부',
-                        description: 'PDF 형식의 파일만 업로드해 주세요. (최대 20MB)',
-                        fileName: coverLetterFile?.name,
-                        onTap: () => pickAttachment(
-                          isResume: false,
-                          scope: context,
-                          setState: setState,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        '※ PDF 형식의 파일만 업로드할 수 있습니다.',
-                        style: TextStyle(color: AppColors.subtext),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: portfolioController,
-                        decoration: const InputDecoration(
-                          labelText: '포트폴리오/링크 (선택)',
-                          hintText: 'GitHub, 노션, 블로그 등 주소를 남겨주세요.',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: submitting
-                              ? null
-                              : () async {
-                                  if (resumeFile == null ||
-                                      coverLetterFile == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content:
-                                              Text('이력서와 자기소개서를 모두 첨부해 주세요.')),
-                                    );
-                                    return;
-                                  }
-                                  setState(() => submitting = true);
-                                  final portfolioUrl =
-                                      portfolioController.text.trim();
-                                  Navigator.of(sheetContext).pop();
-
-                                  if (!parentContext.mounted) return;
-                                  await _handleApplyInterview(
-                                    parentContext,
-                                    resumeFile: resumeFile!,
-                                    coverLetterFile: coverLetterFile!,
-                                    portfolioUrl: portfolioUrl.isEmpty
-                                        ? null
-                                        : portfolioUrl,
-                                  );
-                                },
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            side: const BorderSide(color: AppColors.primary),
-                          ),
-                          icon: const Icon(Icons.videocam_outlined),
-                          label: submitting
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('카메라 AI 질문 면접 시작'),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        '면접이 끝나면 AI 평가 결과 페이지에서 지원을 완료할 수 있어요.',
-                        style: TextStyle(color: AppColors.subtext),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      );
-    } finally {
-      portfolioController.dispose();
+    if (!context.mounted) {
+      return;
     }
+    await _handleApplyInterview(
+      context,
+      resumeFile: result.resumeFile,
+      coverLetterFile: result.coverLetterFile,
+      portfolioUrl: result.portfolioUrl,
+    );
   }
 
   Future<String> _resolveApplicantName(User user) async {
@@ -697,6 +553,175 @@ class JobDetailPage extends StatelessWidget {
           ..showSnackBar(SnackBar(content: Text(message)));
       }
     }
+  }
+}
+
+class _ApplySheetResult {
+  const _ApplySheetResult({
+    required this.resumeFile,
+    required this.coverLetterFile,
+    this.portfolioUrl,
+  });
+
+  final PlatformFile resumeFile;
+  final PlatformFile coverLetterFile;
+  final String? portfolioUrl;
+}
+
+class _ApplySheet extends StatefulWidget {
+  const _ApplySheet();
+
+  @override
+  State<_ApplySheet> createState() => _ApplySheetState();
+}
+
+class _ApplySheetState extends State<_ApplySheet> {
+  PlatformFile? resumeFile;
+  PlatformFile? coverLetterFile;
+  late final TextEditingController portfolioController;
+  bool submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    portfolioController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    portfolioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAttachment({required bool isResume}) async {
+    final result = await FilePicker.platform.pickFiles(
+      withData: true,
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        if (isResume) {
+          resumeFile = result.files.first;
+        } else {
+          coverLetterFile = result.files.first;
+        }
+      });
+    }
+  }
+
+  void _submit() {
+    if (resumeFile == null || coverLetterFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이력서와 자기소개서를 모두 첨부해 주세요.')),
+      );
+      return;
+    }
+
+    setState(() => submitting = true);
+
+    final portfolioUrl = portfolioController.text.trim();
+    Navigator.of(context).pop(
+      _ApplySheetResult(
+        resumeFile: resumeFile!,
+        coverLetterFile: coverLetterFile!,
+        portfolioUrl: portfolioUrl.isEmpty ? null : portfolioUrl,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final viewPadding = MediaQuery.of(context).padding.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: 20 + viewInsets + viewPadding,
+        top: 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'AI 지원 준비',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '필수 서류를 첨부하고 카메라 AI 질문 면접을 시작하세요. 면접 평가 페이지에서 최종 지원을 완료할 수 있습니다.',
+              style: TextStyle(color: AppColors.subtext),
+            ),
+            const SizedBox(height: 16),
+            _AttachmentPickerTile(
+              title: '이력서 파일 첨부',
+              description: 'PDF, DOC, PPT 등 최대 20MB 파일을 올려주세요.',
+              fileName: resumeFile?.name,
+              onTap: () => _pickAttachment(isResume: true),
+            ),
+            const SizedBox(height: 12),
+            _AttachmentPickerTile(
+              title: '자기소개서 파일 첨부',
+              description: 'PDF 형식의 파일만 업로드해 주세요. (최대 20MB)',
+              fileName: coverLetterFile?.name,
+              onTap: () => _pickAttachment(isResume: false),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '※ PDF 형식의 파일만 업로드할 수 있습니다.',
+              style: TextStyle(color: AppColors.subtext),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: portfolioController,
+              decoration: const InputDecoration(
+                labelText: '포트폴리오/링크 (선택)',
+                hintText: 'GitHub, 노션, 블로그 등 주소를 남겨주세요.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: submitting ? null : _submit,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  side: const BorderSide(color: AppColors.primary),
+                ),
+                icon: const Icon(Icons.videocam_outlined),
+                label: submitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('카메라 AI 질문 면접 시작'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '면접이 끝나면 AI 평가 결과 페이지에서 지원을 완료할 수 있어요.',
+              style: TextStyle(color: AppColors.subtext),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
