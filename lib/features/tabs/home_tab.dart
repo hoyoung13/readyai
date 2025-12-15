@@ -20,6 +20,7 @@ class _HomeTabState extends State<HomeTab> {
   final Set<String> _notifiedHiddenPostIds = {};
   StreamSubscription<User?>? _authSub;
   StreamSubscription<List<CommunityPost>>? _hiddenSub;
+  bool _hasProcessedInitialHiddenPosts = false;
   bool _hasShownInitialHiddenBanner = false;
   final _slides = const [
     _SlideData(
@@ -109,6 +110,7 @@ class _HomeTabState extends State<HomeTab> {
   void _handleAuth(User? user) {
     _hiddenSub?.cancel();
     _notifiedHiddenPostIds.clear();
+    _hasProcessedInitialHiddenPosts = false;
     _hasShownInitialHiddenBanner = false;
 
     if (user == null) {
@@ -116,7 +118,15 @@ class _HomeTabState extends State<HomeTab> {
     }
 
     _hiddenSub = _postService.watchHiddenPosts(user.uid).listen((posts) async {
-      if (!mounted || posts.isEmpty) return;
+      if (!mounted) return;
+
+      if (!_hasProcessedInitialHiddenPosts) {
+        _hasProcessedInitialHiddenPosts = true;
+        _notifiedHiddenPostIds.addAll(posts.map((post) => post.id));
+        return;
+      }
+
+      if (posts.isEmpty) return;
 
       final newHiddenPosts = posts
           .where((post) =>
