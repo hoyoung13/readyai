@@ -67,6 +67,19 @@ class JobPosting {
     required this.region,
     required this.url,
     required this.postedDateText,
+    this.employmentType = '',
+    this.experienceLevel = '',
+    this.education = '',
+    this.workHours = '',
+    this.salary = '',
+    this.process = '',
+    this.applyMethod = '',
+    this.attachments = const <String>[],
+    this.benefits = '',
+    this.companyWebsite = '',
+    this.contactName = '',
+    this.contactEmail = '',
+    this.contactPhone = '',
     this.postId,
     this.ownerUid,
     this.postedDate,
@@ -90,6 +103,19 @@ class JobPosting {
   final String region;
   final String url;
   final String postedDateText;
+  final String employmentType;
+  final String experienceLevel;
+  final String education;
+  final String workHours;
+  final String salary;
+  final String process;
+  final String applyMethod;
+  final List<String> attachments;
+  final String benefits;
+  final String companyWebsite;
+  final String contactName;
+  final String contactEmail;
+  final String contactPhone;
   final String? postId;
   final String? ownerUid;
   final DateTime? postedDate;
@@ -209,6 +235,23 @@ class JobPosting {
       region: region,
       url: url,
       postedDateText: postedDateText,
+      employmentType:
+          _readFirst(json, const ['employmentType', 'employment_type']),
+      experienceLevel:
+          _readFirst(json, const ['experienceLevel', 'experience_level']),
+      education: _readFirst(json, const ['education']),
+      workHours: _readFirst(json, const ['workHours', 'work_hours']),
+      salary: _readFirst(json, const ['salary']),
+      process: _readFirst(json, const ['process', 'screeningProcess']),
+      applyMethod:
+          _readFirst(json, const ['applyMethod', 'apply_method', 'url']),
+      attachments: _readStringList(json, const ['attachments']),
+      benefits: _readFirst(json, const ['benefits']),
+      companyWebsite:
+          _readFirst(json, const ['companyWebsite', 'company_website']),
+      contactName: _readFirst(json, const ['contactName', 'contact_name']),
+      contactEmail: _readFirst(json, const ['contactEmail', 'contact_email']),
+      contactPhone: _readFirst(json, const ['contactPhone', 'contact_phone']),
       postId: (json['postId'] ?? json['id'])?.toString(),
       ownerUid: (json['ownerUid'] ?? json['authorId'])?.toString(),
       postedDate: _parseDate(postedDateText),
