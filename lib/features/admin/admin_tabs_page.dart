@@ -142,7 +142,7 @@ class _AdminHomeTab extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _AdminActionCard(
-                title: '신고 관리',
+                title: '콘텐츠 관리',
                 subtitle: '신고',
                 icon: Icons.policy_outlined,
                 onTap: () => context.push('/admin/content'),

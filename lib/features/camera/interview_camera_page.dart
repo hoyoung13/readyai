@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:ai/features/camera/interview_evaluation_service.dart';
 import 'package:ai/features/camera/interview_models.dart';
 import 'package:ai/features/camera/interview_stt_service.dart';
+import 'package:ai/features/camera/services/android_audio_routing.dart';
 import 'package:ai/features/camera/services/azure_face_service.dart';
 import 'package:ai/features/camera/services/google_cloud_stt_service.dart';
+import 'package:ai/features/camera/services/interview_tts.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,7 +39,8 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
   late final AzureFaceAnalysisService _faceAnalysisService;
   late final List<String> _questions;
   int _currentQuestionIndex = 0;
-  FlutterTts? _tts;
+  InterviewTts? _tts;
+
   String? _ttsInitializationError;
   final Set<int> _spokenQuestions = {};
 
@@ -104,20 +107,18 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
 
   @override
   void dispose() {
-    _tts?.stop();
+    _tts?.dispose();
+    AndroidAudioRouting.restoreAudio();
     _controller?.dispose();
     super.dispose();
   }
 
   Future<void> _initTts() async {
     try {
-      final tts = FlutterTts();
-      await tts.setLanguage('ko-KR');
-      await tts.setSpeechRate(0.5);
-      await tts.setVolume(1.0);
-      await tts.setPitch(1.0);
+      final tts = createInterviewTts();
+      await tts.init();
       if (!mounted) {
-        await tts.stop();
+        await tts.dispose();
         return;
       }
       setState(() {
@@ -291,6 +292,7 @@ class _InterviewCameraPageState extends State<InterviewCameraPage> {
         _showErrorSnackBar('이미 녹화 중입니다.');
         return;
       }
+      await AndroidAudioRouting.prepareForInterviewRecording();
 
       await controller.prepareForVideoRecording();
       await controller.startVideoRecording();

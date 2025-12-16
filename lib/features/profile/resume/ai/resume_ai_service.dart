@@ -1,14 +1,14 @@
 import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-
 import 'package:ai/features/profile/resume/ai/resume_ai_models.dart';
+import 'package:ai/features/profile/resume/models/resume.dart';
 
 class ResumeAiService {
   ResumeAiService({String? baseUrl})
       : _baseUrl = baseUrl ??
             const String.fromEnvironment('RESUME_AI_BASE_URL',
-                defaultValue: 'http://localhost:8000');
+                defaultValue: 'http://172.16.104.3:8000');
 
   final String _baseUrl;
 

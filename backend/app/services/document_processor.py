@@ -85,8 +85,6 @@ class DocumentProcessor:
                 pdf_path = self.convert_hwp_to_pdf(source_path)
 
             text, page_count = self.extract_text_from_pdf(pdf_path)
-            if len(text) < 300:
-                text = self.ocr_pdf(pdf_path)
 
             text = text.strip()
             if not text:

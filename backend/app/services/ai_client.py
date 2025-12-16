@@ -1,7 +1,9 @@
+import json
 from typing import Any, Dict, List
 
 from fastapi import HTTPException, status
 from openai import AsyncOpenAI
+
 
 from app.config import get_settings
 from app.schemas import (
@@ -27,14 +29,18 @@ class AiClient:
 
     async def evaluate(self, payload: EvaluateRequest) -> EvaluateResponse:
         prompt = self._build_eval_prompt(payload)
-        response = await self._chat(prompt)
+        response_text = await self._chat(prompt)
+
         try:
-            json_data = response if isinstance(response, dict) else response.model_dump()
-        except Exception as exc:  # pragma: no cover - defensive
+            json_data = json.loads(response_text)
+        except Exception as exc:
+            print("AI RAW RESPONSE ↓↓↓")
+            print(response_text)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="AI 응답을 파싱하지 못했습니다.",
+                detail="AI 응답을 JSON으로 파싱하지 못했습니다.",
             ) from exc
+
         return EvaluateResponse(**json_data)
 
     async def summarize(self, payload: SummarizeRequest) -> SummarizeResponse:
@@ -96,36 +102,75 @@ class AiClient:
         payload = result if isinstance(result, dict) else result.model_dump()
         return ProofreadResponse(**payload)
 
-    async def _chat(self, prompt: str, response_format: Dict[str, Any] | None = None):
+    async def _chat(self, prompt: str):
         try:
             completion = await self.client.responses.create(
                 model=settings.openai_model,
-                input=prompt,
-                response_format=response_format
-                or {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "evaluation_report",
-                        "schema": self._evaluation_schema(),
-                    },
-                },
+                input=(
+                    prompt
+                    + "\n\n반드시 JSON 형식으로만 응답하세요. "
+                      "설명 문장이나 마크다운 없이 JSON만 출력하세요."
+                ),
             )
-            return completion.output_parsed
-        except Exception as exc:  # pragma: no cover - API failures
+
+            # SDK 버전에 따라 둘 중 하나가 맞음
+            if hasattr(completion, "output_text") and completion.output_text:
+                return completion.output_text
+
+            return completion.output[0].content[0].text
+
+        except Exception as exc:
+            print("OPENAI ERROR:", exc)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="OpenAI 요청이 실패했습니다.",
+                detail=str(exc),
             ) from exc
 
     def _build_eval_prompt(self, payload: EvaluateRequest) -> str:
-        base = (
-            "주어진 문서 내용을 기반으로 평가합니다."
-            "허구의 경험, 회사, 수상 이력, 날짜를 새로 만들지 말고 원문 사실만 재구성합니다."
-            "점수는 0-100 사이 정수로 제공하고, 개선본은 한국어로 작성합니다."
-            f"\n문서 유형: {payload.docKind}\n언어: {payload.language}\n목표 직무: {payload.targetRole or '미지정'}"
-            "\n본문:\n" + payload.extractedText
-        )
-        return base
+        return f"""
+            너는 이력서 평가 AI다.
+            아래 문서를 분석해서 반드시 **지정된 JSON 스키마 그대로**만 응답해야 한다.
+
+            ❗ 규칙
+            - JSON 이외의 텍스트, 설명, 마크다운, 코드블록 금지
+            - 모든 필드는 반드시 포함
+            - 한국어로 작성
+            - 허구의 정보 추가 금지
+
+            ❗ 반드시 아래 구조를 그대로 사용할 것:
+
+            {{
+            "report": {{
+                "overallScore": 0-100 정수,
+                "rubricScores": {{
+                "readability": 0-100,
+                "impact": 0-100,
+                "structure": 0-100,
+                "specificity": 0-100,
+                "roleFit": 0-100
+                }},
+                "strengths": [문자열 배열],
+                "weaknesses": [문자열 배열],
+                "actionableEdits": [
+                 {{
+                    "section": "섹션명",
+                    "issue": "문제점",
+                    "suggestion": "개선 제안"
+                }}
+                ],
+                "redFlags": [문자열 배열],
+                "summary": "요약"
+            }},
+            "improvedVersion": "개선된 전체 문서"
+            }}
+
+            문서 유형: {payload.docKind}
+            언어: {payload.language}
+            목표 직무: {payload.targetRole or "미지정"}
+
+            문서 내용:
+            {payload.extractedText}
+        """
 
     def _evaluation_schema(self) -> Dict[str, Any]:
         return {
@@ -185,3 +230,5 @@ class AiClient:
             "required": ["report", "improvedVersion"],
             "additionalProperties": False,
         }
+
+        
